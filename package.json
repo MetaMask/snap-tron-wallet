@@ -1,0 +1,67 @@
+{
+  "name": "tron-wallet-snap-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "",
+  "homepage": "https://github.com/MetaMask/snap-tron-wallet#readme",
+  "bugs": {
+    "url": "https://github.com/MetaMask/snap-tron-wallet/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MetaMask/snap-tron-wallet.git"
+  },
+  "license": "(MIT-0 OR Apache-2.0)",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "yarn workspaces foreach --all --parallel --verbose --topological run build",
+    "build:dapp": "yarn workspace @metamask/tron-wallet-test-dapp build",
+    "build:snap": "yarn workspace @metamask/tron-wallet-snap build",
+    "lint": "yarn workspaces foreach --all --parallel --verbose run lint",
+    "lint:deps": "yarn workspaces foreach --all --parallel --verbose run lint:deps",
+    "lint:eslint": "yarn workspaces foreach --all --parallel --verbose run lint:eslint",
+    "lint:fix": "yarn workspaces foreach --all --parallel --verbose run lint:fix",
+    "lint:misc": "yarn workspaces foreach --all --parallel --verbose run lint:misc",
+    "lint:types": "yarn workspaces foreach --all --parallel --verbose run lint:types",
+    "start": "yarn workspaces foreach --all --parallel --verbose --interlaced run start",
+    "test": "yarn workspace @metamask/tron-wallet-snap run test",
+    "test:integration": "yarn workspace @metamask/tron-wallet-snap run test:integration"
+  },
+  "devDependencies": {
+    "@lavamoat/allow-scripts": "^3.3.3",
+    "@lavamoat/preinstall-always-fail": "^2.1.0",
+    "@metamask/eslint-config": "^14.0.0",
+    "@metamask/eslint-config-browser": "^14.0.0",
+    "@metamask/eslint-config-jest": "^14.0.0",
+    "@metamask/eslint-config-nodejs": "^14.0.0",
+    "@metamask/eslint-config-typescript": "^14.0.0",
+    "depcheck": "^1.4.7",
+    "eslint": "^9.26.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-import-resolver-typescript": "^4.3.4",
+    "eslint-plugin-import-x": "^4.11.1",
+    "eslint-plugin-jest": "^28.11.0",
+    "eslint-plugin-jsdoc": "^50.6.17",
+    "eslint-plugin-n": "^17.18.0",
+    "eslint-plugin-prettier": "^5.4.0",
+    "eslint-plugin-promise": "^7.2.1",
+    "prettier": "^3.5.3",
+    "prettier-plugin-packagejson": "^2.5.13",
+    "rimraf": "^6.0.1",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "8.32.1"
+  },
+  "packageManager": "yarn@4.9.1",
+  "engines": {
+    "node": ">= 20"
+  },
+  "lavamoat": {
+    "allowScripts": {
+      "@lavamoat/preinstall-always-fail": false,
+      "eslint-plugin-import-x>unrs-resolver": false,
+      "eslint-plugin-jest>jest>@jest/core>jest-resolve>unrs-resolver": false
+    }
+  }
+}

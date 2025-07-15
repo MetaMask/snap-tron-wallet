@@ -1,0 +1,28 @@
+{
+  "json.schemas": [
+    {
+      "fileMatch": ["snap.manifest.json"],
+      "url": "https://raw.githubusercontent.com/MetaMask/SIPs/main/assets/sip-9/snap.manifest.schema.json"
+    }
+  ],
+  "workbench.colorCustomizations": {
+    "activityBar.activeBackground": "#e60000",
+    "activityBar.background": "#e60000",
+    "activityBar.foreground": "#e7e7e7",
+    "activityBar.inactiveForeground": "#e7e7e799",
+    "activityBarBadge.background": "#004000",
+    "activityBarBadge.foreground": "#e7e7e7",
+    "commandCenter.border": "#e7e7e799",
+    "sash.hoverBorder": "#e60000",
+    "statusBar.background": "#b30000",
+    "statusBar.foreground": "#e7e7e7",
+    "statusBarItem.hoverBackground": "#e60000",
+    "statusBarItem.remoteBackground": "#b30000",
+    "statusBarItem.remoteForeground": "#e7e7e7",
+    "titleBar.activeBackground": "#b30000",
+    "titleBar.activeForeground": "#e7e7e7",
+    "titleBar.inactiveBackground": "#b3000099",
+    "titleBar.inactiveForeground": "#e7e7e799"
+  },
+  "peacock.color": "#b30000"
+}
