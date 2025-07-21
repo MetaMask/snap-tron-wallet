@@ -1,18 +1,18 @@
 /* eslint-disable @typescript-eslint/prefer-nullish-coalescing */
 import {
-    Button,
-    Text as ChakraText,
-    Code,
-    Flex,
-    Heading,
-    Link,
-    Table,
+  Button,
+  Text as ChakraText,
+  Code,
+  Flex,
+  Heading,
+  Link,
+  Table,
 } from '@chakra-ui/react';
 import {
-    KeyringRpcMethod,
-    type Balance,
-    type KeyringAccount,
-    type Transaction,
+  KeyringRpcMethod,
+  type Balance,
+  type KeyringAccount,
+  type Transaction,
 } from '@metamask/keyring-api';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -150,11 +150,7 @@ export const AccountDetails = ({ accountId }: { accountId: string }) => {
       </Flex>
       <Link
         colorPalette="purple"
-        href={getSolanaExplorerUrl(
-          network as Network,
-          'address',
-          selectedAccount.address,
-        )}
+        href={getSolanaExplorerUrl(network, 'address', selectedAccount.address)}
         target="_blank"
         rel="noreferrer"
         width="fit-content"

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/restrict-template-expressions */
 import {
   Button,
   IconButton,
@@ -10,13 +9,13 @@ import {
 import {
   KeyringRpcMethod,
   SolMethod,
-  type KeyringAccount
+  type KeyringAccount,
 } from '@metamask/keyring-api';
 import { Link as RouterLink } from 'gatsby';
 import { useEffect, useState } from 'react';
 import { LuCopy, LuExternalLink, LuTrash } from 'react-icons/lu';
 
-import { Network } from '../../../../snap/src/constants/tron';
+import type { Network } from '../../../../snap/src/constants/tron';
 import { useNetwork } from '../../context/network';
 import { useInvokeKeyring, useInvokeSnap } from '../../hooks';
 import { useShowToasterForResponse } from '../../hooks/useToasterForResponse';
@@ -126,7 +125,7 @@ export const AccountRow = ({
         onClick: () => {
           window.open(
             getSolanaExplorerUrl(
-              network as Network,
+              network,
               'tx',
               (response as any)?.result?.signature,
             ),
@@ -274,11 +273,7 @@ export const AccountRow = ({
         </IconButton>
         <Link
           colorPalette="purple"
-          href={getSolanaExplorerUrl(
-            network as Network,
-            'address',
-            account.address,
-          )}
+          href={getSolanaExplorerUrl(network, 'address', account.address)}
           target="_blank"
           rel="noreferrer"
           marginLeft="3"
@@ -307,9 +302,7 @@ export const AccountRow = ({
               <Menu.Content>
                 {USE_CASES.filter(
                   (signableTransaction) =>
-                    !signableTransaction.excludeFromNetworks.includes(
-                      network as Network,
-                    ),
+                    !signableTransaction.excludeFromNetworks.includes(network),
                 ).map((signableTransaction) => (
                   <Menu.Item
                     key={signableTransaction.title}
@@ -336,9 +329,7 @@ export const AccountRow = ({
               <Menu.Content>
                 {USE_CASES.filter(
                   (signableTransaction) =>
-                    !signableTransaction.excludeFromNetworks.includes(
-                      network as Network,
-                    ),
+                    !signableTransaction.excludeFromNetworks.includes(network),
                 ).map((signableTransaction) => (
                   <Menu.Item
                     key={signableTransaction.title}

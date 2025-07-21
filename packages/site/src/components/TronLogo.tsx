@@ -1,8 +1,8 @@
 import React from 'react';
 
-interface TronLogoProps {
+type TronLogoProps = {
   size?: number;
-}
+};
 
 export const TronLogo: React.FC<TronLogoProps> = ({ size = 60 }) => {
   return (
@@ -23,4 +23,4 @@ export const TronLogo: React.FC<TronLogoProps> = ({ size = 60 }) => {
       TRX
     </div>
   );
-}; 
+};

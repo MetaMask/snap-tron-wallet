@@ -3,8 +3,8 @@ import { useEffect, type ReactNode } from 'react';
 
 import { Card, InstallFlaskButton } from '../components';
 import { NetworkSelector } from '../components/NetworkSelector/NetworkSelector';
-import { TronLogo } from '../components/TronLogo';
 import { CardContainer, Container, Heading, Span } from '../components/styled';
+import { TronLogo } from '../components/TronLogo';
 import { defaultSnapOrigin } from '../config';
 import { useMetaMask, useMetaMaskContext } from '../hooks';
 import { useShowToasterForResponse } from '../hooks/useToasterForResponse';
@@ -37,7 +37,7 @@ export const PageTemplate = ({ children }: PageTemplateProps) => {
     <Container>
       <Heading>
         <TronLogo size={60} />
-                  <Span>Tron wallet</Span>
+        <Span>Tron wallet</Span>
       </Heading>
       <CardContainer>
         {isMetaMaskReady ? (
