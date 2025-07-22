@@ -1,4 +1,3 @@
-import { getTransferSolInstruction } from '@solana-program/system';
 import type { Address } from '@solana/kit';
 import {
   appendTransactionMessageInstruction,
@@ -9,6 +8,7 @@ import {
   setTransactionMessageFeePayer,
   setTransactionMessageLifetimeUsingBlockhash,
 } from '@solana/kit';
+import { getTransferSolInstruction } from '@solana-program/system';
 
 import type { Network } from '../../../../../snap/src/core/constants/solana';
 import { base64EncodeTransaction } from '../base64EncodeTransaction';

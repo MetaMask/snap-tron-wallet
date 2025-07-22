@@ -1,23 +1,23 @@
 /* eslint-disable @typescript-eslint/prefer-nullish-coalescing */
 import {
-    Button,
-    Text as ChakraText,
-    Code,
-    Flex,
-    Heading,
-    Link,
-    Table,
+  Button,
+  Text as ChakraText,
+  Code,
+  Flex,
+  Heading,
+  Link,
+  Table,
 } from '@chakra-ui/react';
 import {
-    KeyringRpcMethod,
-    type Balance,
-    type KeyringAccount,
-    type Transaction,
+  KeyringRpcMethod,
+  type Balance,
+  type KeyringAccount,
+  type Transaction,
 } from '@metamask/keyring-api';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import type { Network } from '../../../../snap/src/constants/tron';
-import { Networks } from '../../../../snap/src/constants/tron';
+import type { Network } from '../../../../snap/src/constants';
+import { Networks } from '../../../../snap/src/constants';
 import { useNetwork } from '../../context/network';
 import { useInvokeKeyring } from '../../hooks/useInvokeKeyring';
 import { formatLongString } from '../../utils/format-long-string';
@@ -150,11 +150,7 @@ export const AccountDetails = ({ accountId }: { accountId: string }) => {
       </Flex>
       <Link
         colorPalette="purple"
-        href={getSolanaExplorerUrl(
-          network as Network,
-          'address',
-          selectedAccount.address,
-        )}
+        href={getSolanaExplorerUrl(network, 'address', selectedAccount.address)}
         target="_blank"
         rel="noreferrer"
         width="fit-content"

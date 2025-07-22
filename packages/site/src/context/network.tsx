@@ -6,7 +6,7 @@ import {
   useState,
 } from 'react';
 
-import { Network } from '../../../snap/src/constants/tron';
+import { Network } from '../../../snap/src/constants';
 
 export type NetworkContextType = {
   network: Network;

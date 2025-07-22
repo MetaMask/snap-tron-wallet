@@ -2,8 +2,8 @@ import { Button, Text as ChakraText, Flex, Table } from '@chakra-ui/react';
 import { KeyringRpcMethod, type KeyringAccount } from '@metamask/keyring-api';
 import { useEffect, useState } from 'react';
 
-import { useInvokeKeyring } from '../../hooks/useInvokeKeyring';
 import { AccountRow } from './AccountRow';
+import { useInvokeKeyring } from '../../hooks/useInvokeKeyring';
 
 export const Accounts = () => {
   const [accounts, setAccounts] = useState<KeyringAccount[]>();

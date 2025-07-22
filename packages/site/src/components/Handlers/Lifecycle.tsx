@@ -1,7 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Button, Card, Flex } from '@chakra-ui/react';
 
-// TestDappRpcRequestMethod not available in Tron snap
+import { RpcRequestMethods } from '../../../../snap/src/handlers/rpc';
 import { useInvokeSnap } from '../../hooks';
 import { useShowToasterForResponse } from '../../hooks/useToasterForResponse';
 
@@ -17,7 +16,7 @@ export const Lifecycle = () => {
       },
     );
     await invokeSnap({
-      method: TestDappRpcRequestMethod.TestOnStart,
+      method: RpcRequestMethods.OnStart,
     });
   };
 
@@ -29,7 +28,7 @@ export const Lifecycle = () => {
       },
     );
     await invokeSnap({
-      method: TestDappRpcRequestMethod.TestOnInstall,
+      method: RpcRequestMethods.OnInstall,
     });
   };
 
@@ -41,7 +40,7 @@ export const Lifecycle = () => {
       },
     );
     await invokeSnap({
-      method: TestDappRpcRequestMethod.TestOnUpdate,
+      method: RpcRequestMethods.OnUpdate,
     });
   };
 
