@@ -16,8 +16,8 @@ import {
 } from '@metamask/keyring-api';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import type { Network } from '../../../../snap/src/constants/tron';
-import { Networks } from '../../../../snap/src/constants/tron';
+import type { Network } from '../../../../snap/src/constants';
+import { Networks } from '../../../../snap/src/constants';
 import { useNetwork } from '../../context/network';
 import { useInvokeKeyring } from '../../hooks/useInvokeKeyring';
 import { formatLongString } from '../../utils/format-long-string';

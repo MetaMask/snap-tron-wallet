@@ -1,8 +1,8 @@
 // eslint-disable-next-line @typescript-eslint/no-shadow
 import { Flex, Text } from '@chakra-ui/react';
-import React from 'react';
+import type { FC } from 'react';
 
-import { Network } from '../../../../snap/src/constants/tron';
+import { Network } from '../../../../snap/src/constants';
 import { useNetwork } from '../../context/network';
 
 const networks = {
@@ -12,7 +12,7 @@ const networks = {
   [Network.Localnet]: 'Localnet',
 };
 
-export const NetworkSelector: React.FC = () => {
+export const NetworkSelector: FC = () => {
   const { network: selectedNetwork, setNetwork } = useNetwork();
 
   return (
@@ -25,6 +25,7 @@ export const NetworkSelector: React.FC = () => {
               type="radio"
               name="network"
               value={network}
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
               checked={selectedNetwork === network}
               onChange={() => setNetwork(network as keyof typeof networks)}
             />

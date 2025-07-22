@@ -49,7 +49,7 @@ export const Header = ({
     <HeaderWrapper>
       <LogoWrapper onClick={async () => navigate('/')}>
         <SnapLogo color={theme.colors.icon?.default} size={36} />
-        <Title>tron-snap-wallet</Title>
+        <Title>Tron - Test dApp</Title>
       </LogoWrapper>
       <RightContainer>
         <Toggle

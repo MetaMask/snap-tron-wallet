@@ -6,7 +6,7 @@
   "license": "(MIT-0 OR Apache-2.0)",
   "scripts": {
     "allow-scripts": "yarn workspace root allow-scripts",
-    "build": "GATSBY_TELEMETRY_DISABLED=1 gatsby build",
+    "build": "gatsby build",
     "clean": "rimraf public",
     "lint": "yarn lint:eslint && yarn lint:misc && yarn lint:deps && yarn lint:types",
     "lint:deps": "depcheck",
@@ -14,7 +14,7 @@
     "lint:fix": "yarn lint:eslint --fix && yarn lint:misc --write",
     "lint:misc": "prettier '**/*.json' '**/*.md' --check",
     "lint:types": "tsc --noEmit",
-    "start": "GATSBY_TELEMETRY_DISABLED=1 gatsby develop  --port 3000"
+    "start": "gatsby develop  --port 3000"
   },
   "browserslist": {
     "production": [

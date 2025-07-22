@@ -121,7 +121,6 @@ export const dark: DefaultTheme = {
  * @returns Global style React component.
  */
 export const GlobalStyle = createGlobalStyle`
-
   body {
     background-color: ${(props) => props.theme.colors.background?.default};
     color: ${(props) => props.theme.colors.text?.default};

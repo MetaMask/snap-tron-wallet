@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import type { GatsbyConfig } from 'gatsby';
 
 dotenv.config({
-  path: `.env.development`,
+  path: `.env`,
 });
 
 const config: GatsbyConfig = {
@@ -17,10 +17,8 @@ const config: GatsbyConfig = {
       options: {
         name: 'Template Snap',
         icon: 'src/assets/logo.svg',
-        /* eslint-disable @typescript-eslint/naming-convention */
         theme_color: '#6F4CFF',
         background_color: '#FFFFFF',
-        /* eslint-enable @typescript-eslint/naming-convention */
         display: 'standalone',
       },
     },
