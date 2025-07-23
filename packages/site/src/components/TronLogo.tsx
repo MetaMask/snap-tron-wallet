@@ -1,10 +1,10 @@
-import React from 'react';
+import type { FC } from 'react';
 
 type TronLogoProps = {
   size?: number;
 };
 
-export const TronLogo: React.FC<TronLogoProps> = ({ size = 60 }) => {
+export const TronLogo: FC<TronLogoProps> = ({ size = 60 }) => {
   return (
     <div
       style={{
