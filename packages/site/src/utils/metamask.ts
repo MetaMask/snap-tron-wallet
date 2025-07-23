@@ -32,7 +32,7 @@ export async function hasSnapsSupport(
  * @returns A MetaMask provider if found, otherwise null.
  */
 export async function getMetaMaskEIP6963Provider() {
-  return new Promise<MetaMaskInpageProvider | null>((rawResolve) => {
+  return new Promise<MetaMaskInpageProvider | null>((_resolve) => {
     // Timeout looking for providers after 500ms
     const timeout = setTimeout(() => {
       resolve(null);
@@ -49,7 +49,7 @@ export async function getMetaMaskEIP6963Provider() {
         onAnnounceProvider,
       );
       clearTimeout(timeout);
-      rawResolve(provider);
+      _resolve(provider);
     }
 
     /**

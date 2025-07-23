@@ -1,7 +1,7 @@
-import dotenv from 'dotenv';
+import { config as dotenvConfig } from 'dotenv';
 import type { GatsbyConfig } from 'gatsby';
 
-dotenv.config({
+dotenvConfig({
   path: `.env`,
 });
 
@@ -17,8 +17,8 @@ const config: GatsbyConfig = {
       options: {
         name: 'Template Snap',
         icon: 'src/assets/logo.svg',
-        theme_color: '#6F4CFF',
-        background_color: '#FFFFFF',
+        themeColor: '#6F4CFF',
+        backgroundColor: '#FFFFFF',
         display: 'standalone',
       },
     },

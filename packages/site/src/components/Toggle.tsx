@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import styled from 'styled-components';
+import { useCallback, useState } from 'react';
+import { styled } from 'styled-components';
 
 type CheckedProps = {
   readonly checked: boolean;
@@ -93,28 +93,34 @@ export const Toggle = ({
   onToggle,
   defaultChecked = false,
 }: {
-  onToggle(): void;
+  onToggle: () => void;
   defaultChecked?: boolean;
 }) => {
   const [checked, setChecked] = useState(defaultChecked);
 
-  const handleChange = () => {
-    onToggle();
+  const handleClick = useCallback(() => {
     setChecked(!checked);
-  };
+
+    onToggle();
+  }, [checked, onToggle]);
 
   return (
-    <ToggleWrapper onClick={handleChange}>
+    <ToggleWrapper onClick={handleClick}>
+      <ToggleInput
+        type="checkbox"
+        aria-label="Toggle"
+        checked={checked}
+        readOnly
+      />
       <ToggleContainer>
         <CheckedContainer checked={checked}>
-          <span>🌞</span>
+          <span>🌙</span>
         </CheckedContainer>
         <UncheckedContainer checked={checked}>
-          <span>🌜</span>
+          <span>☀️</span>
         </UncheckedContainer>
+        <ToggleCircle checked={checked} />
       </ToggleContainer>
-      <ToggleCircle checked={checked} />
-      <ToggleInput type="checkbox" aria-label="Toggle Button" />
     </ToggleWrapper>
   );
 };

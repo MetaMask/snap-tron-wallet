@@ -1,6 +1,6 @@
 import type { FunctionComponent, ReactNode } from 'react';
 import { useContext } from 'react';
-import styled from 'styled-components';
+import { styled } from 'styled-components';
 
 import { Footer, Header } from './components';
 import { Toaster } from './components/Toaster/Toaster';

@@ -12,13 +12,19 @@ export const Accounts = () => {
   const fetchAccounts = async () => {
     const accountList = ((await invokeKeyring({
       method: KeyringRpcMethod.ListAccounts,
-    })) || []) as KeyringAccount[];
+    })) ?? []) as KeyringAccount[];
 
     const sortedByEntropySource = accountList.sort((a, b) => {
       if (a.options?.entropySource && b.options?.entropySource) {
-        return a.options.entropySource
-          .toString()
-          .localeCompare(b.options.entropySource.toString());
+        const aStr =
+          typeof a.options.entropySource === 'object'
+            ? JSON.stringify(a.options.entropySource)
+            : String(a.options.entropySource);
+        const bStr =
+          typeof b.options.entropySource === 'object'
+            ? JSON.stringify(b.options.entropySource)
+            : String(b.options.entropySource);
+        return aStr.localeCompare(bStr);
       }
       return 0;
     });
@@ -43,7 +49,10 @@ export const Accounts = () => {
   };
 
   useEffect(() => {
-    fetchAccounts();
+    const loadAccounts = async () => {
+      await fetchAccounts();
+    };
+    loadAccounts().catch(console.error);
   }, []);
 
   return (

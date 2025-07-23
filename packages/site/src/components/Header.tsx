@@ -1,5 +1,5 @@
 import { navigate } from 'gatsby';
-import styled, { useTheme } from 'styled-components';
+import { styled, useTheme } from 'styled-components';
 
 import { getThemePreference } from '../utils';
 import { HeaderButtons } from './Buttons';
@@ -41,7 +41,7 @@ const RightContainer = styled.div`
 export const Header = ({
   handleToggleClick,
 }: {
-  handleToggleClick(): void;
+  handleToggleClick: () => void;
 }) => {
   const theme = useTheme();
 
