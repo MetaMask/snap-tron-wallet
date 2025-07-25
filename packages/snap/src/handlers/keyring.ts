@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   KeyringEvent,
-  TrxAccountType,
-  TrxScope,
+  AnyAccountType,
   type Balance,
   type DiscoveredAccount,
   type EntropySourceId,
@@ -32,6 +31,7 @@ import type {
 } from '@metamask/utils';
 import { sortBy } from 'lodash';
 
+import { TrxScope } from '../constants';
 import type { TronKeyringAccount } from '../entities';
 import { asStrictKeyringAccount } from '../entities/keyring-account';
 import type { AssetsService } from '../services/assets/AssetsService';
@@ -215,7 +215,7 @@ export class KeyringHandler implements Keyring {
         entropySource,
         derivationPath,
         index,
-        type: TrxAccountType.Eoa,
+        type: AnyAccountType.Account,
         address: accountAddress,
         scopes: [TrxScope.Mainnet, TrxScope.Nile, TrxScope.Shasta],
         options: {

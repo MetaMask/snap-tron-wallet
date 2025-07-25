@@ -1,5 +1,6 @@
-import type { TrxScope } from '@metamask/keyring-api';
 import { pattern, string } from '@metamask/superstruct';
+
+import type { TrxScope } from '../../constants';
 
 export type NativeCaipAssetType = `${TrxScope}/slip44:195`;
 export type TokenCaipAssetType = `${TrxScope}/${'trc10' | 'trc20'}:${string}`;

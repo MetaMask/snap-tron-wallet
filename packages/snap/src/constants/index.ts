@@ -1,4 +1,8 @@
-import { TrxScope } from '@metamask/keyring-api';
+export enum TrxScope {
+  Mainnet = 'tron:728126428',
+  Nile = 'tron:3448148188',
+  Shasta = 'tron:2494104990',
+}
 
 export enum Network {
   Mainnet = TrxScope.Mainnet,
