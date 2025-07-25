@@ -5,8 +5,8 @@ import { PageTemplate } from '../templates/page';
 const Index = () => {
   return (
     <PageTemplate>
-      <Accounts />
-      <Handlers />
+      {/* <Accounts />
+      <Handlers /> */}
     </PageTemplate>
   );
 };
