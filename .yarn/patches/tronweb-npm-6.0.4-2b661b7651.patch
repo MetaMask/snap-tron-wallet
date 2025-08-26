@@ -1,0 +1,87 @@
+diff --git a/lib/esm/lib/providers/HttpProvider.js b/lib/esm/lib/providers/HttpProvider.js
+index cadb4d034f4577c35f2ad0f02eb4cc8272c30032..187febea1943526ed3473285aaede95c242c55f7 100644
+--- a/lib/esm/lib/providers/HttpProvider.js
++++ b/lib/esm/lib/providers/HttpProvider.js
+@@ -1,4 +1,3 @@
+-import axios from 'axios';
+ import { hasProperties, isObject, isValidURL } from '../../utils/validations.js';
+ export default class HttpProvider {
+     host;
+@@ -7,7 +6,6 @@ export default class HttpProvider {
+     password;
+     headers;
+     statusPage;
+-    instance;
+     constructor(host, timeout = 30000, user = '', password = '', headers = {}, statusPage = '/') {
+         if (!isValidURL(host))
+             throw new Error('Invalid URL provided to HttpProvider');
+@@ -22,17 +20,6 @@ export default class HttpProvider {
+         this.password = password;
+         this.headers = headers;
+         this.statusPage = statusPage;
+-        this.instance = axios.create({
+-            baseURL: host,
+-            timeout: timeout,
+-            headers: headers,
+-            auth: user
+-                ? {
+-                    username: user,
+-                    password,
+-                }
+-                : undefined,
+-        });
+     }
+     setStatusPage(statusPage = '/') {
+         this.statusPage = statusPage;
+@@ -46,14 +33,42 @@ export default class HttpProvider {
+     }
+     request(url, payload = {}, method = 'get') {
+         method = method.toLowerCase();
+-        return this.instance
+-            .request({
+-            data: method == 'post' && Object.keys(payload).length ? payload : null,
+-            params: method == 'get' && payload,
+-            url,
+-            method,
+-        })
+-            .then(({ data }) => data);
++        
++        const fullUrl = new URL(url, this.host);
++        const requestOptions = {
++            method: method.toUpperCase(),
++            headers: {
++                'Content-Type': 'application/json',
++                ...this.headers,
++            },
++            signal: AbortSignal.timeout(this.timeout),
++        };
++
++        // Add authentication if provided
++        if (this.user) {
++            const credentials = btoa(`${this.user}:${this.password}`);
++            requestOptions.headers['Authorization'] = `Basic ${credentials}`;
++        }
++
++        // Handle GET parameters
++        if (method === 'get' && payload && Object.keys(payload).length) {
++            Object.keys(payload).forEach(key => {
++                fullUrl.searchParams.append(key, payload[key]);
++            });
++        }
++
++        // Handle POST data
++        if (method === 'post' && Object.keys(payload).length) {
++            requestOptions.body = JSON.stringify(payload);
++        }
++
++        return fetch(fullUrl.toString(), requestOptions)
++            .then(response => {
++                if (!response.ok) {
++                    throw new Error(`HTTP error! status: ${response.status}`);
++                }
++                return response.json();
++            });
+     }
+ }
+ //# sourceMappingURL=HttpProvider.js.map
+\ No newline at end of file

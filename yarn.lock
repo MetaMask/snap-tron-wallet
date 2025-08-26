@@ -3990,16 +3990,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@metamask/snaps-sdk@npm:^9.2.0":
-  version: 9.2.0
-  resolution: "@metamask/snaps-sdk@npm:9.2.0"
+"@metamask/snaps-sdk@npm:^9.3.0":
+  version: 9.3.0
+  resolution: "@metamask/snaps-sdk@npm:9.3.0"
   dependencies:
     "@metamask/key-tree": "npm:^10.1.1"
     "@metamask/providers": "npm:^22.1.0"
     "@metamask/rpc-errors": "npm:^7.0.3"
     "@metamask/superstruct": "npm:^3.2.1"
     "@metamask/utils": "npm:^11.4.2"
-  checksum: 10/cb85e2d526533ddc3704cbb5ecb600e6ca111029b3df196a57166e090ee6ac1b995b0bd635798a0fc3210ece54696a8d53397024a5de475bdbb8097fb84be047
+  checksum: 10/1e84195a568553d1d7929b9140469204611d2504ab5bc63a6bdad7edc70150765795d402d6d8263bc8d665f9d6656e60da64e4530c240287d8d9ae51cf6d2843
   languageName: node
   linkType: hard
 
@@ -4092,7 +4092,7 @@ __metadata:
     "@metamask/keyring-snap-sdk": "npm:^4.0.0"
     "@metamask/snaps-cli": "npm:^8.1.0"
     "@metamask/snaps-jest": "npm:^9.2.0"
-    "@metamask/snaps-sdk": "npm:^9.2.0"
+    "@metamask/snaps-sdk": "npm:^9.3.0"
     "@metamask/superstruct": "npm:^3.2.1"
     "@metamask/utils": "npm:^11.4.2"
     "@types/jest": "npm:^30.0.0"
@@ -4104,7 +4104,7 @@ __metadata:
     jest-transform-stub: "npm:2.0.0"
     lodash: "npm:^4.17.21"
     prettier: "npm:^3.5.3"
-    tronweb: "npm:6.0.3"
+    tronweb: "patch:tronweb@npm%3A6.0.4#~/.yarn/patches/tronweb-npm-6.0.4-2b661b7651.patch"
     ts-jest: "npm:^29.4.0"
   languageName: unknown
   linkType: soft
@@ -8325,14 +8325,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"axios@npm:1.8.3":
-  version: 1.8.3
-  resolution: "axios@npm:1.8.3"
+"axios@npm:1.11.0":
+  version: 1.11.0
+  resolution: "axios@npm:1.11.0"
   dependencies:
     follow-redirects: "npm:^1.15.6"
-    form-data: "npm:^4.0.0"
+    form-data: "npm:^4.0.4"
     proxy-from-env: "npm:^1.1.0"
-  checksum: 10/050f911cadd6d47a38ddbf91d2f8da2c34661dda8077e7ad6546e8178701125366fddbba07211a648b6815cf6c2c3c91c0a65d8b968e3d1a6054a21141ff9c01
+  checksum: 10/232df4af7a4e4e07baa84621b9cc4b0c518a757b4eacc7f635c0eb3642cb98dff347326739f24b891b3b4481b7b838c79a3a0c4819c9fbc1fc40232431b9c5dc
   languageName: node
   linkType: hard
 
@@ -12874,7 +12874,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"form-data@npm:^4.0.0":
+"form-data@npm:^4.0.0, form-data@npm:^4.0.4":
   version: 4.0.4
   resolution: "form-data@npm:4.0.4"
   dependencies:
@@ -21425,12 +21425,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"tronweb@npm:6.0.3":
-  version: 6.0.3
-  resolution: "tronweb@npm:6.0.3"
+"tronweb@npm:6.0.4":
+  version: 6.0.4
+  resolution: "tronweb@npm:6.0.4"
   dependencies:
     "@babel/runtime": "npm:7.26.10"
-    axios: "npm:1.8.3"
+    axios: "npm:1.11.0"
     bignumber.js: "npm:9.1.2"
     ethereum-cryptography: "npm:2.2.1"
     ethers: "npm:6.13.5"
@@ -21438,7 +21438,24 @@ __metadata:
     google-protobuf: "npm:3.21.4"
     semver: "npm:7.7.1"
     validator: "npm:13.12.0"
-  checksum: 10/2c5a857047ea265ac986d2efe6eda115a2b8be83993e586ea205cd9a2e5925cdfb188740a573d00f50fda95331e181aeb815870672ddb510b4e271cdc0baa0fc
+  checksum: 10/04804e31565431054aa1e4a75aab3bd80546fa52f06621bd23613db106aefb8391c7c967fc9b04612558d053f7dfb60eae3e6f2ea31346e23ce37964cd975920
+  languageName: node
+  linkType: hard
+
+"tronweb@patch:tronweb@npm%3A6.0.4#~/.yarn/patches/tronweb-npm-6.0.4-2b661b7651.patch":
+  version: 6.0.4
+  resolution: "tronweb@patch:tronweb@npm%3A6.0.4#~/.yarn/patches/tronweb-npm-6.0.4-2b661b7651.patch::version=6.0.4&hash=5fd739"
+  dependencies:
+    "@babel/runtime": "npm:7.26.10"
+    axios: "npm:1.11.0"
+    bignumber.js: "npm:9.1.2"
+    ethereum-cryptography: "npm:2.2.1"
+    ethers: "npm:6.13.5"
+    eventemitter3: "npm:5.0.1"
+    google-protobuf: "npm:3.21.4"
+    semver: "npm:7.7.1"
+    validator: "npm:13.12.0"
+  checksum: 10/6c318705ec8f84d0336801051615634651931d984e54060e948121ae39afa90b3059e0181bbab9d6d35f629f24352d016a575c4d3e2b0c471e103317abbf2203
   languageName: node
   linkType: hard
 

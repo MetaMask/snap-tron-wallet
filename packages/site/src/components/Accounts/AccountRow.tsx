@@ -60,7 +60,7 @@ export const AccountRow = ({
           <LuExternalLink />
         </Link>
       </Table.Cell>
-      <Table.Cell>{balance} SOL </Table.Cell>
+      <Table.Cell>{balance} TRX</Table.Cell>
       <Table.Cell textAlign="end">
         <Button
           variant="ghost"
