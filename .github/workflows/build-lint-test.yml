@@ -29,7 +29,23 @@ on:
         required: true
       EXPLORER_SHASTA_BASE_URL:
         required: true
-      TRON_API_KEY:
+      TRONGRID_API_KEY:
+        required: true
+      TRONGRID_BASE_URL_MAINNET:
+        required: true
+      TRONGRID_BASE_URL_NILE:
+        required: true
+      TRONGRID_BASE_URL_SHASTA:
+        required: true
+      TRONGRID_BASE_URL_LOCALNET:
+        required: true
+      TRON_HTTP_BASE_URL_MAINNET:
+        required: true
+      TRON_HTTP_BASE_URL_NILE:
+        required: true
+      TRON_HTTP_BASE_URL_SHASTA:
+        required: true
+      TRON_HTTP_BASE_URL_LOCALNET:
         required: true
 
 jobs:
@@ -64,7 +80,15 @@ jobs:
       STATIC_API_BASE_URL: ${{ secrets.STATIC_API_BASE_URL }}
       SECURITY_ALERTS_API_BASE_URL: ${{ secrets.SECURITY_ALERTS_API_BASE_URL }}
       NFT_API_BASE_URL: ${{ secrets.NFT_API_BASE_URL }}
-      TRON_API_KEY: ${{ secrets.TRON_API_KEY }}
+      TRONGRID_API_KEY: ${{ secrets.TRONGRID_API_KEY }}
+      TRONGRID_BASE_URL_MAINNET: ${{ secrets.TRONGRID_BASE_URL_MAINNET }}
+      TRONGRID_BASE_URL_NILE: ${{ secrets.TRONGRID_BASE_URL_NILE }}
+      TRONGRID_BASE_URL_SHASTA: ${{ secrets.TRONGRID_BASE_URL_SHASTA }}
+      TRONGRID_BASE_URL_LOCALNET: ${{ secrets.TRONGRID_BASE_URL_LOCALNET }}
+      TRON_HTTP_BASE_URL_MAINNET: ${{ secrets.TRON_HTTP_BASE_URL_MAINNET }}
+      TRON_HTTP_BASE_URL_NILE: ${{ secrets.TRON_HTTP_BASE_URL_NILE }}
+      TRON_HTTP_BASE_URL_SHASTA: ${{ secrets.TRON_HTTP_BASE_URL_SHASTA }}
+      TRON_HTTP_BASE_URL_LOCALNET: ${{ secrets.TRON_HTTP_BASE_URL_LOCALNET }}
     steps:
       - name: Checkout and setup environment
         uses: MetaMask/action-checkout-and-setup@v1
@@ -115,7 +139,15 @@ jobs:
       STATIC_API_BASE_URL: ${{ secrets.STATIC_API_BASE_URL }}
       SECURITY_ALERTS_API_BASE_URL: ${{ secrets.SECURITY_ALERTS_API_BASE_URL }}
       NFT_API_BASE_URL: ${{ secrets.NFT_API_BASE_URL }}
-      TRON_API_KEY: ${{ secrets.TRON_API_KEY }}
+      TRONGRID_API_KEY: ${{ secrets.TRONGRID_API_KEY }}
+      TRONGRID_BASE_URL_MAINNET: ${{ secrets.TRONGRID_BASE_URL_MAINNET }}
+      TRONGRID_BASE_URL_NILE: ${{ secrets.TRONGRID_BASE_URL_NILE }}
+      TRONGRID_BASE_URL_SHASTA: ${{ secrets.TRONGRID_BASE_URL_SHASTA }}
+      TRONGRID_BASE_URL_LOCALNET: ${{ secrets.TRONGRID_BASE_URL_LOCALNET }}
+      TRON_HTTP_BASE_URL_MAINNET: ${{ secrets.TRON_HTTP_BASE_URL_MAINNET }}
+      TRON_HTTP_BASE_URL_NILE: ${{ secrets.TRON_HTTP_BASE_URL_NILE }}
+      TRON_HTTP_BASE_URL_SHASTA: ${{ secrets.TRON_HTTP_BASE_URL_SHASTA }}
+      TRON_HTTP_BASE_URL_LOCALNET: ${{ secrets.TRON_HTTP_BASE_URL_LOCALNET }}
     steps:
       - name: Checkout and setup environment
         uses: MetaMask/action-checkout-and-setup@v1

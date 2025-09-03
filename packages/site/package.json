@@ -14,6 +14,7 @@
     "lint:fix": "yarn lint:eslint --fix && yarn lint:misc --write",
     "lint:misc": "prettier '**/*.json' '**/*.md' --check",
     "lint:types": "tsc --noEmit",
+    "format": "prettier '**/*.ts' '**/*.tsx' --write",
     "start": "gatsby develop  --port 3000"
   },
   "browserslist": {
