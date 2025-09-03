@@ -185,6 +185,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0]
 
+### Uncategorized
+
+- feat: fully support TRX + token assets balances
+- chore: resolve linting problems
+- chore: more improvements to the test dApp
+- chore: remove unnecessary files
+- chore: lint all files
+- feat: add test dApp
+
 ### Added
 
 - Get account balances ([#67](https://github.com/MetaMask/snap-solana-wallet/pull/67))
@@ -198,30 +207,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add chakra for easier dx on site ([#53](https://github.com/MetaMask/snap-solana-wallet/pull/53))
 
-[Unreleased]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.36.0...HEAD
-[1.36.0]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.35.0...v1.36.0
-[1.35.0]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.32.0...v1.35.0
-[1.32.0]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.31.0...v1.32.0
-[1.31.0]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.22.0...v1.31.0
-[1.22.0]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.19.0...v1.22.0
-[1.19.0]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.18.1...v1.19.0
-[1.18.1]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.18.0...v1.18.1
-[1.18.0]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.17.0...v1.18.0
-[1.17.0]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.16.0...v1.17.0
-[1.16.0]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.15.1...v1.16.0
-[1.15.1]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.15.0...v1.15.1
-[1.15.0]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.14.0...v1.15.0
-[1.14.0]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.11.0...v1.14.0
-[1.11.0]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.9.0...v1.11.0
-[1.9.0]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.8.0...v1.9.0
-[1.8.0]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.7.0...v1.8.0
-[1.7.0]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.4.0...v1.7.0
-[1.4.0]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.3.0...v1.4.0
-[1.3.0]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.2.0...v1.3.0
-[1.2.0]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.1.0...v1.2.0
-[1.1.0]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.0.4...v1.1.0
-[1.0.4]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.0.2...v1.0.4
-[1.0.2]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.0.1...v1.0.2
-[1.0.1]: https://github.com/MetaMask/snap-solana-wallet/compare/v1.0.0...v1.0.1
-[1.0.0]: https://github.com/MetaMask/snap-solana-wallet/compare/v0.1.1...v1.0.0
-[0.1.1]: https://github.com/MetaMask/snap-solana-wallet/releases/tag/v0.1.1
+[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.36.0...HEAD
+[1.36.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.35.0...v1.36.0
+[1.35.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.32.0...v1.35.0
+[1.32.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.31.0...v1.32.0
+[1.31.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.22.0...v1.31.0
+[1.22.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.19.0...v1.22.0
+[1.19.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.18.1...v1.19.0
+[1.18.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.18.0...v1.18.1
+[1.18.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.17.0...v1.18.0
+[1.17.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.16.0...v1.17.0
+[1.16.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.15.1...v1.16.0
+[1.15.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.15.0...v1.15.1
+[1.15.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.14.0...v1.15.0
+[1.14.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.11.0...v1.14.0
+[1.11.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.9.0...v1.11.0
+[1.9.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.8.0...v1.9.0
+[1.8.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.7.0...v1.8.0
+[1.7.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.4.0...v1.7.0
+[1.4.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.0.4...v1.1.0
+[1.0.4]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.0.2...v1.0.4
+[1.0.2]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.0.1...v1.0.2
+[1.0.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v0.1.1...v1.0.0
+[0.1.1]: https://github.com/MetaMask/snap-tron-wallet/releases/tag/v0.1.1
