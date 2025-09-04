@@ -25,6 +25,9 @@ echo "The latest release branch is: ${RELEASE_BRANCH_NAME}"
 echo "Checking out branch: ${RELEASE_BRANCH_NAME}"
 git checkout "${RELEASE_BRANCH_NAME}"
 
+# Enable corepack so we can use any package manager
+corepack enable
+
 yarn --immutable
 yarn workspace @metamask/tron-wallet-snap build
 
