@@ -9,19 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.2]
 
-### Uncategorized
+### Changed
 
-- chore: changelog update
-- 1.0.1
-- chore: prettier
-- chore: update changelogs
-- 1.0.0
-- feat: fully support TRX + token assets balances
-- chore: resolve linting problems
-- chore: more improvements to the test dApp
-- chore: remove unnecessary files
-- chore: lint all files
-- feat: add test dApp
+- Release config update
 
 ## [1.0.1]
 
