@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.3]
 
-### Uncategorized
+### Changed
 
-- chore: clean up old values ([#22](https://github.com/MetaMask/snap-tron-wallet/pull/22))
+- Clean unnecessary values ([#22](https://github.com/MetaMask/snap-tron-wallet/pull/22))
 
 ## [1.0.2]
 
