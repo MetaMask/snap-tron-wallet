@@ -10,9 +10,13 @@ import { toaster } from '../Toaster/Toaster';
 
 export const AccountRow = ({
   account,
+  onGetAssets,
+  onGetTransactions,
   onRemove,
 }: {
   account: KeyringAccount;
+  onGetAssets: (id: string) => void;
+  onGetTransactions: (id: string) => void;
   onRemove: (id: string) => void;
 }) => {
   const { network } = useNetwork();
@@ -63,9 +67,26 @@ export const AccountRow = ({
       <Table.Cell>{balance} TRX</Table.Cell>
       <Table.Cell textAlign="end">
         <Button
+          onClick={() => onGetAssets(account.id)}
+          size="xs"
+          colorPalette="purple"
+          variant="outline"
+          marginRight="2"
+        >
+          List assets
+        </Button>
+        <Button
+          onClick={() => onGetTransactions(account.id)}
+          size="xs"
+          colorPalette="purple"
+          variant="outline"
+          marginRight="2"
+        >
+          List transactions
+        </Button>
+        <Button
           variant="ghost"
           colorPalette="purple"
-          marginLeft="1"
           size="xs"
           onClick={() => onRemove(account.id)}
         >
