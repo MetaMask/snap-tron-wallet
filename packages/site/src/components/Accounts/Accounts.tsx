@@ -40,6 +40,20 @@ export const Accounts = () => {
     await fetchAccounts();
   };
 
+  const handleGetAssets = async (id: string) => {
+    await invokeKeyring({
+      method: KeyringRpcMethod.ListAccountAssets,
+      params: { id },
+    });
+  };
+
+  const handleGetTransactions = async (id: string) => {
+    await invokeKeyring({
+      method: KeyringRpcMethod.ListAccountTransactions,
+      params: { id, pagination: { limit: 10 } },
+    });
+  };
+
   const handleDeleteAccount = async (id: string) => {
     await invokeKeyring({
       method: KeyringRpcMethod.DeleteAccount,
@@ -85,6 +99,8 @@ export const Accounts = () => {
               <AccountRow
                 key={account.id}
                 account={account}
+                onGetAssets={handleGetAssets}
+                onGetTransactions={handleGetTransactions}
                 onRemove={handleDeleteAccount}
               />
             );
