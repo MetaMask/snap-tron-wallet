@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Uncategorized
 
-- feat: send Energy and Bandwidth as assets ([#27](https://github.com/MetaMask/snap-tron-wallet/pull/27))
+- Add "Get Assets" and "Get Transactions" test buttons ([#27](https://github.com/MetaMask/snap-tron-wallet/pull/27))
 
 ## [1.0.2]
 
