@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0]
+
+### Uncategorized
+
+- feat: send Energy and Bandwidth as assets ([#27](https://github.com/MetaMask/snap-tron-wallet/pull/27))
+
 ## [1.0.2]
 
 ### Changed
@@ -25,7 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release of Tron wallet site
 
-[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/MetaMask/snap-tron-wallet/releases/tag/v1.0.0
