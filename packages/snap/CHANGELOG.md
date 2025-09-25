@@ -9,15 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.0]
 
-### Uncategorized
+### Added
 
 - feat: implement "Unified Non-EVM Send" spec ([#28](https://github.com/MetaMask/snap-tron-wallet/pull/28))
-- feat: send staked TRX as assets ([#29](https://github.com/MetaMask/snap-tron-wallet/pull/29))
+- feat: send Staked TRX as assets ([#29](https://github.com/MetaMask/snap-tron-wallet/pull/29))
 - feat: send Energy and Bandwidth as assets ([#27](https://github.com/MetaMask/snap-tron-wallet/pull/27))
-- chore: simplify `calculateTronFees` + feat: implement `discoverAccounts` ([#26](https://github.com/MetaMask/snap-tron-wallet/pull/26))
+- feat: implement `discoverAccounts` ([#26](https://github.com/MetaMask/snap-tron-wallet/pull/26))
 - feat: support Energy and Bandwidth as transaction history fee ([#25](https://github.com/MetaMask/snap-tron-wallet/pull/25))
 - feat: transaction history ([#19](https://github.com/MetaMask/snap-tron-wallet/pull/19))
-- Better placement for some methods ([#24](https://github.com/MetaMask/snap-tron-wallet/pull/24))
 
 ## [1.0.3]
 
