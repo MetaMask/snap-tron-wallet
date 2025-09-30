@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Price and market data request failures from passing Energy, Bandwidth and other unsupported assets ([#32](https://github.com/MetaMask/snap-tron-wallet/pull/32))
+- Price and market data request failures from passing Energy, Bandwidth and other unsupported assets to the API calls directly ([#32](https://github.com/MetaMask/snap-tron-wallet/pull/32))
 
 ## [1.1.0]
 
