@@ -9,10 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.1]
 
-### Uncategorized
+### Added
 
-- fix: price and market data request failures ([#32](https://github.com/MetaMask/snap-tron-wallet/pull/32))
-- feat: fetch token metadata from Token API instead of Trongrid ([#31](https://github.com/MetaMask/snap-tron-wallet/pull/31))
+- Fetch token metadata from Token API instead of Trongrid ([#31](https://github.com/MetaMask/snap-tron-wallet/pull/31))
+
+### Fixed
+
+- Price and market data request failures from passing Energy, Bandwidth and other unsupported assets ([#32](https://github.com/MetaMask/snap-tron-wallet/pull/32))
 
 ## [1.1.0]
 
