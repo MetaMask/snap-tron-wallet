@@ -86,8 +86,6 @@ export class ClientRequestHandler {
 
   /**
    * Handles the signing and sending of a transaction.
-  /**
-   * Handles the signing and sending of a transaction.
    *
    * @param request - The JSON-RPC request containing transaction details.
    * @returns The transaction result with hash and status.
