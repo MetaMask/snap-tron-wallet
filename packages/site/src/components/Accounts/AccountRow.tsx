@@ -36,9 +36,9 @@ export const AccountRow = ({
       <Table.Cell>
         <EntropySourceBadge
           entropySource={
-            typeof account.options?.entropySource === 'object'
-              ? JSON.stringify(account.options.entropySource)
-              : String(account.options?.entropySource ?? '')
+            account.options?.entropy?.type === 'mnemonic'
+              ? account.options.entropy.id
+              : 'n/a'
           }
         />
       </Table.Cell>
