@@ -15,16 +15,13 @@ export const Accounts = () => {
     })) ?? []) as KeyringAccount[];
 
     const sortedByEntropySource = accountList.sort((a, b) => {
-      if (a.options?.entropySource && b.options?.entropySource) {
-        const aStr =
-          typeof a.options.entropySource === 'object'
-            ? JSON.stringify(a.options.entropySource)
-            : String(a.options.entropySource);
-        const bStr =
-          typeof b.options.entropySource === 'object'
-            ? JSON.stringify(b.options.entropySource)
-            : String(b.options.entropySource);
-        return aStr.localeCompare(bStr);
+      const aEntropyId =
+        a.options?.entropy?.type === 'mnemonic' ? a.options.entropy.id : '';
+      const bEntropyId =
+        b.options?.entropy?.type === 'mnemonic' ? b.options.entropy.id : '';
+
+      if (aEntropyId && bEntropyId) {
+        return aEntropyId.localeCompare(bEntropyId);
       }
       return 0;
     });

@@ -32,7 +32,7 @@
   "dependencies": {
     "@chakra-ui/react": "^3.0.2",
     "@emotion/react": "^11.13.3",
-    "@metamask/keyring-api": "patch:@metamask/keyring-api@npm%3A18.0.0#~/.yarn/patches/@metamask-keyring-api-npm-18.0.0-1987f8da30.patch",
+    "@metamask/keyring-api": "^21.1.0",
     "@metamask/providers": "^18.1.0",
     "dotenv": "^16.4.7",
     "react": "^18.3.1",
