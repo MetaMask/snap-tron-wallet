@@ -9,13 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.4.0]
 
-### Uncategorized
+### Added
 
-- chore: add new required fields to KeyringAccount objects ([#41](https://github.com/MetaMask/snap-tron-wallet/pull/41))
+- Use new required fields in the KeyringAccount for the test dApp ([#41](https://github.com/MetaMask/snap-tron-wallet/pull/41))
 
 ## [1.1.0]
 
-### Uncategorized
+### Added
 
 - Add "Get Assets" and "Get Transactions" test buttons ([#27](https://github.com/MetaMask/snap-tron-wallet/pull/27))
 
