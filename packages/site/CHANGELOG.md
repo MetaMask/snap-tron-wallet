@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0]
+
+### Changed
+
+- Use the new fields in the KeyringAccount to show the entropy source ID and sort the accounts on the AccountsRow ([#41](https://github.com/MetaMask/snap-tron-wallet/pull/41))
+
 ## [1.1.0]
 
 ### Uncategorized
@@ -31,7 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release of Tron wallet site
 
-[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.1.0...v1.3.0
 [1.1.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.0.0...v1.0.1
