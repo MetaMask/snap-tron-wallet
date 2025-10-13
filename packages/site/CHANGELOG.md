@@ -9,11 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.3.0]
 
-### Uncategorized
+### Changed
 
-- Revert "1.4.0 (#45)" ([#45](https://github.com/MetaMask/snap-tron-wallet/pull/45))
-- 1.4.0 ([#45](https://github.com/MetaMask/snap-tron-wallet/pull/45))
-- chore: add new required fields to KeyringAccount objects ([#41](https://github.com/MetaMask/snap-tron-wallet/pull/41))
+- Use the new fields in the KeyringAccount to show the entropy source ID and sort the accounts on the AccountsRow ([#41](https://github.com/MetaMask/snap-tron-wallet/pull/41))
 
 ## [1.1.0]
 
