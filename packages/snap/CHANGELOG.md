@@ -9,14 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.3.0]
 
-### Uncategorized
+### Added
 
-- Revert "1.4.0 (#45)" ([#45](https://github.com/MetaMask/snap-tron-wallet/pull/45))
-- 1.4.0 ([#45](https://github.com/MetaMask/snap-tron-wallet/pull/45))
-- fix: missing sync transactions background event ([#44](https://github.com/MetaMask/snap-tron-wallet/pull/44))
-- feat: implement account synchronization when transactions happen ([#38](https://github.com/MetaMask/snap-tron-wallet/pull/38))
-- chore: add new required fields to KeyringAccount objects ([#41](https://github.com/MetaMask/snap-tron-wallet/pull/41))
-- feat: implement `computeFee` handler ([#40](https://github.com/MetaMask/snap-tron-wallet/pull/40))
+- Add missing "sync transactions" background event ([#44](https://github.com/MetaMask/snap-tron-wallet/pull/44))
+- Implement account synchronization when transactions happen ([#38](https://github.com/MetaMask/snap-tron-wallet/pull/38))
+- Add new required fields to KeyringAccount objects ([#41](https://github.com/MetaMask/snap-tron-wallet/pull/41))
+- Implement `computeFee` handler ([#40](https://github.com/MetaMask/snap-tron-wallet/pull/40))
 
 ## [1.2.0]
 
