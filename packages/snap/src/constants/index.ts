@@ -56,7 +56,7 @@ export enum KnownCaip19Id {
 
 export const TRX_METADATA = {
   fungible: true as const,
-  name: 'Tron',
+  name: 'TRX',
   symbol: 'TRX',
   decimals: 6,
   iconUrl:
@@ -71,7 +71,7 @@ export const TRX_METADATA = {
 };
 
 export const TRX_STAKED_FOR_BANDWIDTH_METADATA = {
-  name: 'Staked for Bandwidth',
+  name: 'sTRX-BANDWIDTH',
   symbol: 'sTRX-BANDWIDTH',
   fungible: true as const,
   decimals: 6,
@@ -87,7 +87,7 @@ export const TRX_STAKED_FOR_BANDWIDTH_METADATA = {
 };
 
 export const TRX_STAKED_FOR_ENERGY_METADATA = {
-  name: 'Staked for Energy',
+  name: 'sTRX-ENERGY',
   symbol: 'sTRX-ENERGY',
   fungible: true as const,
   decimals: 6,
@@ -103,7 +103,7 @@ export const TRX_STAKED_FOR_ENERGY_METADATA = {
 };
 
 export const BANDWIDTH_METADATA = {
-  name: 'Bandwidth',
+  name: 'BANDWIDTH',
   symbol: 'BANDWIDTH',
   fungible: true as const,
   decimals: 0,
@@ -111,7 +111,7 @@ export const BANDWIDTH_METADATA = {
     'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
   units: [
     {
-      name: 'Bandwidth',
+      name: 'BANDWIDTH',
       symbol: 'BANDWIDTH',
       decimals: 0,
     },
@@ -119,7 +119,7 @@ export const BANDWIDTH_METADATA = {
 };
 
 export const MAX_BANDWIDTH_METADATA = {
-  name: 'Max Bandwidth',
+  name: 'MAX-BANDWIDTH',
   symbol: 'MAX-BANDWIDTH',
   fungible: true as const,
   decimals: 0,
@@ -127,7 +127,7 @@ export const MAX_BANDWIDTH_METADATA = {
     'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
   units: [
     {
-      name: 'Max Bandwidth',
+      name: 'MAX-BANDWIDTH',
       symbol: 'MAX-BANDWIDTH',
       decimals: 0,
     },
@@ -135,7 +135,7 @@ export const MAX_BANDWIDTH_METADATA = {
 };
 
 export const ENERGY_METADATA = {
-  name: 'Energy',
+  name: 'ENERGY',
   symbol: 'ENERGY',
   fungible: true as const,
   decimals: 0,
@@ -143,7 +143,7 @@ export const ENERGY_METADATA = {
     'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
   units: [
     {
-      name: 'Energy',
+      name: 'ENERGY',
       symbol: 'ENERGY',
       decimals: 0,
     },
@@ -151,7 +151,7 @@ export const ENERGY_METADATA = {
 };
 
 export const MAX_ENERGY_METADATA = {
-  name: 'Max Energy',
+  name: 'MAX-ENERGY',
   symbol: 'MAX-ENERGY',
   fungible: true as const,
   decimals: 0,
@@ -159,7 +159,7 @@ export const MAX_ENERGY_METADATA = {
     'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
   units: [
     {
-      name: 'Max Energy',
+      name: 'MAX-ENERGY',
       symbol: 'MAX-ENERGY',
       decimals: 0,
     },
