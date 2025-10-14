@@ -16,14 +16,6 @@ import { parseCaipAssetType } from '@metamask/utils';
 import { BigNumber } from 'bignumber.js';
 import { pick } from 'lodash';
 
-import type { AssetsRepository } from './AssetsRepository';
-import type {
-  NativeCaipAssetType,
-  NftCaipAssetType,
-  ResourceCaipAssetType,
-  StakedCaipAssetType,
-  TokenCaipAssetType,
-} from './types';
 import type { PriceApiClient } from '../../clients/price-api/PriceApiClient';
 import type { FiatTicker, SpotPrice } from '../../clients/price-api/types';
 import type { TokenApiClient } from '../../clients/token-api/TokenApiClient';
@@ -44,6 +36,14 @@ import { configProvider } from '../../context';
 import type { AssetEntity } from '../../entities/assets';
 import { createPrefixedLogger, type ILogger } from '../../utils/logger';
 import type { State, UnencryptedStateValue } from '../state/State';
+import type { AssetsRepository } from './AssetsRepository';
+import type {
+  NativeCaipAssetType,
+  NftCaipAssetType,
+  ResourceCaipAssetType,
+  StakedCaipAssetType,
+  TokenCaipAssetType,
+} from './types';
 
 export class AssetsService {
   readonly #logger: ILogger;
@@ -166,25 +166,36 @@ export class AssetsService {
       ...trc10Assets,
       ...trc20Assets,
     ].map((asset) => {
-      const metadata = assetsMetadata[asset.assetType];
-      const mergedAsset = {
-        ...asset,
-        ...metadata,
-      } as any;
+      const metadata = assetsMetadata[
+        asset.assetType
+      ] as FungibleAssetMetadata | null;
 
-      const unit = metadata?.fungible ? metadata.units?.[0] : undefined;
+      let { symbol } = asset;
+      let decimals = asset.decimals ?? 0;
 
-      if (unit) {
-        const decimals = new BigNumber(mergedAsset.rawAmount).dividedBy(
-          new BigNumber(10).pow(unit.decimals),
-        );
-        mergedAsset.uiAmount = decimals.toString();
-      } else {
-        mergedAsset.uiAmount = '0';
+      if (metadata?.fungible) {
+        const unit = metadata.units?.[0];
+        if (unit) {
+          symbol = unit.symbol ?? metadata.symbol ?? symbol;
+          decimals = unit.decimals ?? decimals;
+        } else {
+          symbol = metadata?.symbol ?? symbol;
+        }
       }
 
-      return mergedAsset;
+      const uiAmount = new BigNumber(asset.rawAmount)
+        .dividedBy(new BigNumber(10).pow(decimals))
+        .toString();
+
+      return {
+        ...asset,
+        symbol,
+        decimals,
+        uiAmount,
+      };
     });
+    
+    console.log('SERVICE fetchAssetsAndBalancesForAccount', JSON.stringify(assets));
 
     return assets;
   }
@@ -262,7 +273,7 @@ export class AssetsService {
         decimals: Networks[scope].stakedForEnergy.decimals,
         rawAmount: stakedEnergyAmount.toString(),
         uiAmount: new BigNumber(stakedEnergyAmount)
-          .dividedBy(10 ** Networks[scope].stakedForBandwidth.decimals)
+          .dividedBy(10 ** Networks[scope].stakedForEnergy.decimals)
           .toString(),
       };
       assets.push(stakedEnergyAsset);
@@ -289,7 +300,7 @@ export class AssetsService {
         assetType: Networks[scope].bandwidth.id,
         keyringAccountId: account.id,
         network: scope,
-        symbol: Networks[scope].bandwidth.id,
+        symbol: Networks[scope].bandwidth.symbol,
         decimals: Networks[scope].bandwidth.decimals,
         rawAmount: bandwidth.toString(),
         uiAmount: bandwidth.toString(),
@@ -298,7 +309,7 @@ export class AssetsService {
         assetType: Networks[scope].maximumBandwidth.id,
         keyringAccountId: account.id,
         network: scope,
-        symbol: Networks[scope].maximumBandwidth.id,
+        symbol: Networks[scope].maximumBandwidth.symbol,
         decimals: Networks[scope].maximumBandwidth.decimals,
         rawAmount: maximumBandwidth.toString(),
         uiAmount: maximumBandwidth.toString(),
@@ -329,7 +340,7 @@ export class AssetsService {
         uiAmount: energy.toString(),
       },
       {
-        assetType: Networks[scope].energy.id,
+        assetType: Networks[scope].maximumEnergy.id,
         keyringAccountId: account.id,
         network: scope,
         symbol: Networks[scope].maximumEnergy.symbol,
@@ -493,7 +504,16 @@ export class AssetsService {
     > = {};
 
     for (const assetType of assetTypes) {
-      nativeTokensMetadata[assetType] = TRX_METADATA;
+      nativeTokensMetadata[assetType] = {
+       ...TRX_METADATA,
+       units: [
+        {
+          decimals: TRX_METADATA.decimals,
+          symbol: TRX_METADATA.symbol,
+          name: TRX_METADATA.name,
+        },
+       ]
+      };
     }
 
     return nativeTokensMetadata;
@@ -512,13 +532,31 @@ export class AssetsService {
       const isForBandwdidth = assetType.endsWith('staked-for-bandwidth');
 
       if (isForBandwdidth) {
-        stakedTokensMetadata[assetType] = TRX_STAKED_FOR_BANDWIDTH_METADATA;
+        stakedTokensMetadata[assetType] = {
+          ...TRX_STAKED_FOR_BANDWIDTH_METADATA,
+          units: [
+            {
+              decimals: TRX_STAKED_FOR_BANDWIDTH_METADATA.decimals,
+              symbol: TRX_STAKED_FOR_BANDWIDTH_METADATA.symbol,
+              name: TRX_STAKED_FOR_BANDWIDTH_METADATA.name,
+            },
+          ],
+        };
       }
 
       const isForEnergy = assetType.endsWith('staked-for-energy');
 
       if (isForEnergy) {
-        stakedTokensMetadata[assetType] = TRX_STAKED_FOR_ENERGY_METADATA;
+        stakedTokensMetadata[assetType] = {
+          ...TRX_STAKED_FOR_ENERGY_METADATA,
+          units: [
+            {
+              decimals: TRX_STAKED_FOR_ENERGY_METADATA.decimals,
+              symbol: TRX_STAKED_FOR_ENERGY_METADATA.symbol,
+              name: TRX_STAKED_FOR_ENERGY_METADATA.name,
+            },
+          ],
+        };
       }
     }
 
@@ -534,7 +572,16 @@ export class AssetsService {
     > = {};
 
     for (const assetType of assetTypes) {
-      bandwidthTokensMetadata[assetType] = BANDWIDTH_METADATA;
+      bandwidthTokensMetadata[assetType] = {
+        ...BANDWIDTH_METADATA,
+        units: [
+          {
+            decimals: BANDWIDTH_METADATA.decimals,
+            symbol: BANDWIDTH_METADATA.symbol,
+            name: BANDWIDTH_METADATA.name,
+          },
+        ],
+      };
     }
 
     return bandwidthTokensMetadata;
@@ -549,7 +596,16 @@ export class AssetsService {
     > = {};
 
     for (const assetType of assetTypes) {
-      energyTokensMetadata[assetType] = ENERGY_METADATA;
+      energyTokensMetadata[assetType] = {
+        ...ENERGY_METADATA,
+        units: [
+          {
+            decimals: ENERGY_METADATA.decimals,
+            symbol: ENERGY_METADATA.symbol,
+            name: ENERGY_METADATA.name,
+          },
+        ],
+      };
     }
 
     return energyTokensMetadata;

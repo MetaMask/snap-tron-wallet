@@ -56,114 +56,65 @@ export enum KnownCaip19Id {
 
 export const TRX_METADATA = {
   fungible: true as const,
-  name: 'TRX',
+  name: 'Tron',
   symbol: 'TRX',
   decimals: 6,
   iconUrl:
     'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
-  units: [
-    {
-      name: 'Tron',
-      symbol: 'TRX',
-      decimals: 6,
-    },
-  ],
 };
 
 export const TRX_STAKED_FOR_BANDWIDTH_METADATA = {
-  name: 'sTRX-BANDWIDTH',
+  name: 'Staked for Bandwidth',
   symbol: 'sTRX-BANDWIDTH',
   fungible: true as const,
   decimals: 6,
   iconUrl:
     'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
-  units: [
-    {
-      name: 'sTRX-BANDWIDTH',
-      symbol: 'sTRX-BANDWIDTH',
-      decimals: 6,
-    },
-  ],
 };
 
 export const TRX_STAKED_FOR_ENERGY_METADATA = {
-  name: 'sTRX-ENERGY',
+  name: 'Staked for Energy',
   symbol: 'sTRX-ENERGY',
   fungible: true as const,
   decimals: 6,
   iconUrl:
     'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
-  units: [
-    {
-      name: 'sTRX-ENERGY',
-      symbol: 'sTRX-ENERGY',
-      decimals: 6,
-    },
-  ],
 };
 
 export const BANDWIDTH_METADATA = {
-  name: 'BANDWIDTH',
-  symbol: 'BANDWIDTH',
+  name: 'Bandwidth',
+  symbol: 'BANDWIDTH',  
   fungible: true as const,
   decimals: 0,
   iconUrl:
     'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
-  units: [
-    {
-      name: 'BANDWIDTH',
-      symbol: 'BANDWIDTH',
-      decimals: 0,
-    },
-  ],
 };
 
 export const MAX_BANDWIDTH_METADATA = {
-  name: 'MAX-BANDWIDTH',
+  name: 'Max Bandwidth',
   symbol: 'MAX-BANDWIDTH',
   fungible: true as const,
   decimals: 0,
   iconUrl:
     'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
-  units: [
-    {
-      name: 'MAX-BANDWIDTH',
-      symbol: 'MAX-BANDWIDTH',
-      decimals: 0,
-    },
-  ],
 };
 
 export const ENERGY_METADATA = {
-  name: 'ENERGY',
+  name: 'Energy',
   symbol: 'ENERGY',
   fungible: true as const,
   decimals: 0,
   iconUrl:
     'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
-  units: [
-    {
-      name: 'ENERGY',
-      symbol: 'ENERGY',
-      decimals: 0,
-    },
-  ],
 };
 
 export const MAX_ENERGY_METADATA = {
-  name: 'MAX-ENERGY',
+  name: 'Max Energy',
   symbol: 'MAX-ENERGY',
   fungible: true as const,
   decimals: 0,
   iconUrl:
     'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
-  units: [
-    {
-      name: 'MAX-ENERGY',
-      symbol: 'MAX-ENERGY',
-      decimals: 0,
-    },
-  ],
 };
 
 export const TokenMetadata = {
@@ -290,11 +241,11 @@ export const TokenMetadata = {
     ...MAX_ENERGY_METADATA,
   },
   [KnownCaip19Id.MaximumEnergyShasta]: {
-    id: KnownCaip19Id.EnergyShasta,
+    id: KnownCaip19Id.MaximumEnergyShasta,
     ...MAX_ENERGY_METADATA,
   },
   [KnownCaip19Id.MaximumEnergyLocalnet]: {
-    id: KnownCaip19Id.EnergyLocalnet,
+    id: KnownCaip19Id.MaximumEnergyLocalnet,
     ...MAX_ENERGY_METADATA,
   },
 } as const;
@@ -334,7 +285,7 @@ export const Networks = {
       TokenMetadata[KnownCaip19Id.TrxStakedForBandwidthShasta],
     stakedForEnergy: TokenMetadata[KnownCaip19Id.TrxStakedForEnergyShasta],
     bandwidth: TokenMetadata[KnownCaip19Id.BandwidthShasta],
-    maximumBandwidth: TokenMetadata[KnownCaip19Id.BandwidthShasta],
+    maximumBandwidth: TokenMetadata[KnownCaip19Id.MaximumBandwidthShasta],
     energy: TokenMetadata[KnownCaip19Id.EnergyShasta],
     maximumEnergy: TokenMetadata[KnownCaip19Id.MaximumEnergyShasta],
   },
@@ -347,7 +298,7 @@ export const Networks = {
       TokenMetadata[KnownCaip19Id.TrxStakedForBandwidthLocalnet],
     stakedForEnergy: TokenMetadata[KnownCaip19Id.TrxStakedForEnergyLocalnet],
     bandwidth: TokenMetadata[KnownCaip19Id.BandwidthLocalnet],
-    maximumBandwidth: TokenMetadata[KnownCaip19Id.BandwidthLocalnet],
+    maximumBandwidth: TokenMetadata[KnownCaip19Id.MaximumBandwidthLocalnet],
     energy: TokenMetadata[KnownCaip19Id.EnergyLocalnet],
     maximumEnergy: TokenMetadata[KnownCaip19Id.MaximumEnergyLocalnet],
   },
