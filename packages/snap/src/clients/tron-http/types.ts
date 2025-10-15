@@ -92,13 +92,19 @@ export type TRC10TokenMetadata = {
   decimals: number;
 };
 
+/**
+ * Account resources
+ * @see https://developers.tron.network/reference/getaccountresource
+ */
 export type AccountResources = {
+  freeNetUsed: number;
   freeNetLimit: number;
   NetLimit: number;
   TotalNetLimit: number;
   TotalNetWeight: number;
   tronPowerUsed: number;
   tronPowerLimit: number;
+  EnergyUsed?: number;
   EnergyLimit?: number;
   TotalEnergyLimit: number;
   TotalEnergyWeight: number;

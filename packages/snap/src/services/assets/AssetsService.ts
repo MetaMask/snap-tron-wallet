@@ -112,12 +112,16 @@ export class AssetsService {
       scope,
     });
 
-    let [tronAccountInfoRequest, tronAccountResourcesRequest] = await Promise.allSettled([
-      this.#trongridApiClient.getAccountInfoByAddress(scope, account.address),
-      this.#tronHttpClient.getAccountResources(scope, account.address),
-    ]);
+    let [tronAccountInfoRequest, tronAccountResourcesRequest] =
+      await Promise.allSettled([
+        this.#trongridApiClient.getAccountInfoByAddress(scope, account.address),
+        this.#tronHttpClient.getAccountResources(scope, account.address),
+      ]);
 
-    if(tronAccountInfoRequest.status === 'rejected' || tronAccountResourcesRequest.status === 'rejected') {
+    if (
+      tronAccountInfoRequest.status === 'rejected' ||
+      tronAccountResourcesRequest.status === 'rejected'
+    ) {
       return [
         {
           symbol: Networks[scope].nativeToken.symbol,
@@ -127,8 +131,8 @@ export class AssetsService {
           keyringAccountId: account.id,
           network: scope,
           rawAmount: '0',
-        }
-      ]
+        },
+      ];
     }
 
     const nativeAsset = this.#extractNativeAsset({
@@ -303,9 +307,11 @@ export class AssetsService {
     scope: Network;
     tronAccountResources: AccountResources | Record<string, never>;
   }): AssetEntity[] {
+    const maximumBandwidth =
+      (tronAccountResources?.freeNetLimit ?? 0) +
+      (tronAccountResources?.NetLimit ?? 0);
     const bandwidth =
-    (tronAccountResources?.freeNetLimit ?? 0) + (tronAccountResources?.NetLimit ?? 0);
-    const maximumBandwidth = tronAccountResources?.TotalNetLimit ?? 0;
+      maximumBandwidth - (tronAccountResources?.freeNetUsed ?? 0);
 
     return [
       {
@@ -338,8 +344,8 @@ export class AssetsService {
     scope: Network;
     tronAccountResources: AccountResources | Record<string, never>;
   }): AssetEntity[] {
-    const energy = tronAccountResources?.EnergyLimit ?? 0;
-    const maximumEnergy = tronAccountResources?.TotalEnergyLimit ?? 0;
+    const maximumEnergy = tronAccountResources?.EnergyLimit ?? 0;
+    const energy = tronAccountResources?.EnergyUsed ?? maximumEnergy;
 
     return [
       {
@@ -376,19 +382,19 @@ export class AssetsService {
 
     const trc10Assets =
       assetV2?.flatMap((tokenObject) => {
-        return Object.entries(tokenObject).map(([address, balance]) => {
-          return {
-            assetType: `${scope}/trc10:${address}` as TokenCaipAssetType,
-            keyringAccountId: account.id,
-            network: scope,
-            symbol: '',
-            decimals: 0,
-            rawAmount: balance,
-            uiAmount: '0',
-          };
-        });
+        // assetV2 has structure: { "key": "token_id", "value": "balance" }
+        // Each object in the array has "key" and "value" properties
+        return {
+          assetType: `${scope}/trc10:${tokenObject.key}` as TokenCaipAssetType,
+          keyringAccountId: account.id,
+          network: scope,
+          symbol: '',
+          decimals: 0,
+          rawAmount: tokenObject.value?.toString() ?? '0',
+          uiAmount: '0',
+        };
       }) ?? [];
-    
+
     return trc10Assets;
   }
 
@@ -520,15 +526,14 @@ export class AssetsService {
         fungible: TRX_METADATA.fungible,
         name: TRX_METADATA.name,
         symbol: TRX_METADATA.symbol,
-        iconUrl:
-          TRX_METADATA.iconUrl,
-       units: [
-        {
-          decimals: TRX_METADATA.decimals,
-          symbol: TRX_METADATA.symbol,
-          name: TRX_METADATA.name,
-        },
-       ]
+        iconUrl: TRX_METADATA.iconUrl,
+        units: [
+          {
+            decimals: TRX_METADATA.decimals,
+            symbol: TRX_METADATA.symbol,
+            name: TRX_METADATA.name,
+          },
+        ],
       };
     }
 
