@@ -50,8 +50,6 @@ export class AssetsHandler {
     const conversionRates =
       await this.#assetsService.getMultipleTokenConversions(conversions);
 
-    console.log('HANDLER onAssetsConversion', JSON.stringify(conversionRates));
-
     return {
       conversionRates,
     };
@@ -62,8 +60,6 @@ export class AssetsHandler {
   ): Promise<OnAssetsLookupResponse> {
     const assets = await this.#assetsService.getAssetsMetadata(params.assets);
 
-    console.log('HANDLER onAssetsLookup', JSON.stringify(assets));
-
     return { assets };
   }
 
@@ -73,8 +69,6 @@ export class AssetsHandler {
     const marketData = await this.#assetsService.getMultipleTokensMarketData(
       params.assets,
     );
-
-    console.log('HANDLER onAssetsMarketData', JSON.stringify(marketData));
 
     return { marketData };
   }

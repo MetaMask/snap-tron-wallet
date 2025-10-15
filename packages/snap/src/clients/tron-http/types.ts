@@ -99,7 +99,7 @@ export type AccountResources = {
   TotalNetWeight: number;
   tronPowerUsed: number;
   tronPowerLimit: number;
-  EnergyLimit: number;
+  EnergyLimit?: number;
   TotalEnergyLimit: number;
   TotalEnergyWeight: number;
 };
