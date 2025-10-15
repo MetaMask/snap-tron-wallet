@@ -83,7 +83,7 @@ export const TRX_STAKED_FOR_ENERGY_METADATA = {
 
 export const BANDWIDTH_METADATA = {
   name: 'Bandwidth',
-  symbol: 'BANDWIDTH',  
+  symbol: 'BANDWIDTH',
   fungible: true as const,
   decimals: 0,
   iconUrl:

@@ -16,6 +16,14 @@ import { parseCaipAssetType } from '@metamask/utils';
 import { BigNumber } from 'bignumber.js';
 import { pick } from 'lodash';
 
+import type { AssetsRepository } from './AssetsRepository';
+import type {
+  NativeCaipAssetType,
+  NftCaipAssetType,
+  ResourceCaipAssetType,
+  StakedCaipAssetType,
+  TokenCaipAssetType,
+} from './types';
 import type { PriceApiClient } from '../../clients/price-api/PriceApiClient';
 import type { FiatTicker, SpotPrice } from '../../clients/price-api/types';
 import type { TokenApiClient } from '../../clients/token-api/TokenApiClient';
@@ -36,14 +44,6 @@ import { configProvider } from '../../context';
 import type { AssetEntity } from '../../entities/assets';
 import { createPrefixedLogger, type ILogger } from '../../utils/logger';
 import type { State, UnencryptedStateValue } from '../state/State';
-import type { AssetsRepository } from './AssetsRepository';
-import type {
-  NativeCaipAssetType,
-  NftCaipAssetType,
-  ResourceCaipAssetType,
-  StakedCaipAssetType,
-  TokenCaipAssetType,
-} from './types';
 
 export class AssetsService {
   readonly #logger: ILogger;
@@ -112,7 +112,7 @@ export class AssetsService {
       scope,
     });
 
-    let [tronAccountInfoRequest, tronAccountResourcesRequest] =
+    const [tronAccountInfoRequest, tronAccountResourcesRequest] =
       await Promise.allSettled([
         this.#trongridApiClient.getAccountInfoByAddress(scope, account.address),
         this.#tronHttpClient.getAccountResources(scope, account.address),

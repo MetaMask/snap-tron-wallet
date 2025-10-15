@@ -94,6 +94,7 @@ export type TRC10TokenMetadata = {
 
 /**
  * Account resources
+ *
  * @see https://developers.tron.network/reference/getaccountresource
  */
 export type AccountResources = {
