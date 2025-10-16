@@ -9,10 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.4.0]
 
-### Uncategorized
+### Fixed
 
-- chore: edit names and balance decimals ([#49](https://github.com/MetaMask/snap-tron-wallet/pull/49))
-- feat: send maximum Bandwidth and Energy as assets ([#42](https://github.com/MetaMask/snap-tron-wallet/pull/42))
+- Edit assets names and balance decimals ([#49](https://github.com/MetaMask/snap-tron-wallet/pull/49))
+- Send maximum Bandwidth and Energy as assets ([#42](https://github.com/MetaMask/snap-tron-wallet/pull/42))
 
 ## [1.3.0]
 
