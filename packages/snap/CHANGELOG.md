@@ -9,11 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.5.0]
 
-### Uncategorized
+### Added
 
-- fix: match the new Keyring `createAccount` spec ([#52](https://github.com/MetaMask/snap-tron-wallet/pull/52))
-- chore: implement safe error handling so that the Snap never crashes ([#51](https://github.com/MetaMask/snap-tron-wallet/pull/51))
-- feat: implement staking and unstaking handlers ([#46](https://github.com/MetaMask/snap-tron-wallet/pull/46))
+- Implement staking and unstaking handlers ([#46](https://github.com/MetaMask/snap-tron-wallet/pull/46))
+
+### Changed
+
+- Match the new Keyring `createAccount` spec ([#52](https://github.com/MetaMask/snap-tron-wallet/pull/52))
+- Implement safe error handling so that the Snap never crashes ([#51](https://github.com/MetaMask/snap-tron-wallet/pull/51))
 
 ## [1.4.0]
 
