@@ -9,10 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.5.1]
 
-### Uncategorized
+### Changed
 
-- chore: update max bandwidth and energy values ([#55](https://github.com/MetaMask/snap-tron-wallet/pull/55))
-- fix: modify `signAndSendTransaction` to properly handle base64 transactions ([#54](https://github.com/MetaMask/snap-tron-wallet/pull/54))
+- Send the metadata for the max bandwidth and energy values ([#55](https://github.com/MetaMask/snap-tron-wallet/pull/55))
+- Modify `signAndSendTransaction` to properly handle base64 transactions ([#54](https://github.com/MetaMask/snap-tron-wallet/pull/54))
 
 ## [1.5.0]
 
