@@ -147,13 +147,10 @@ export class ClientRequestHandler {
 
     const account = await this.#accountsService.findByIdOrThrow(accountId);
 
-    const keypair = await this.#accountsService.deriveTronKeypair({
+    const { privateKeyHex } = await this.#accountsService.deriveTronKeypair({
       entropySource: account.entropySource,
       derivationPath: account.derivationPath,
     });
-
-    // eslint-disable-next-line no-restricted-globals
-    const privateKeyHex = Buffer.from(keypair.privateKeyBytes).toString('hex');
     const tronWeb = this.#tronWebFactory.createClient(scope, privateKeyHex);
 
     /**
