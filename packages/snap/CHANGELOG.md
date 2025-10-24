@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.5.2]
 
-### Uncategorized
+### Fixed
 
-- fix: missing fields on `signAndSendTransaction`'s payload for Tron ([#57](https://github.com/MetaMask/snap-tron-wallet/pull/57))
+- Add missing fields on `signAndSendTransaction`'s payload for Tron ([#57](https://github.com/MetaMask/snap-tron-wallet/pull/57))
 
 ## [1.5.1]
 
