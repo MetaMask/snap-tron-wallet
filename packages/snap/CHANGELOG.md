@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.5.3]
 
-### Uncategorized
+### Fixed
 
-- fix: make field `visible` configurable by caller on the `signAndSendTransaction` handler ([#59](https://github.com/MetaMask/snap-tron-wallet/pull/59))
+- Make field `visible` configurable by caller on the `signAndSendTransaction` handler ([#59](https://github.com/MetaMask/snap-tron-wallet/pull/59))
 
 ## [1.5.2]
 
