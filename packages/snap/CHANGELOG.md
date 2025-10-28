@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.5.4]
 
-### Uncategorized
+### Fixed
 
-- fix: use correct hex private key for `signAndSendTransaction` ([#61](https://github.com/MetaMask/snap-tron-wallet/pull/61))
+- Use the correct hexadecimal format private key (excluding the `0x` prefix) when using TronWeb ([#61](https://github.com/MetaMask/snap-tron-wallet/pull/61))
 
 ## [1.5.3]
 
