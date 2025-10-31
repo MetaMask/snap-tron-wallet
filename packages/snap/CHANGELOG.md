@@ -9,11 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.6.0]
 
-### Uncategorized
+### Added
 
-- chore: bump shasum ([#65](https://github.com/MetaMask/snap-tron-wallet/pull/65))
-- fix: adjust `timestamp` fields' precision in seconds, not milliseconds ([#64](https://github.com/MetaMask/snap-tron-wallet/pull/64))
-- feat: implement `setSelectedAccounts` handler ([#63](https://github.com/MetaMask/snap-tron-wallet/pull/63))
+- Implement `setSelectedAccounts` handler ([#63](https://github.com/MetaMask/snap-tron-wallet/pull/63))
+
+### Fixed
+
+- Adjust `timestamp` fields' precision to be in seconds, not milliseconds ([#64](https://github.com/MetaMask/snap-tron-wallet/pull/64))
 
 ## [1.5.4]
 
