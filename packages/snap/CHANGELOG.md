@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.6.1]
 
-### Uncategorized
+### Fixed
 
-- fix: use the correct `index` instead of `groupIndex` for account creation ([#67](https://github.com/MetaMask/snap-tron-wallet/pull/67))
+- Use the correct `index` field instead of `groupIndex` for account creation ([#67](https://github.com/MetaMask/snap-tron-wallet/pull/67))
 
 ## [1.6.0]
 
