@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0]
+
+### Uncategorized
+
+- chore: bump shasum ([#65](https://github.com/MetaMask/snap-tron-wallet/pull/65))
+- fix: adjust `timestamp` fields' precision in seconds, not milliseconds ([#64](https://github.com/MetaMask/snap-tron-wallet/pull/64))
+- feat: implement `setSelectedAccounts` handler ([#63](https://github.com/MetaMask/snap-tron-wallet/pull/63))
+
 ## [1.5.4]
 
 ### Fixed
@@ -111,7 +119,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release of Tron wallet snap
 - Support for TRX and token assets balances ([#12](https://github.com/MetaMask/snap-tron-wallet/pull/12))
 
-[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.5.4...HEAD
+[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.5.4...v1.6.0
 [1.5.4]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.5.3...v1.5.4
 [1.5.3]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.5.2...v1.5.3
 [1.5.2]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.5.1...v1.5.2
