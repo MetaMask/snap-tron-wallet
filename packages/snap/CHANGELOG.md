@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.7.0]
 
-### Uncategorized
+### Changed
 
-- refactor: add `options` to the unstake method ([#69](https://github.com/MetaMask/snap-tron-wallet/pull/69))
+- Add `options` to the unstake method ([#69](https://github.com/MetaMask/snap-tron-wallet/pull/69))
 
 ## [1.6.1]
 
