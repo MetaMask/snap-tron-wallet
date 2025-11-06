@@ -16,14 +16,6 @@ import { parseCaipAssetType } from '@metamask/utils';
 import { BigNumber } from 'bignumber.js';
 import { pick } from 'lodash';
 
-import type { AssetsRepository } from './AssetsRepository';
-import type {
-  NativeCaipAssetType,
-  NftCaipAssetType,
-  ResourceCaipAssetType,
-  StakedCaipAssetType,
-  TokenCaipAssetType,
-} from './types';
 import type { PriceApiClient } from '../../clients/price-api/PriceApiClient';
 import type { FiatTicker, SpotPrice } from '../../clients/price-api/types';
 import type { TokenApiClient } from '../../clients/token-api/TokenApiClient';
@@ -34,18 +26,29 @@ import type { TronAccount } from '../../clients/trongrid/types';
 import {
   BANDWIDTH_METADATA,
   ENERGY_METADATA,
+  ESSENTIAL_ASSETS,
+  KnownCaip19Id,
   MAX_BANDWIDTH_METADATA,
   MAX_ENERGY_METADATA,
   Networks,
+  TokenMetadata,
   TRX_METADATA,
   TRX_STAKED_FOR_BANDWIDTH_METADATA,
   TRX_STAKED_FOR_ENERGY_METADATA,
-  type Network,
+  type Network
 } from '../../constants';
 import { configProvider } from '../../context';
 import type { AssetEntity } from '../../entities/assets';
 import { createPrefixedLogger, type ILogger } from '../../utils/logger';
 import type { State, UnencryptedStateValue } from '../state/State';
+import type { AssetsRepository } from './AssetsRepository';
+import type {
+  NativeCaipAssetType,
+  NftCaipAssetType,
+  ResourceCaipAssetType,
+  StakedCaipAssetType,
+  TokenCaipAssetType,
+} from './types';
 
 export class AssetsService {
   readonly #logger: ILogger;
@@ -759,10 +762,17 @@ export class AssetsService {
   async saveMany(assets: AssetEntity[]): Promise<void> {
     this.#logger.info('Saving assets', assets);
 
-    const hasZeroAmount = (asset: AssetEntity): boolean =>
+    /**
+     * Should we save the assets incrementally?
+     * - If true, only saves and emits events for the assets that have changed (new or balance changed). Better performance because it only informs the client of what has changed.
+     * - If false, saves all assets. More reliable because it enforces that the client has the same state of assets as the snap.
+     */
+    const isIncremental = false;
+
+    const hasZeroAmount = (asset: AssetEntity) =>
       asset.rawAmount === '0' || asset.uiAmount === '0';
-    const hasNonZeroAmount = (asset: AssetEntity): boolean =>
-      !hasZeroAmount(asset);
+
+    const hasNonZeroAmount = (asset: AssetEntity) => !hasZeroAmount(asset);
 
     const savedAssets = await this.getAll();
 
@@ -770,16 +780,14 @@ export class AssetsService {
     await this.#assetsRepository.saveMany(assets);
 
     // Notify the extension about the new assets in a single event
-    const isNew = (asset: AssetEntity): boolean =>
+    const isNew = (asset: AssetEntity) =>
       !savedAssets.find(
         (item) =>
           item.keyringAccountId === asset.keyringAccountId &&
           item.assetType === asset.assetType,
       );
 
-    const wasSavedWithZeroAmount = (
-      asset: AssetEntity,
-    ): boolean | undefined => {
+    const wasSavedWithZeroAmount = (asset: AssetEntity) => {
       const savedAsset = savedAssets.find(
         (item) =>
           item.keyringAccountId === asset.keyringAccountId &&
@@ -789,8 +797,17 @@ export class AssetsService {
       return savedAsset && hasZeroAmount(savedAsset);
     };
 
-    const isNativeAsset = (asset: AssetEntity): boolean =>
+    const isNativeAsset = (asset: AssetEntity) =>
       asset.assetType.includes('/slip44:195');
+
+    const shouldBeInRemovedList = (asset: AssetEntity) =>
+      hasZeroAmount(asset) && !isNativeAsset(asset); // Never remove native assets from the account asset list
+
+    const shouldBeInAddedList = (asset: AssetEntity) =>
+      !shouldBeInRemovedList(asset) &&
+      (!isIncremental ||
+        ((isNew(asset) || wasSavedWithZeroAmount(asset)) &&
+          hasNonZeroAmount(asset)));
 
     const assetListUpdatedPayload = assets.reduce<
       AccountAssetListUpdatedEvent['params']['assets']
@@ -800,16 +817,11 @@ export class AssetsService {
         [asset.keyringAccountId]: {
           added: [
             ...(acc[asset.keyringAccountId]?.added ?? []),
-            ...((isNew(asset) || wasSavedWithZeroAmount(asset)) &&
-            hasNonZeroAmount(asset)
-              ? [asset.assetType]
-              : []),
+            ...(shouldBeInAddedList(asset) ? [asset.assetType] : []),
           ],
           removed: [
             ...(acc[asset.keyringAccountId]?.removed ?? []),
-            ...(hasZeroAmount(asset) && !isNativeAsset(asset) // Never remove native assets from the account asset list
-              ? [asset.assetType]
-              : []),
+            ...(shouldBeInRemovedList(asset) ? [asset.assetType] : []),
           ],
         },
       }),
@@ -831,7 +843,7 @@ export class AssetsService {
 
     // Notify the extension about the changed balances in a single event
 
-    const hasChanged = (asset: AssetEntity): boolean =>
+    const hasChanged = (asset: AssetEntity) =>
       AssetsService.hasChanged(asset, savedAssets);
 
     /**
@@ -860,7 +872,7 @@ export class AssetsService {
      * }
      */
     const balancesUpdatedPayload = assets
-      .filter(hasChanged)
+      .filter(isIncremental ? hasChanged : () => true)
       .reduce<AccountBalancesUpdatedEvent['params']['balances']>(
         (acc, asset) => ({
           ...acc,
@@ -896,10 +908,63 @@ export class AssetsService {
     return Object.values(assetsByAccount).flat();
   }
 
+  /**
+   * Creates an asset entity with zero balance from a known CAIP-19 asset ID.
+   * Uses pre-calculated metadata from TokenMetadata.
+   *
+   * @param assetId - The CAIP-19 asset ID (e.g., KnownCaip19Id.TrxMainnet).
+   * @param keyringAccountId - The keyring account ID.
+   * @returns The asset entity with zero balance.
+   */
+  #createZeroBalanceAsset(
+    assetId: KnownCaip19Id,
+    keyringAccountId: string,
+  ): AssetEntity {
+    const metadata =
+      TokenMetadata[assetId as keyof typeof TokenMetadata] ??
+      (() => {
+        throw new Error(`Metadata not found for asset ID: ${assetId}`);
+      })();
+    const { chainId } = parseCaipAssetType(assetId);
+
+    return {
+      assetType: metadata.id,
+      keyringAccountId,
+      network: chainId as Network,
+      symbol: metadata.symbol,
+      decimals: metadata.decimals,
+      rawAmount: '0',
+      uiAmount: '0',
+    } as AssetEntity;
+  }
+
   async getByKeyringAccountId(
     keyringAccountId: string,
   ): Promise<AssetEntity[]> {
-    return this.#assetsRepository.getByAccountId(keyringAccountId);
+    const savedAssets =
+      await this.#assetsRepository.getByAccountId(keyringAccountId);
+
+    /**
+     * Ensure the special assets are always present whether they have been synced or not.
+     * These are assets that should be visible to the user even with zero balance.
+     */
+    const missingEssentialAssets: AssetEntity[] = [];
+
+    for (const essentialAssetId of ESSENTIAL_ASSETS) {
+      const savedAsset = savedAssets.find(
+        (asset) => asset.assetType === essentialAssetId,
+      );
+
+      if (!savedAsset) {
+        const zeroBalanceAsset = this.#createZeroBalanceAsset(
+          essentialAssetId as KnownCaip19Id,
+          keyringAccountId,
+        );
+        missingEssentialAssets.push(zeroBalanceAsset);
+      }
+    }
+
+    return [...savedAssets, ...missingEssentialAssets];
   }
 
   /**

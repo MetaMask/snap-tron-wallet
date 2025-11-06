@@ -9,8 +9,6 @@ import type { Json } from '@metamask/utils';
 import { hexToBytes } from '@metamask/utils';
 import { TronWeb } from 'tronweb';
 
-import type { AccountsRepository } from './AccountsRepository';
-import type { CreateAccountOptions } from './types';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import {
   asStrictKeyringAccount,
@@ -21,6 +19,8 @@ import { createPrefixedLogger, type ILogger } from '../../utils/logger';
 import type { AssetsService } from '../assets/AssetsService';
 import type { ConfigProvider } from '../config';
 import type { TransactionsService } from '../transactions/TransactionsService';
+import type { AccountsRepository } from './AccountsRepository';
+import type { CreateAccountOptions } from './types';
 
 /**
  * Validates a Tron derivation path following the format: m/44'/195'/...
@@ -212,12 +212,6 @@ export class AccountsService {
     await this.#accountsRepository.create(tronKeyringAccount);
 
     const keyringAccount = asStrictKeyringAccount(tronKeyringAccount);
-
-    /**
-     * Fetch the account's assets before we send it to the UI so that
-     * it's loaded with data already in place.
-     */
-    await this.synchronizeAssets([keyringAccount]);
 
     await emitSnapKeyringEvent(snap, KeyringEvent.AccountCreated, {
       /**
