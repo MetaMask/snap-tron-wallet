@@ -9,7 +9,6 @@ const networks = {
   [Network.Mainnet]: 'Mainnet',
   [Network.Nile]: 'Nile',
   [Network.Shasta]: 'Shasta',
-  [Network.Localnet]: 'Localnet',
 };
 
 export const NetworkSelector: FC = () => {

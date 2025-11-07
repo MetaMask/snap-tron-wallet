@@ -16,31 +16,6 @@ import { parseCaipAssetType } from '@metamask/utils';
 import { BigNumber } from 'bignumber.js';
 import { pick } from 'lodash';
 
-import type { PriceApiClient } from '../../clients/price-api/PriceApiClient';
-import type { FiatTicker, SpotPrice } from '../../clients/price-api/types';
-import type { TokenApiClient } from '../../clients/token-api/TokenApiClient';
-import type { AccountResources } from '../../clients/tron-http';
-import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
-import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
-import type { TronAccount } from '../../clients/trongrid/types';
-import {
-  BANDWIDTH_METADATA,
-  ENERGY_METADATA,
-  ESSENTIAL_ASSETS,
-  KnownCaip19Id,
-  MAX_BANDWIDTH_METADATA,
-  MAX_ENERGY_METADATA,
-  Networks,
-  TokenMetadata,
-  TRX_METADATA,
-  TRX_STAKED_FOR_BANDWIDTH_METADATA,
-  TRX_STAKED_FOR_ENERGY_METADATA,
-  type Network
-} from '../../constants';
-import { configProvider } from '../../context';
-import type { AssetEntity } from '../../entities/assets';
-import { createPrefixedLogger, type ILogger } from '../../utils/logger';
-import type { State, UnencryptedStateValue } from '../state/State';
 import type { AssetsRepository } from './AssetsRepository';
 import type {
   NativeCaipAssetType,
@@ -49,6 +24,31 @@ import type {
   StakedCaipAssetType,
   TokenCaipAssetType,
 } from './types';
+import type { PriceApiClient } from '../../clients/price-api/PriceApiClient';
+import type { FiatTicker, SpotPrice } from '../../clients/price-api/types';
+import type { TokenApiClient } from '../../clients/token-api/TokenApiClient';
+import type { AccountResources } from '../../clients/tron-http';
+import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
+import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
+import type { TronAccount } from '../../clients/trongrid/types';
+import type {
+  KnownCaip19Id,
+  BANDWIDTH_METADATA,
+  ENERGY_METADATA,
+  ESSENTIAL_ASSETS,
+  MAX_BANDWIDTH_METADATA,
+  MAX_ENERGY_METADATA,
+  Networks,
+  TokenMetadata,
+  TRX_METADATA,
+  TRX_STAKED_FOR_BANDWIDTH_METADATA,
+  TRX_STAKED_FOR_ENERGY_METADATA,
+  type Network,
+} from '../../constants';
+import { configProvider } from '../../context';
+import type { AssetEntity } from '../../entities/assets';
+import { createPrefixedLogger, type ILogger } from '../../utils/logger';
+import type { State, UnencryptedStateValue } from '../state/State';
 
 export class AssetsService {
   readonly #logger: ILogger;

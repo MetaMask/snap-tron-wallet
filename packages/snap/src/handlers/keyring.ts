@@ -32,6 +32,7 @@ import { sortBy } from 'lodash';
 import type { SnapClient } from '../clients/snap/SnapClient';
 import { ESSENTIAL_ASSETS, type Network } from '../constants';
 import type { TronKeyringAccount } from '../entities';
+import { BackgroundEventMethod } from './cronjob';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { CreateAccountOptions } from '../services/accounts/types';
 import type { AssetsService } from '../services/assets/AssetsService';
@@ -50,7 +51,6 @@ import {
   validateRequest,
   validateResponse,
 } from '../validation/validators';
-import { BackgroundEventMethod } from './cronjob';
 
 export class KeyringHandler implements Keyring {
   readonly #logger: ILogger;
@@ -160,7 +160,8 @@ export class KeyringHandler implements Keyring {
 
       this.#logger.info('Listing account assets', { accountId });
 
-      const assetEntities = await this.#assetsService.getByKeyringAccountId(accountId);
+      const assetEntities =
+        await this.#assetsService.getByKeyringAccountId(accountId);
       const result = assetEntities
         .filter(
           (asset) =>
@@ -295,7 +296,7 @@ export class KeyringHandler implements Keyring {
       const assetsList =
         await this.#assetsService.getByKeyringAccountId(accountId);
 
-      const assetsToUse = assetsList        
+      const assetsToUse = assetsList
         .filter((asset) => assets.includes(asset.assetType))
         // Remove token assets with zero balance
         .filter(
