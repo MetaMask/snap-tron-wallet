@@ -25,12 +25,6 @@ const CommaSeparatedListOfUrlsStruct = coerce(
   (value: string) => value.split(','),
 );
 
-const CommaSeparatedListOfStringsStruct = coerce(
-  array(string()),
-  string(),
-  (value: string) => value.split(','),
-);
-
 const EnvStruct = object({
   ENVIRONMENT: enums(['local', 'test', 'production']),
   RPC_URL_LIST_MAINNET: CommaSeparatedListOfUrlsStruct,
