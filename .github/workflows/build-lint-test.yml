@@ -27,8 +27,6 @@ on:
         required: true
       EXPLORER_SHASTA_BASE_URL:
         required: true
-      TRONGRID_API_KEY:
-        required: true
       TRONGRID_BASE_URL_MAINNET:
         required: true
       TRONGRID_BASE_URL_NILE:
@@ -73,7 +71,6 @@ jobs:
       STATIC_API_BASE_URL: ${{ secrets.STATIC_API_BASE_URL }}
       SECURITY_ALERTS_API_BASE_URL: ${{ secrets.SECURITY_ALERTS_API_BASE_URL }}
       NFT_API_BASE_URL: ${{ secrets.NFT_API_BASE_URL }}
-      TRONGRID_API_KEY: ${{ secrets.TRONGRID_API_KEY }}
       TRONGRID_BASE_URL_MAINNET: ${{ secrets.TRONGRID_BASE_URL_MAINNET }}
       TRONGRID_BASE_URL_NILE: ${{ secrets.TRONGRID_BASE_URL_NILE }}
       TRONGRID_BASE_URL_SHASTA: ${{ secrets.TRONGRID_BASE_URL_SHASTA }}
@@ -129,7 +126,6 @@ jobs:
       STATIC_API_BASE_URL: ${{ secrets.STATIC_API_BASE_URL }}
       SECURITY_ALERTS_API_BASE_URL: ${{ secrets.SECURITY_ALERTS_API_BASE_URL }}
       NFT_API_BASE_URL: ${{ secrets.NFT_API_BASE_URL }}
-      TRONGRID_API_KEY: ${{ secrets.TRONGRID_API_KEY }}
       TRONGRID_BASE_URL_MAINNET: ${{ secrets.TRONGRID_BASE_URL_MAINNET }}
       TRONGRID_BASE_URL_NILE: ${{ secrets.TRONGRID_BASE_URL_NILE }}
       TRONGRID_BASE_URL_SHASTA: ${{ secrets.TRONGRID_BASE_URL_SHASTA }}
