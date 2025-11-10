@@ -9,18 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.7.2]
 
-### Uncategorized
+### Added
 
-- More fixes ([#77](https://github.com/MetaMask/snap-tron-wallet/pull/77))
-- feat: tron using infura ([#75](https://github.com/MetaMask/snap-tron-wallet/pull/75))
-- fix: adjust decimals when sending TRC20 tokens ([#76](https://github.com/MetaMask/snap-tron-wallet/pull/76))
+- Use Infura for all API dependencies ([#75](https://github.com/MetaMask/snap-tron-wallet/pull/75))
+
+### Fixed
+
+- Return transaction history fees in TRX not in SUN ([#77](https://github.com/MetaMask/snap-tron-wallet/pull/77))
+- `computeFee` method needs to reconstruct Tron transactions the same way `signAndSendTransaction` does ([#77](https://github.com/MetaMask/snap-tron-wallet/pull/77))
+- Adjust decimals when sending TRC20 tokens ([#76](https://github.com/MetaMask/snap-tron-wallet/pull/76))
 
 ## [1.7.1]
 
-### Uncategorized
+### Changed
 
-- All improvements ([#73](https://github.com/MetaMask/snap-tron-wallet/pull/73))
-- fix: staking methods need to convert amounts to sun ([#71](https://github.com/MetaMask/snap-tron-wallet/pull/71))
+- Remove unused "Localnet" ([#73](https://github.com/MetaMask/snap-tron-wallet/pull/73))
+
+### Fixed
+
+- Incorrect staked Tron amount due to not counting delegated TRX ([#73](https://github.com/MetaMask/snap-tron-wallet/pull/73))
+- No initialized placeholder TRX value, nor special assets (Bandwidth, Energy) on accounts without TRX ([#73](https://github.com/MetaMask/snap-tron-wallet/pull/73))
+- Staking methods need to convert amounts to sun ([#71](https://github.com/MetaMask/snap-tron-wallet/pull/71))
 
 ## [1.7.0]
 
