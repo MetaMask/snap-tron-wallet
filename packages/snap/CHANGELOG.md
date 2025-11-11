@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.7.4]
 
-### Uncategorized
+### Fixed
 
-- fix: unstake method doing incorrect input validation ([#82](https://github.com/MetaMask/snap-tron-wallet/pull/82))
+- Unstake method was doing incorrect input validation ([#82](https://github.com/MetaMask/snap-tron-wallet/pull/82))
 
 ## [1.7.3]
 
