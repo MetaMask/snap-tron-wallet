@@ -1,6 +1,6 @@
 import { Button, Card, Flex } from '@chakra-ui/react';
 
-import { RpcRequestMethods } from '../../../../snap/src/handlers/rpc';
+import { RpcRequestMethods } from '../../../../snap/src/handlers/rpc/types';
 import { useInvokeSnap } from '../../hooks';
 import { useShowToasterForResponse } from '../../hooks/useToasterForResponse';
 
