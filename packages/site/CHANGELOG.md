@@ -7,13 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.7.3]
-
-### Uncategorized
-
-- Revert "1.7.3" ([#80](https://github.com/MetaMask/snap-tron-wallet/pull/80))
-- 1.7.3 ([#79](https://github.com/MetaMask/snap-tron-wallet/pull/79))
-
 ## [1.7.1]
 
 ### Changed
