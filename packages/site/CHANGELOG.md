@@ -43,8 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release of Tron wallet site
 
-[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.7.3...HEAD
-[1.7.3]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.7.1...v1.7.3
+[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.7.1...HEAD
 [1.7.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.3.0...v1.7.1
 [1.3.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.1.0...v1.3.0
 [1.1.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.0.2...v1.1.0
