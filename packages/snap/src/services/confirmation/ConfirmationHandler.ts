@@ -1,7 +1,5 @@
-import type { TronKeyringAccount } from '../../entities/keyring-account';
 import type { Network } from '../../constants';
-import type { ClientRequestMethod } from '../../handlers/clientRequest/types';
-import { render as renderConfirmTransactionRequest } from '../../features/confirmation/views/ConfirmTransactionRequest/render';
+import { render as renderConfirmTransactionRequest } from '../../ui/confirmation/views/ConfirmTransactionRequest/render';
 
 export class ConfirmationHandler {
   async confirmTransactionRequest({
@@ -20,6 +18,7 @@ export class ConfirmationHandler {
       fromAddress,
       amount,
       fee,
+      origin: 'MetaMask',
     });
 
     return result === true;
