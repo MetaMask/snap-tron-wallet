@@ -1,15 +1,10 @@
-import { ClientRequestMethod } from '../../../../handlers/clientRequest/types';
-import { BigNumber } from 'bignumber.js';
-import { Network, Networks } from '../../../../constants';
+import { Network } from '../../../../constants';
+import { TRX_IMAGE_SVG } from '../../../../static/tron-logo';
 import {
-  CONFIRM_SIGN_AND_SEND_TRANSACTION_INTERFACE_NAME,
   createInterface,
   getPreferences,
   showDialog,
-  updateInterface,
 } from '../../../../utils/interface';
-import logger from '../../../../utils/logger';
-import snapContext from '../../../../context';
 import { ConfirmTransactionRequest } from './ConfirmTransactionRequest';
 import type { ConfirmTransactionRequestContext } from './types';
 
@@ -18,6 +13,8 @@ export const DEFAULT_CONFIRMATION_CONTEXT: ConfirmTransactionRequestContext = {
   fromAddress: null,
   amount: null,
   fee: null,
+  origin: 'MetaMask',
+  networkImage: TRX_IMAGE_SVG,
   preferences: {
     locale: 'en',
     currency: 'usd',
@@ -37,6 +34,7 @@ export async function render(incomingContext: {
   fromAddress: string;
   amount: string;
   fee: string;
+  origin: string;
 }) {
   const context: ConfirmTransactionRequestContext = {
     ...DEFAULT_CONFIRMATION_CONTEXT,
