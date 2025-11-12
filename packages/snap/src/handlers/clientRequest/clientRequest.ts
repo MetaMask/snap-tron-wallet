@@ -1,13 +1,13 @@
 import { TransactionStatus } from '@metamask/keyring-api';
 import type { Json, JsonRpcRequest } from '@metamask/snaps-sdk';
-import { InvalidParamsError, MethodNotFoundError } from '@metamask/snaps-sdk';
+import { InvalidParamsError, MethodNotFoundError, UserRejectedRequestError } from '@metamask/snaps-sdk';
 import { assert } from '@metamask/superstruct';
 import { BigNumber } from 'bignumber.js';
 import { sha256 } from 'ethers';
 
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
-import { Networks } from '../../constants';
+import { Network, Networks } from '../../constants';
 import type { AccountsService } from '../../services/accounts/AccountsService';
 import type { AssetsService } from '../../services/assets/AssetsService';
 import type {
@@ -17,6 +17,7 @@ import type {
 import type { FeeCalculatorService } from '../../services/send/FeeCalculatorService';
 import type { SendService } from '../../services/send/SendService';
 import type { StakingService } from '../../services/staking/StakingService';
+import type { ConfirmationHandler } from '../../services/confirmation/ConfirmationHandler';
 import { assertOrThrow } from '../../utils/assertOrThrow';
 import type { ILogger } from '../../utils/logger';
 import { createPrefixedLogger } from '../../utils/logger';
@@ -32,7 +33,9 @@ import {
   OnStakeAmountInputRequestStruct,
   OnUnstakeAmountInputRequestStruct,
   SignAndSendTransactionRequestStruct,
+  OnConfirmUnstakeRequestStruct,
 } from './validation';
+import { parseCaipAssetType } from '@metamask/utils';
 
 export class ClientRequestHandler {
   readonly #logger: ILogger;
@@ -51,6 +54,8 @@ export class ClientRequestHandler {
 
   readonly #stakingService: StakingService;
 
+  readonly #confirmationHandler: ConfirmationHandler;
+
   constructor({
     logger,
     accountsService,
@@ -60,6 +65,7 @@ export class ClientRequestHandler {
     tronWebFactory,
     snapClient,
     stakingService,
+    confirmationHandler,
   }: {
     logger: ILogger;
     accountsService: AccountsService;
@@ -69,6 +75,7 @@ export class ClientRequestHandler {
     tronWebFactory: TronWebFactory;
     snapClient: SnapClient;
     stakingService: StakingService;
+    confirmationHandler: ConfirmationHandler;
   }) {
     this.#logger = createPrefixedLogger(logger, '[👋 ClientRequestHandler]');
     this.#accountsService = accountsService;
@@ -78,6 +85,7 @@ export class ClientRequestHandler {
     this.#tronWebFactory = tronWebFactory;
     this.#snapClient = snapClient;
     this.#stakingService = stakingService;
+    this.#confirmationHandler = confirmationHandler;
   }
 
   /**
@@ -287,6 +295,15 @@ export class ClientRequestHandler {
 
     const { fromAccountId, toAddress, amount, assetId } = request.params;
 
+    const account = await this.#accountsService.findById(fromAccountId);
+
+    if (!account) {
+      return {
+        valid: false,
+        errors: [SendErrorCodes.Invalid],
+      };
+    }
+
     const asset = await this.#assetsService.getAssetByAccountId(
       fromAccountId,
       assetId,
@@ -297,6 +314,17 @@ export class ClientRequestHandler {
         valid: false,
         errors: [SendErrorCodes.InsufficientBalance],
       };
+    }
+
+    const confirmed = await this.#confirmationHandler.confirmTransactionRequest({
+      scope: Network.Mainnet,
+      fromAddress: account.address,
+      amount,
+      fee: '1',
+    });
+
+    if (!confirmed) {
+      throw new UserRejectedRequestError() as unknown as Error;
     }
 
     const transaction = await this.#sendService.sendAsset({
@@ -432,12 +460,20 @@ export class ClientRequestHandler {
     );
 
     if (requestBalance.isGreaterThan(accountBalance)) {
+      console.log(
+        `[debug] [handleOnStakeAmountInput] Insufficient balance`,
+        JSON.stringify({ accountBalance, requestBalance }),
+      );
       return {
         valid: false,
         errors: [SendErrorCodes.InsufficientBalance],
       };
     }
 
+    console.log(
+      `[debug] [handleOnStakeAmountInput] Enough balance`,
+      JSON.stringify({ accountBalance, requestBalance }),
+    );
     return {
       valid: true,
       errors: [],
@@ -588,7 +624,7 @@ export class ClientRequestHandler {
   async #handleConfirmUnstake(request: JsonRpcRequest): Promise<Json> {
     assertOrThrow(
       request,
-      OnUnstakeAmountInputRequestStruct,
+      OnConfirmUnstakeRequestStruct,
       new InvalidParamsError(),
     );
 

@@ -144,6 +144,30 @@
     },
     "unexpected": {
       "message": "An unexpected error occurred"
+    },
+    "confirmation.signAndSendTransaction.title": {
+      "message": "Confirm transaction"
+    },
+    "confirmation.confirmButton": {
+      "message": "Confirm"
+    },
+    "confirmation.cancelButton": {
+      "message": "Cancel"
+    },
+    "confirmation.account": {
+      "message": "Account"
+    },
+    "confirmation.network": {
+      "message": "Network"
+    },
+    "confirmation.estimatedFee": {
+      "message": "Estimated fee"
+    },
+    "confirmation.nativePrice": {
+      "message": "Native price"
+    },
+    "confirmation.origin": {
+      "message": "Origin"
     }
   }
 }
