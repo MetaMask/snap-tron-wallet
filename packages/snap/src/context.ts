@@ -156,7 +156,9 @@ const keyringHandler = new KeyringHandler({
   transactionsService,
 });
 const rpcHandler = new RpcHandler();
-const userInputHandler = new UserInputHandler();
+const userInputHandler = new UserInputHandler({
+  logger
+});
 
 export type SnapExecutionContext = {
   /**
