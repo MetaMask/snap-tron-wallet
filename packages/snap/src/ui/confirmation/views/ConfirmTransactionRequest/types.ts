@@ -7,8 +7,7 @@ export type ConfirmTransactionRequestContext = {
   fromAddress: string | null;
   amount: string | null;
   fee: string;
-  bandwidthConsumed: string;
-  bandwidthBurnedTrx: string;
+  assetSymbol: string;
   preferences: Preferences;
   networkImage: string;
 };

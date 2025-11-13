@@ -13,6 +13,7 @@ export const DEFAULT_CONFIRMATION_CONTEXT: ConfirmTransactionRequestContext = {
   fromAddress: null,
   amount: null,
   fee: '0',
+  assetSymbol: 'TRX',
   origin: 'MetaMask',
   networkImage: TRX_IMAGE_SVG,
   preferences: {
@@ -34,6 +35,7 @@ export async function render(incomingContext: {
   fromAddress: string;
   amount: string;
   fee: string;
+  assetSymbol: string;
   origin: string;
 }) {
   const context: ConfirmTransactionRequestContext = {

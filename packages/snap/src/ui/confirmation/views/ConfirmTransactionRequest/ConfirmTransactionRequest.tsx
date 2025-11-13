@@ -26,6 +26,7 @@ export const ConfirmTransactionRequest = ({
     fromAddress,
     amount,
     fee,
+    assetSymbol,
     preferences,
     networkImage,
   },
@@ -66,7 +67,7 @@ export const ConfirmTransactionRequest = ({
                 {translate('confirmation.estimatedChanges.send')}
               </Text>
             </Box>
-            <Text>{amount}</Text>
+            <Text>{assetSymbol ? `${amount} ${assetSymbol}` : amount}</Text>
           </Box>
         </Section>
 

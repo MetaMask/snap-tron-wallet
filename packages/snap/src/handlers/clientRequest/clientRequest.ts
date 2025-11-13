@@ -366,6 +366,7 @@ export class ClientRequestHandler {
       fromAddress: account.address,
       amount,
       fee: trxFee,
+      assetSymbol: asset.symbol,
     });
 
     if (!confirmed) {

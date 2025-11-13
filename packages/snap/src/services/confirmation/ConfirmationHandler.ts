@@ -7,17 +7,20 @@ export class ConfirmationHandler {
     fromAddress,
     amount,
     fee,
+    assetSymbol,
   }: {
     scope: Network;
     fromAddress: string;
     amount: string;
     fee: string;
+    assetSymbol: string;
   }): Promise<boolean> {
     const result = await renderConfirmTransactionRequest({
       scope,
       fromAddress,
       amount,
       fee,
+      assetSymbol,
       origin: 'MetaMask',
     });
 
