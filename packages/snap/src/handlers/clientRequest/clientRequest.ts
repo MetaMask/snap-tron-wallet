@@ -34,7 +34,6 @@ import {
   OnStakeAmountInputRequestStruct,
   OnUnstakeAmountInputRequestStruct,
   SignAndSendTransactionRequestStruct,
-  OnConfirmUnstakeRequestStruct,
 } from './validation';
 import { parseCaipAssetType } from '@metamask/utils';
 
