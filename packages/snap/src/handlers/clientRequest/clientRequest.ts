@@ -349,18 +349,12 @@ export class ClientRequestHandler {
       ? BigNumber(bandwidthAsset.rawAmount)
       : BigNumber(0);
 
-    // Compute full fee breakdown
-    const feeBreakdown = await this.#feeCalculatorService.computeFee({
+    const fees = await this.#feeCalculatorService.computeFee({
       scope,
       transaction,
       availableEnergy,
       availableBandwidth,
     });
-    const nativeAssetId = Networks[scope].nativeToken.id;
-    const trxFee =
-      feeBreakdown.find(
-        (feeItem) => String(feeItem.asset.type) === String(nativeAssetId),
-      )?.asset.amount ?? '0';
 
     /**
      * Show the confirmation UI
@@ -370,7 +364,7 @@ export class ClientRequestHandler {
         scope: Network.Mainnet,
         fromAddress: account.address,
         amount,
-        fee: trxFee,
+        fees,
         assetSymbol: asset.symbol,
       },
     );
@@ -382,17 +376,20 @@ export class ClientRequestHandler {
     /**
      * Sign and send the built transaction
      */
-    const result = await this.#sendService.sendAsset({
+    // const result = await this.#sendService.sendAsset({
+    //   fromAccountId,
+    //   toAddress,
+    //   asset,
+    //   amount: BigNumber(amount).toNumber(),
+    // });
+    const result = await this.#sendService.signAndSendTransaction({
+      scope,
       fromAccountId,
-      toAddress,
-      asset,
-      amount: BigNumber(amount).toNumber(),
+      transaction,
     });
-    // TODO: Instead of doing the complete `sendAsset` we can just do:
-    // `signAndSendTransaction`
 
     return {
-      transactionId: result.txId,
+      transactionId: result.txid,
       status: TransactionStatus.Submitted,
     };
   }

@@ -1,4 +1,5 @@
 import type { Network } from '../../../../constants';
+import type { ComputeFeeResult } from '../../../../services/send/types';
 import type { Preferences } from '../../../../types/snap';
 
 export type ConfirmTransactionRequestContext = {
@@ -6,7 +7,7 @@ export type ConfirmTransactionRequestContext = {
   scope: Network;
   fromAddress: string | null;
   amount: string | null;
-  fee: string;
+  fees: ComputeFeeResult;
   assetSymbol: string;
   preferences: Preferences;
   networkImage: string;

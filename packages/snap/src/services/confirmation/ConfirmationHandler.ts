@@ -1,6 +1,7 @@
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { Network } from '../../constants';
 import { render as renderConfirmTransactionRequest } from '../../ui/confirmation/views/ConfirmTransactionRequest/render';
+import type { ComputeFeeResult } from '../send/types';
 
 export class ConfirmationHandler {
   readonly #snapClient: SnapClient;
@@ -13,20 +14,20 @@ export class ConfirmationHandler {
     scope,
     fromAddress,
     amount,
-    fee,
+    fees,
     assetSymbol,
   }: {
     scope: Network;
     fromAddress: string;
     amount: string;
-    fee: string;
+    fees: ComputeFeeResult;
     assetSymbol: string;
   }): Promise<boolean> {
     const result = await renderConfirmTransactionRequest(this.#snapClient, {
       scope,
       fromAddress,
       amount,
-      fee,
+      fees,
       assetSymbol,
       origin: 'MetaMask',
     });

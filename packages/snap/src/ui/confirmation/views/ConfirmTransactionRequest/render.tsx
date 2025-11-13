@@ -4,13 +4,14 @@ import { ConfirmTransactionRequest } from './ConfirmTransactionRequest';
 import type { ConfirmTransactionRequestContext } from './types';
 import type { SnapClient } from '../../../../clients/snap/SnapClient';
 import { Network } from '../../../../constants';
+import type { ComputeFeeResult } from '../../../../services/send/types';
 import { TRX_IMAGE_SVG } from '../../../../static/tron-logo';
 
 export const DEFAULT_CONFIRMATION_CONTEXT: ConfirmTransactionRequestContext = {
   scope: Network.Mainnet,
   fromAddress: null,
   amount: null,
-  fee: '0',
+  fees: [],
   assetSymbol: 'TRX',
   origin: 'MetaMask',
   networkImage: TRX_IMAGE_SVG,
@@ -36,7 +37,7 @@ export const DEFAULT_CONFIRMATION_CONTEXT: ConfirmTransactionRequestContext = {
  * @param incomingContext.scope - The network scope for the transaction.
  * @param incomingContext.fromAddress - The sender address.
  * @param incomingContext.amount - The amount to send (as a string).
- * @param incomingContext.fee - The estimated fee (as a string).
+ * @param incomingContext.fees - The detailed fee breakdown array.
  * @param incomingContext.assetSymbol - The asset symbol (e.g., TRX).
  * @param incomingContext.origin - The origin string to display.
  * @returns A dialog result with the user's decision.
@@ -47,7 +48,7 @@ export async function render(
     scope: Network;
     fromAddress: string;
     amount: string;
-    fee: string;
+    fees: ComputeFeeResult;
     assetSymbol: string;
     origin: string;
   },

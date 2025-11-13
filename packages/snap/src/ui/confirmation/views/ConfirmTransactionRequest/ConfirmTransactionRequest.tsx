@@ -8,17 +8,16 @@ import {
   Heading,
   Icon,
   Image,
-  Row,
   Section,
   Text as SnapText,
   Tooltip,
-  Value,
 } from '@metamask/snaps-sdk/jsx';
 
 import { ConfirmSignAndSendTransactionFormNames } from './events';
 import { type ConfirmTransactionRequestContext } from './types';
 import { Networks } from '../../../../constants';
 import { i18n } from '../../../../utils/i18n';
+import { Fees } from '../../components/Fees';
 
 export const ConfirmTransactionRequest = ({
   context: {
@@ -26,7 +25,7 @@ export const ConfirmTransactionRequest = ({
     scope,
     fromAddress,
     amount,
-    fee,
+    fees,
     assetSymbol,
     preferences,
     networkImage,
@@ -35,8 +34,6 @@ export const ConfirmTransactionRequest = ({
   context: ConfirmTransactionRequestContext;
 }): ComponentOrElement => {
   const translate = i18n(preferences.locale);
-
-  const feeInUserCurrency = '';
 
   return (
     <Container>
@@ -115,10 +112,8 @@ export const ConfirmTransactionRequest = ({
             </Box>
           </Box>
           <Box>{null}</Box>
-          {/* Estimated Fee */}
-          <Row label={translate('confirmation.transactionFee')}>
-            <Value extra={feeInUserCurrency} value={fee} />
-          </Row>
+          {/* Fee Breakdown */}
+          <Fees fees={fees} preferences={preferences} />
         </Section>
       </Box>
       <Footer>
