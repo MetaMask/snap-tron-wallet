@@ -12,7 +12,7 @@ export const DEFAULT_CONFIRMATION_CONTEXT: ConfirmTransactionRequestContext = {
   scope: Network.Mainnet,
   fromAddress: null,
   amount: null,
-  fee: null,
+  fee: '0',
   origin: 'MetaMask',
   networkImage: TRX_IMAGE_SVG,
   preferences: {

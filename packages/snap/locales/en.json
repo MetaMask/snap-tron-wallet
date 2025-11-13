@@ -16,11 +16,20 @@
     "confirmation.estimatedChanges.receive": {
       "message": "You receive"
     },
-    "confirmation.origin": { 
+    "confirmation.origin": {
       "message": "Request from"
     },
-    "confirmation.origin.tooltip": { 
-      "message": "This is the site asking for your confirmation." 
+    "confirmation.origin.tooltip": {
+      "message": "This is the site asking for your confirmation."
+    },
+    "confirmation.account": {
+      "message": "Account"
+    },
+    "confirmation.network": {
+      "message": "Network"
+    },
+    "confirmation.transactionFee": {
+      "message": "Network fee"
     },
     "confirmation.confirmButton": {
       "message": "Confirm"

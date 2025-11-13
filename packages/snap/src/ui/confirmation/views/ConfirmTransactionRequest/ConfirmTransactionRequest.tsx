@@ -7,9 +7,11 @@ import {
   Heading,
   Icon,
   Image,
+  Row,
   Section,
   Text,
   Tooltip,
+  Value,
 } from '@metamask/snaps-sdk/jsx';
 
 import { Networks } from '../../../../constants';
@@ -34,7 +36,7 @@ export const ConfirmTransactionRequest = ({
 
   const nativeToken = Networks[scope].nativeToken;
   const nativePrice = 1
-  const feeInUserCurrency = 1
+  const feeInUserCurrency = '1'
 
   return (
     <Container>
@@ -59,6 +61,7 @@ export const ConfirmTransactionRequest = ({
             </Tooltip>
           </Box>
           {/* Amounts */}
+          {/* TODO: Show detailed amount */}
         </Section>
 
         {/* Additional Details */}
@@ -103,7 +106,7 @@ export const ConfirmTransactionRequest = ({
           </Box>
           <Box>{null}</Box>
           {/* Estimated Fee */}
-          <Row label={translate('send.confirmation.fee')}>
+          <Row label={translate('confirmation.transactionFee')}>
             <Value extra={feeInUserCurrency} value={fee} />
           </Row>
         </Section>
