@@ -2,13 +2,9 @@ import type { DialogResult } from '@metamask/snaps-sdk';
 
 import { ConfirmTransactionRequest } from './ConfirmTransactionRequest';
 import type { ConfirmTransactionRequestContext } from './types';
+import type { SnapClient } from '../../../../clients/snap/SnapClient';
 import { Network } from '../../../../constants';
 import { TRX_IMAGE_SVG } from '../../../../static/tron-logo';
-import {
-  createInterface,
-  getPreferences,
-  showDialog,
-} from '../../../../utils/interface';
 
 export const DEFAULT_CONFIRMATION_CONTEXT: ConfirmTransactionRequestContext = {
   scope: Network.Mainnet,
@@ -35,6 +31,7 @@ export const DEFAULT_CONFIRMATION_CONTEXT: ConfirmTransactionRequestContext = {
 /**
  * Render the ConfirmTransactionRequest UI and show a dialog resolving to the user's choice.
  *
+ * @param snapClient - The SnapClient instance for API interactions.
  * @param incomingContext - The initial context for the confirmation view.
  * @param incomingContext.scope - The network scope for the transaction.
  * @param incomingContext.fromAddress - The sender address.
@@ -44,30 +41,33 @@ export const DEFAULT_CONFIRMATION_CONTEXT: ConfirmTransactionRequestContext = {
  * @param incomingContext.origin - The origin string to display.
  * @returns A dialog result with the user's decision.
  */
-export async function render(incomingContext: {
-  scope: Network;
-  fromAddress: string;
-  amount: string;
-  fee: string;
-  assetSymbol: string;
-  origin: string;
-}): Promise<DialogResult> {
+export async function render(
+  snapClient: SnapClient,
+  incomingContext: {
+    scope: Network;
+    fromAddress: string;
+    amount: string;
+    fee: string;
+    assetSymbol: string;
+    origin: string;
+  },
+): Promise<DialogResult> {
   const context: ConfirmTransactionRequestContext = {
     ...DEFAULT_CONFIRMATION_CONTEXT,
     ...incomingContext,
   };
 
   try {
-    context.preferences = await getPreferences();
+    context.preferences = await snapClient.getPreferences();
   } catch {
     // keep defaults
   }
 
-  const id = await createInterface(
+  const id = await snapClient.createInterface(
     <ConfirmTransactionRequest context={context} />,
     context,
   );
-  const dialogPromise = showDialog(id);
+  const dialogPromise = snapClient.showDialog(id);
 
   return dialogPromise;
 }

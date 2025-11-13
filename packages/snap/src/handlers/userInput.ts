@@ -1,14 +1,24 @@
 import type { InterfaceContext, UserInputEvent } from '@metamask/snaps-sdk';
 
-import { eventHandlers as transactionConfirmationEvents } from '../ui/confirmation/views/ConfirmTransactionRequest/events';
+import type { SnapClient } from '../clients/snap/SnapClient';
+import { createEventHandlers as createTransactionConfirmationEvents } from '../ui/confirmation/views/ConfirmTransactionRequest/events';
 import { withCatchAndThrowSnapError } from '../utils/errors';
 import { createPrefixedLogger, type ILogger } from '../utils/logger';
 
 export class UserInputHandler {
   readonly #logger: ILogger;
 
-  constructor({ logger }: { logger: ILogger }) {
+  readonly #snapClient: SnapClient;
+
+  constructor({
+    logger,
+    snapClient,
+  }: {
+    logger: ILogger;
+    snapClient: SnapClient;
+  }) {
     this.#logger = createPrefixedLogger(logger, '[👵 LifecycleHandler]');
+    this.#snapClient = snapClient;
   }
 
   /**
@@ -37,10 +47,12 @@ export class UserInputHandler {
     }
 
     const uiEventHandlers: Record<string, (...args: any) => Promise<void>> = {
-      ...transactionConfirmationEvents,
+      ...createTransactionConfirmationEvents(this.#snapClient),
     };
 
-    // Using the name of the event, route it to the correct handler
+    /**
+     * Using the name of the event, route it to the correct handler
+     */
     const handler = uiEventHandlers[event.name];
 
     if (!handler) {

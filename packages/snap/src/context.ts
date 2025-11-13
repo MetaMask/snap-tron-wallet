@@ -92,10 +92,10 @@ const transactionsService = new TransactionsService({
 
 const accountsService = new AccountsService({
   logger,
+  snapClient,
   accountsRepository,
   configProvider,
   assetsService,
-  snapClient,
   transactionsService,
 });
 
@@ -107,19 +107,21 @@ const feeCalculatorService = new FeeCalculatorService({
 
 const sendService = new SendService({
   logger,
+  snapClient,
   accountsService,
   tronWebFactory,
-  snapClient,
 });
 
 const stakingService = new StakingService({
   logger,
+  snapClient,
   accountsService,
   tronWebFactory,
-  snapClient,
 });
 
-const confirmationHandler = new ConfirmationHandler();
+const confirmationHandler = new ConfirmationHandler({
+  snapClient,
+});
 
 /**
  * Handlers
@@ -130,19 +132,19 @@ const assetsHandler = new AssetsHandler({
 });
 const clientRequestHandler = new ClientRequestHandler({
   logger,
+  snapClient,
   accountsService,
   assetsService,
   sendService,
   tronWebFactory,
   feeCalculatorService,
-  snapClient,
   stakingService,
   confirmationHandler,
 });
 const cronHandler = new CronHandler({
   logger,
-  accountsService,
   snapClient,
+  accountsService,
 });
 const lifecycleHandler = new LifecycleHandler({
   logger,
@@ -158,6 +160,7 @@ const keyringHandler = new KeyringHandler({
 const rpcHandler = new RpcHandler();
 const userInputHandler = new UserInputHandler({
   logger,
+  snapClient,
 });
 
 export type SnapExecutionContext = {

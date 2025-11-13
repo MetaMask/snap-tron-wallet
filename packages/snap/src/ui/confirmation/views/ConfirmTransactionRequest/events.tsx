@@ -1,25 +1,33 @@
-import { resolveInterface } from '../../../../utils/interface';
+import type { SnapClient } from '../../../../clients/snap/SnapClient';
 
 /**
  * Handle cancel button click by resolving the interface with a falsy value.
  *
+ * @param snapClient - The SnapClient instance for API interactions.
  * @param options - The options bag.
  * @param options.id - The interface id.
  */
-async function onCancelButtonClick(options: { id: string }): Promise<void> {
+async function onCancelButtonClick(
+  snapClient: SnapClient,
+  options: { id: string },
+): Promise<void> {
   const { id } = options;
-  await resolveInterface(id, false);
+  await snapClient.resolveInterface(id, false);
 }
 
 /**
  * Handle confirm button click by resolving the interface with a truthy value.
  *
+ * @param snapClient - The SnapClient instance for API interactions.
  * @param options - The options bag.
  * @param options.id - The interface id.
  */
-async function onConfirmButtonClick(options: { id: string }): Promise<void> {
+async function onConfirmButtonClick(
+  snapClient: SnapClient,
+  options: { id: string },
+): Promise<void> {
   const { id } = options;
-  await resolveInterface(id, true);
+  await snapClient.resolveInterface(id, true);
 }
 
 export enum ConfirmSignAndSendTransactionFormNames {
@@ -27,7 +35,21 @@ export enum ConfirmSignAndSendTransactionFormNames {
   Confirm = 'confirm-sign-and-send-transaction-confirm',
 }
 
-export const eventHandlers = {
-  [ConfirmSignAndSendTransactionFormNames.Cancel]: onCancelButtonClick,
-  [ConfirmSignAndSendTransactionFormNames.Confirm]: onConfirmButtonClick,
-};
+/**
+ * Create event handlers bound to a SnapClient instance.
+ *
+ * @param snapClient - The SnapClient instance for API interactions.
+ * @returns Object containing event handlers.
+ */
+export function createEventHandlers(
+  snapClient: SnapClient,
+): Record<string, (options: { id: string }) => Promise<void>> {
+  return {
+    [ConfirmSignAndSendTransactionFormNames.Cancel]: async (options: {
+      id: string;
+    }) => onCancelButtonClick(snapClient, options),
+    [ConfirmSignAndSendTransactionFormNames.Confirm]: async (options: {
+      id: string;
+    }) => onConfirmButtonClick(snapClient, options),
+  };
+}
