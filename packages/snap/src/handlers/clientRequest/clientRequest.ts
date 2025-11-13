@@ -30,6 +30,7 @@ import {
   OnAmountInputRequestStruct,
   OnConfirmSendRequestStruct,
   OnConfirmStakeRequestStruct,
+  OnConfirmUnstakeRequestStruct,
   OnStakeAmountInputRequestStruct,
   OnUnstakeAmountInputRequestStruct,
   SignAndSendTransactionRequestStruct,
