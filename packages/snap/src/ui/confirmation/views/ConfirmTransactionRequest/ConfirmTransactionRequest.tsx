@@ -34,6 +34,7 @@ export const ConfirmTransactionRequest = ({
 
   const nativeToken = Networks[scope].nativeToken;
   const nativePrice = 1
+  const feeInUserCurrency = 1
 
   return (
     <Container>
@@ -103,7 +104,7 @@ export const ConfirmTransactionRequest = ({
           <Box>{null}</Box>
           {/* Estimated Fee */}
           <Row label={translate('send.confirmation.fee')}>
-            <Value extra={feeInUserCurrency} value={feeToDisplay} />
+            <Value extra={feeInUserCurrency} value={fee} />
           </Row>
         </Section>
       </Box>
