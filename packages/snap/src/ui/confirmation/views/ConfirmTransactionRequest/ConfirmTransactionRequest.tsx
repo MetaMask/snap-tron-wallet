@@ -1,3 +1,4 @@
+import type { ComponentOrElement } from '@metamask/snaps-sdk';
 import {
   Address,
   Box,
@@ -9,15 +10,15 @@ import {
   Image,
   Row,
   Section,
-  Text,
+  Text as SnapText,
   Tooltip,
   Value,
 } from '@metamask/snaps-sdk/jsx';
 
-import { Networks } from '../../../../constants';
-import { i18n } from '../../../../utils/i18n';
 import { ConfirmSignAndSendTransactionFormNames } from './events';
 import { type ConfirmTransactionRequestContext } from './types';
+import { Networks } from '../../../../constants';
+import { i18n } from '../../../../utils/i18n';
 
 export const ConfirmTransactionRequest = ({
   context: {
@@ -32,11 +33,9 @@ export const ConfirmTransactionRequest = ({
   },
 }: {
   context: ConfirmTransactionRequestContext;
-}) => {
+}): ComponentOrElement => {
   const translate = i18n(preferences.locale);
 
-  const nativeToken = Networks[scope].nativeToken;
-  const nativePrice = 1;
   const feeInUserCurrency = '';
 
   return (
@@ -54,9 +53,9 @@ export const ConfirmTransactionRequest = ({
         <Section>
           {/* Header + Tooltip */}
           <Box direction="horizontal" center>
-            <Text fontWeight="medium">
+            <SnapText fontWeight="medium">
               {translate('confirmation.estimatedChanges.title')}
-            </Text>
+            </SnapText>
             <Tooltip
               content={translate('confirmation.estimatedChanges.tooltip')}
             >
@@ -65,11 +64,13 @@ export const ConfirmTransactionRequest = ({
           </Box>
           <Box alignment="space-between" direction="horizontal">
             <Box alignment="space-between" direction="horizontal" center>
-              <Text fontWeight="medium" color="alternative">
+              <SnapText fontWeight="medium" color="alternative">
                 {translate('confirmation.estimatedChanges.send')}
-              </Text>
+              </SnapText>
             </Box>
-            <Text>{assetSymbol ? `${amount} ${assetSymbol}` : amount}</Text>
+            <SnapText>
+              {assetSymbol ? `${amount} ${assetSymbol}` : amount}
+            </SnapText>
           </Box>
         </Section>
 
@@ -78,21 +79,21 @@ export const ConfirmTransactionRequest = ({
           {/* Request from */}
           <Box alignment="space-between" direction="horizontal">
             <Box alignment="space-between" direction="horizontal" center>
-              <Text fontWeight="medium" color="alternative">
+              <SnapText fontWeight="medium" color="alternative">
                 {translate('confirmation.origin')}
-              </Text>
+              </SnapText>
               <Tooltip content={translate('confirmation.origin.tooltip')}>
                 <Icon name="question" color="muted" />
               </Tooltip>
             </Box>
-            <Text>{origin}</Text>
+            <SnapText>{origin}</SnapText>
           </Box>
           <Box>{null}</Box>
           {/* Account */}
           <Box alignment="space-between" direction="horizontal">
-            <Text fontWeight="medium" color="alternative">
+            <SnapText fontWeight="medium" color="alternative">
               {translate('confirmation.account')}
-            </Text>
+            </SnapText>
             <Address
               address={`${scope}:${fromAddress}`}
               truncate
@@ -103,14 +104,14 @@ export const ConfirmTransactionRequest = ({
           <Box>{null}</Box>
           {/* Network */}
           <Box alignment="space-between" direction="horizontal">
-            <Text fontWeight="medium" color="alternative">
+            <SnapText fontWeight="medium" color="alternative">
               {translate('confirmation.network')}
-            </Text>
+            </SnapText>
             <Box direction="horizontal" alignment="center">
               <Box alignment="center" center>
                 <Image borderRadius="medium" src={networkImage ?? ''} />
               </Box>
-              <Text>{Networks[scope].name}</Text>
+              <SnapText>{Networks[scope].name}</SnapText>
             </Box>
           </Box>
           <Box>{null}</Box>

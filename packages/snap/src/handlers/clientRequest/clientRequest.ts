@@ -23,7 +23,6 @@ import {
   OnUnstakeAmountInputRequestStruct,
   SignAndSendTransactionRequestStruct,
 } from './validation';
-
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
 import { Network, Networks } from '../../constants';
@@ -37,9 +36,9 @@ import type { ConfirmationHandler } from '../../services/confirmation/Confirmati
 import type { FeeCalculatorService } from '../../services/send/FeeCalculatorService';
 import type { SendService } from '../../services/send/SendService';
 import type { StakingService } from '../../services/staking/StakingService';
+import { assertOrThrow } from '../../utils/assertOrThrow';
 import type { ILogger } from '../../utils/logger';
 import { createPrefixedLogger } from '../../utils/logger';
-import { assertOrThrow } from '../../utils/assertOrThrow';
 import { BackgroundEventMethod } from '../cronjob';
 
 export class ClientRequestHandler {
@@ -357,9 +356,11 @@ export class ClientRequestHandler {
       availableEnergy,
       availableBandwidth,
     });
+    const nativeAssetId = Networks[scope].nativeToken.id;
     const trxFee =
-      feeBreakdown.find((f) => f.asset.type === Networks[scope].nativeToken.id)
-        ?.asset.amount ?? '0';
+      feeBreakdown.find(
+        (feeItem) => String(feeItem.asset.type) === String(nativeAssetId),
+      )?.asset.amount ?? '0';
 
     /**
      * Show the confirmation UI

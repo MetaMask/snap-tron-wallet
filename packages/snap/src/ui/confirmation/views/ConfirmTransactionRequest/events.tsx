@@ -1,10 +1,24 @@
 import { resolveInterface } from '../../../../utils/interface';
 
-async function onCancelButtonClick({ id }: { id: string }) {
+/**
+ * Handle cancel button click by resolving the interface with a falsy value.
+ *
+ * @param options - The options bag.
+ * @param options.id - The interface id.
+ */
+async function onCancelButtonClick(options: { id: string }): Promise<void> {
+  const { id } = options;
   await resolveInterface(id, false);
 }
 
-async function onConfirmButtonClick({ id }: { id: string }) {
+/**
+ * Handle confirm button click by resolving the interface with a truthy value.
+ *
+ * @param options - The options bag.
+ * @param options.id - The interface id.
+ */
+async function onConfirmButtonClick(options: { id: string }): Promise<void> {
+  const { id } = options;
   await resolveInterface(id, true);
 }
 

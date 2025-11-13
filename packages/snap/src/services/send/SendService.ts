@@ -1,4 +1,11 @@
 import { parseCaipAssetType } from '@metamask/utils';
+import type {
+  BroadcastReturn,
+  Transaction,
+  TransferAssetContract,
+  TransferContract,
+  TriggerSmartContract,
+} from 'tronweb/lib/esm/types';
 
 import type { TransactionResult } from './types';
 import type { SnapClient } from '../../clients/snap/SnapClient';
@@ -8,13 +15,6 @@ import type { AssetEntity } from '../../entities/assets';
 import { BackgroundEventMethod } from '../../handlers/cronjob';
 import { createPrefixedLogger, type ILogger } from '../../utils/logger';
 import type { AccountsService } from '../accounts/AccountsService';
-import {
-  BroadcastReturn,
-  Transaction,
-  TransferAssetContract,
-  TransferContract,
-  TriggerSmartContract,
-} from 'tronweb/lib/esm/types';
 
 export class SendService {
   readonly #accountsService: AccountsService;

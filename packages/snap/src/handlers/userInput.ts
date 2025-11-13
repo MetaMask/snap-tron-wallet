@@ -2,7 +2,7 @@ import type { InterfaceContext, UserInputEvent } from '@metamask/snaps-sdk';
 
 import { eventHandlers as transactionConfirmationEvents } from '../ui/confirmation/views/ConfirmTransactionRequest/events';
 import { withCatchAndThrowSnapError } from '../utils/errors';
-import { createPrefixedLogger, ILogger } from '../utils/logger';
+import { createPrefixedLogger, type ILogger } from '../utils/logger';
 
 export class UserInputHandler {
   readonly #logger: ILogger;

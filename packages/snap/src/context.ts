@@ -17,6 +17,7 @@ import { AccountsService } from './services/accounts/AccountsService';
 import { AssetsRepository } from './services/assets/AssetsRepository';
 import { AssetsService } from './services/assets/AssetsService';
 import { ConfigProvider } from './services/config';
+import { ConfirmationHandler } from './services/confirmation/ConfirmationHandler';
 import { FeeCalculatorService } from './services/send/FeeCalculatorService';
 import { SendService } from './services/send/SendService';
 import { StakingService } from './services/staking/StakingService';
@@ -25,7 +26,6 @@ import { State } from './services/state/State';
 import { TransactionsRepository } from './services/transactions/TransactionsRepository';
 import { TransactionsService } from './services/transactions/TransactionsService';
 import logger, { noOpLogger } from './utils/logger';
-import { ConfirmationHandler } from './services/confirmation/ConfirmationHandler';
 
 /**
  * Services
