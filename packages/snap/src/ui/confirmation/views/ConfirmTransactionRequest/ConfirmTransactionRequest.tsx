@@ -36,7 +36,7 @@ export const ConfirmTransactionRequest = ({
 
   const nativeToken = Networks[scope].nativeToken;
   const nativePrice = 1
-  const feeInUserCurrency = '1'
+  const feeInUserCurrency = ''
 
   return (
     <Container>

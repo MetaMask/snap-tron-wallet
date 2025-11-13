@@ -316,26 +316,76 @@ export class ClientRequestHandler {
       };
     }
 
-    const confirmed = await this.#confirmationHandler.confirmTransactionRequest({
-      scope: Network.Mainnet,
-      fromAddress: account.address,
-      amount,
-      fee: '1',
-    });
+    const { chainId, assetNamespace, assetReference } =
+      parseCaipAssetType(assetId);
+    const scope = chainId as Network;
 
-    if (!confirmed) {
-      throw new UserRejectedRequestError() as unknown as Error;
-    }
-
-    const transaction = await this.#sendService.sendAsset({
+    /**
+     * Build the transaction that will be sent
+     */
+    const transaction = await this.#sendService.buildTransaction({
       fromAccountId,
       toAddress,
       asset,
       amount: BigNumber(amount).toNumber(),
     });
 
+    /**
+     * Estimate the fee using the built transaction
+     */
+    const [bandwidthAsset, energyAsset] =
+      await this.#assetsService.getAssetsByAccountId(fromAccountId, [
+        Networks[scope].bandwidth.id,
+        Networks[scope].energy.id,
+      ]);
+
+    const availableEnergy = energyAsset
+      ? BigNumber(energyAsset.rawAmount)
+      : BigNumber(0);
+    const availableBandwidth = bandwidthAsset
+      ? BigNumber(bandwidthAsset.rawAmount)
+      : BigNumber(0);
+
+    // Compute full fee breakdown
+    const feeBreakdown = await this.#feeCalculatorService.computeFee({
+      scope,
+      transaction,
+      availableEnergy,
+      availableBandwidth,
+    });
+    const trxFee =
+      feeBreakdown.find(
+        (f) => f.asset.type === Networks[scope].nativeToken.id,
+      )?.asset.amount ?? '0';
+
+    /**
+     * Show the confirmation UI
+     */
+    const confirmed = await this.#confirmationHandler.confirmTransactionRequest({
+      scope: Network.Mainnet,
+      fromAddress: account.address,
+      amount,
+      fee: trxFee,
+    });
+
+    if (!confirmed) {
+      throw new UserRejectedRequestError() as unknown as Error;
+    }
+
+    /**
+     * Sign and send the built transaction
+     */
+    const result = await this.#sendService.sendAsset({
+      fromAccountId,
+      toAddress,
+      asset,
+      amount: BigNumber(amount).toNumber(),
+    });
+    // TODO: Instead of doing the complete `sendAsset` we can just do:
+    // `signAndSendTransaction`
+
     return {
-      transactionId: transaction.txId,
+      transactionId: result.txId,
       status: TransactionStatus.Submitted,
     };
   }

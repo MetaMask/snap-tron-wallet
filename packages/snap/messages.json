@@ -11,6 +11,9 @@
   "confirmation.estimatedChanges.send": {
     "message": "You send"
   },
+  "confirmation.bandwidthConsumed": {
+    "message": "Bandwidth consumed"
+  },
   "confirmation.estimatedChanges.receive": {
     "message": "You receive"
   },

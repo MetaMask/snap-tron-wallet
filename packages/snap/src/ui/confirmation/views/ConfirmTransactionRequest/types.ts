@@ -7,6 +7,8 @@ export type ConfirmTransactionRequestContext = {
   fromAddress: string | null;
   amount: string | null;
   fee: string;
+  bandwidthConsumed: string;
+  bandwidthBurnedTrx: string;
   preferences: Preferences;
   networkImage: string;
 };
