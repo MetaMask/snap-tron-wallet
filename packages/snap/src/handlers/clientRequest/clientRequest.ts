@@ -1,27 +1,15 @@
 import { TransactionStatus } from '@metamask/keyring-api';
 import type { Json, JsonRpcRequest } from '@metamask/snaps-sdk';
-import { InvalidParamsError, MethodNotFoundError, UserRejectedRequestError } from '@metamask/snaps-sdk';
+import {
+  InvalidParamsError,
+  MethodNotFoundError,
+  UserRejectedRequestError,
+} from '@metamask/snaps-sdk';
 import { assert } from '@metamask/superstruct';
+import { parseCaipAssetType } from '@metamask/utils';
 import { BigNumber } from 'bignumber.js';
 import { sha256 } from 'ethers';
 
-import type { SnapClient } from '../../clients/snap/SnapClient';
-import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
-import { Network, Networks } from '../../constants';
-import type { AccountsService } from '../../services/accounts/AccountsService';
-import type { AssetsService } from '../../services/assets/AssetsService';
-import type {
-  NativeCaipAssetType,
-  StakedCaipAssetType,
-} from '../../services/assets/types';
-import type { FeeCalculatorService } from '../../services/send/FeeCalculatorService';
-import type { SendService } from '../../services/send/SendService';
-import type { StakingService } from '../../services/staking/StakingService';
-import type { ConfirmationHandler } from '../../services/confirmation/ConfirmationHandler';
-import { assertOrThrow } from '../../utils/assertOrThrow';
-import type { ILogger } from '../../utils/logger';
-import { createPrefixedLogger } from '../../utils/logger';
-import { BackgroundEventMethod } from '../cronjob';
 import { ClientRequestMethod, SendErrorCodes } from './types';
 import {
   ComputeFeeRequestStruct,
@@ -35,7 +23,24 @@ import {
   OnUnstakeAmountInputRequestStruct,
   SignAndSendTransactionRequestStruct,
 } from './validation';
-import { parseCaipAssetType } from '@metamask/utils';
+
+import type { SnapClient } from '../../clients/snap/SnapClient';
+import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
+import { Network, Networks } from '../../constants';
+import type { AccountsService } from '../../services/accounts/AccountsService';
+import type { AssetsService } from '../../services/assets/AssetsService';
+import type {
+  NativeCaipAssetType,
+  StakedCaipAssetType,
+} from '../../services/assets/types';
+import type { ConfirmationHandler } from '../../services/confirmation/ConfirmationHandler';
+import type { FeeCalculatorService } from '../../services/send/FeeCalculatorService';
+import type { SendService } from '../../services/send/SendService';
+import type { StakingService } from '../../services/staking/StakingService';
+import type { ILogger } from '../../utils/logger';
+import { createPrefixedLogger } from '../../utils/logger';
+import { assertOrThrow } from '../../utils/assertOrThrow';
+import { BackgroundEventMethod } from '../cronjob';
 
 export class ClientRequestHandler {
   readonly #logger: ILogger;
@@ -316,8 +321,7 @@ export class ClientRequestHandler {
       };
     }
 
-    const { chainId, assetNamespace, assetReference } =
-      parseCaipAssetType(assetId);
+    const { chainId } = parseCaipAssetType(assetId);
     const scope = chainId as Network;
 
     /**
@@ -354,20 +358,21 @@ export class ClientRequestHandler {
       availableBandwidth,
     });
     const trxFee =
-      feeBreakdown.find(
-        (f) => f.asset.type === Networks[scope].nativeToken.id,
-      )?.asset.amount ?? '0';
+      feeBreakdown.find((f) => f.asset.type === Networks[scope].nativeToken.id)
+        ?.asset.amount ?? '0';
 
     /**
      * Show the confirmation UI
      */
-    const confirmed = await this.#confirmationHandler.confirmTransactionRequest({
-      scope: Network.Mainnet,
-      fromAddress: account.address,
-      amount,
-      fee: trxFee,
-      assetSymbol: asset.symbol,
-    });
+    const confirmed = await this.#confirmationHandler.confirmTransactionRequest(
+      {
+        scope: Network.Mainnet,
+        fromAddress: account.address,
+        amount,
+        fee: trxFee,
+        assetSymbol: asset.symbol,
+      },
+    );
 
     if (!confirmed) {
       throw new UserRejectedRequestError() as unknown as Error;

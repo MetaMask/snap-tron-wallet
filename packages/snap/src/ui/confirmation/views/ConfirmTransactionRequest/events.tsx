@@ -17,5 +17,3 @@ export const eventHandlers = {
   [ConfirmSignAndSendTransactionFormNames.Cancel]: onCancelButtonClick,
   [ConfirmSignAndSendTransactionFormNames.Confirm]: onConfirmButtonClick,
 };
-
-

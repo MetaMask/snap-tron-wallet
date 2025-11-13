@@ -27,5 +27,3 @@ export class ConfirmationHandler {
     return result === true;
   }
 }
-
-

@@ -11,5 +11,3 @@ export type ConfirmTransactionRequestContext = {
   preferences: Preferences;
   networkImage: string;
 };
-
-

@@ -157,7 +157,7 @@ const keyringHandler = new KeyringHandler({
 });
 const rpcHandler = new RpcHandler();
 const userInputHandler = new UserInputHandler({
-  logger
+  logger,
 });
 
 export type SnapExecutionContext = {

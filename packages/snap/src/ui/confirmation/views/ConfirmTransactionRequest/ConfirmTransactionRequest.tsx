@@ -36,8 +36,8 @@ export const ConfirmTransactionRequest = ({
   const translate = i18n(preferences.locale);
 
   const nativeToken = Networks[scope].nativeToken;
-  const nativePrice = 1
-  const feeInUserCurrency = ''
+  const nativePrice = 1;
+  const feeInUserCurrency = '';
 
   return (
     <Container>
@@ -57,7 +57,9 @@ export const ConfirmTransactionRequest = ({
             <Text fontWeight="medium">
               {translate('confirmation.estimatedChanges.title')}
             </Text>
-            <Tooltip content={translate('confirmation.estimatedChanges.tooltip')}>
+            <Tooltip
+              content={translate('confirmation.estimatedChanges.tooltip')}
+            >
               <Icon name="info" />
             </Tooltip>
           </Box>
@@ -129,5 +131,3 @@ export const ConfirmTransactionRequest = ({
     </Container>
   );
 };
-
-

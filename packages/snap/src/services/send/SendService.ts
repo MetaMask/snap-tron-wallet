@@ -8,7 +8,13 @@ import type { AssetEntity } from '../../entities/assets';
 import { BackgroundEventMethod } from '../../handlers/cronjob';
 import { createPrefixedLogger, type ILogger } from '../../utils/logger';
 import type { AccountsService } from '../accounts/AccountsService';
-import { BroadcastReturn, Transaction, TransferAssetContract, TransferContract, TriggerSmartContract } from 'tronweb/lib/esm/types';
+import {
+  BroadcastReturn,
+  Transaction,
+  TransferAssetContract,
+  TransferContract,
+  TriggerSmartContract,
+} from 'tronweb/lib/esm/types';
 
 export class SendService {
   readonly #accountsService: AccountsService;
@@ -120,7 +126,7 @@ export class SendService {
       amountInSun,
     );
 
-    return transaction
+    return transaction;
   }
 
   async buildSendTrc10Transaction({
@@ -202,7 +208,10 @@ export class SendService {
   }: {
     scope: Network;
     fromAccountId: string;
-    transaction: Transaction<TransferContract> | Transaction<TransferAssetContract> | Transaction<TriggerSmartContract>;
+    transaction:
+      | Transaction<TransferContract>
+      | Transaction<TransferAssetContract>
+      | Transaction<TriggerSmartContract>;
   }): Promise<BroadcastReturn<any>> {
     /**
      * Initialize TronWeb client with the account's private key

@@ -78,5 +78,3 @@ export async function getPreferences(): Promise<Preferences> {
     method: 'snap_getPreferences',
   }) as Promise<Preferences>;
 }
-
-

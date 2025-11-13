@@ -1,29 +1,26 @@
 import type { InterfaceContext, UserInputEvent } from '@metamask/snaps-sdk';
-import { createPrefixedLogger, ILogger } from '../utils/logger';
+
 import { eventHandlers as transactionConfirmationEvents } from '../ui/confirmation/views/ConfirmTransactionRequest/events';
 import { withCatchAndThrowSnapError } from '../utils/errors';
+import { createPrefixedLogger, ILogger } from '../utils/logger';
 
 export class UserInputHandler {
   readonly #logger: ILogger;
 
-  constructor({
-    logger
-  }: {
-    logger: ILogger;
-  }) {
+  constructor({ logger }: { logger: ILogger }) {
     this.#logger = createPrefixedLogger(logger, '[👵 LifecycleHandler]');
   }
 
-/**
- * Handle user events requests.
- *
- * @param args - The request handler args as object.
- * @param args.id - The interface id associated with the event.
- * @param args.event - The event object.
- * @param args.context - The context object.
- * @returns A promise that resolves to a JSON object.
- * @throws If the request method is not valid for this snap.
- */
+  /**
+   * Handle user events requests.
+   *
+   * @param args - The request handler args as object.
+   * @param args.id - The interface id associated with the event.
+   * @param args.event - The event object.
+   * @param args.context - The context object.
+   * @returns A promise that resolves to a JSON object.
+   * @throws If the request method is not valid for this snap.
+   */
   async handle({
     id,
     event,
@@ -38,7 +35,6 @@ export class UserInputHandler {
     if (!event.name) {
       return;
     }
-
 
     const uiEventHandlers: Record<string, (...args: any) => Promise<void>> = {
       ...transactionConfirmationEvents,
