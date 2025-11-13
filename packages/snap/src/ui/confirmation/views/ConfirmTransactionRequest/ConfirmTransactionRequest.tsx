@@ -60,8 +60,14 @@ export const ConfirmTransactionRequest = ({
               <Icon name="info" />
             </Tooltip>
           </Box>
-          {/* Amounts */}
-          {/* TODO: Show detailed amount */}
+          <Box alignment="space-between" direction="horizontal">
+            <Box alignment="space-between" direction="horizontal" center>
+              <Text fontWeight="medium" color="alternative">
+                {translate('confirmation.estimatedChanges.send')}
+              </Text>
+            </Box>
+            <Text>{amount}</Text>
+          </Box>
         </Section>
 
         {/* Additional Details */}

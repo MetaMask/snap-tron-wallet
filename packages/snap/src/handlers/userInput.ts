@@ -1,6 +1,7 @@
 import type { InterfaceContext, UserInputEvent } from '@metamask/snaps-sdk';
 import { createPrefixedLogger, ILogger } from '../utils/logger';
 import { eventHandlers as transactionConfirmationEvents } from '../ui/confirmation/views/ConfirmTransactionRequest/events';
+import { withCatchAndThrowSnapError } from '../utils/errors';
 
 export class UserInputHandler {
   readonly #logger: ILogger;
@@ -49,5 +50,9 @@ export class UserInputHandler {
     if (!handler) {
       return;
     }
+
+    await withCatchAndThrowSnapError(async () =>
+      handler({ id, event, context }),
+    );
   }
 }

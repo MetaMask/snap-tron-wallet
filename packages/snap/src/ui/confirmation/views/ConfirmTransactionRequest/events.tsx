@@ -1,6 +1,4 @@
-import { resolveInterface, updateInterface } from '../../../../utils/interface';
-import { ConfirmTransactionRequest } from './ConfirmTransactionRequest';
-import { type ConfirmTransactionRequestContext } from './types';
+import { resolveInterface } from '../../../../utils/interface';
 
 async function onCancelButtonClick({ id }: { id: string }) {
   await resolveInterface(id, false);
