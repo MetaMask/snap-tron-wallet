@@ -1279,4 +1279,79 @@ export class AssetsService {
 
     return result;
   }
+
+  /**
+   * Get historical prices for a token pair by calling the Price API.
+   * Similar to the Solana snap implementation.
+   *
+   * @param from - The asset to get historical prices for.
+   * @param to - The currency to convert prices to.
+   * @returns Historical price data with intervals.
+   */
+  async getHistoricalPrice(
+    from: CaipAssetType,
+    to: CaipAssetType,
+  ): Promise<{
+    intervals: HistoricalPriceIntervals;
+    updateTime: number;
+    expirationTime?: number;
+  }> {
+    assert(from, CaipAssetTypeStruct);
+    assert(to, CaipAssetTypeStruct);
+
+    const toTicker = parseCaipAssetType(to).assetReference.toLowerCase();
+    assert(toTicker, VsCurrencyParamStruct);
+
+    const timePeriodsToFetch = ['1d', '7d', '1m', '3m', '1y', '1000y'];
+
+    // For each time period, call the Price API to fetch the historical prices
+    const promises = timePeriodsToFetch.map(async (timePeriod) =>
+      this.#priceApiClient
+        .getHistoricalPrices({
+          assetType: from,
+          timePeriod,
+          vsCurrency: toTicker as VsCurrencyParam,
+        })
+        // Wrap the response in an object with the time period and the response for easier reducing
+        .then((response) => ({
+          timePeriod,
+          response,
+        }))
+        // Gracefully handle individual errors to avoid breaking the entire operation
+        .catch((error) => {
+          this.#logger.warn(
+            `Error fetching historical prices for ${from} to ${to} with time period ${timePeriod}. Returning null object.`,
+            error,
+          );
+          return {
+            timePeriod,
+            response: GET_HISTORICAL_PRICES_RESPONSE_NULL_OBJECT,
+          };
+        }),
+    );
+
+    const wrappedHistoricalPrices = await Promise.all(promises);
+
+    const intervals = wrappedHistoricalPrices.reduce<HistoricalPriceIntervals>(
+      (acc, { timePeriod, response }) => {
+        const iso8601Interval = `P${timePeriod.toUpperCase()}`;
+        acc[iso8601Interval] = response.prices.map((price) => [
+          price[0],
+          price[1].toString(),
+        ]);
+        return acc;
+      },
+      {},
+    );
+
+    const now = Date.now();
+
+    const result = {
+      intervals,
+      updateTime: now,
+      expirationTime: now + this.cacheTtlsMilliseconds.historicalPrices,
+    };
+
+    return result;
+  }
 }
