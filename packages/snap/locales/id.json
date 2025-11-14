@@ -1,0 +1,44 @@
+{
+  "locale": "id",
+  "messages": {
+    "confirmation.transaction.title": {
+      "message": "Permintaan transaksi"
+    },
+    "confirmation.estimatedChanges.title": {
+      "message": "Estimasi perubahan"
+    },
+    "confirmation.estimatedChanges.tooltip": {
+      "message": "Estimasi perubahan merupakan hal yang mungkin terjadi jika Anda melakukan transaksi ini. Ini hanyalah prediksi, bukan jaminan."
+    },
+    "confirmation.estimatedChanges.send": {
+      "message": "Anda mengirim"
+    },
+    "confirmation.bandwidthConsumed": {
+      "message": "Bandwidth yang digunakan"
+    },
+    "confirmation.estimatedChanges.receive": {
+      "message": "Anda menerima"
+    },
+    "confirmation.origin": {
+      "message": "Permintaan dari"
+    },
+    "confirmation.origin.tooltip": {
+      "message": "This is the site asking for your confirmation."
+    },
+    "confirmation.account": {
+      "message": "Akun"
+    },
+    "confirmation.network": {
+      "message": "Jaringan"
+    },
+    "confirmation.transactionFee": {
+      "message": "Biaya jaringan"
+    },
+    "confirmation.confirmButton": {
+      "message": "Konfirmasikan"
+    },
+    "confirmation.cancelButton": {
+      "message": "Batal"
+    }
+  }
+}

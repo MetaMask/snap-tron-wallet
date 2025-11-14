@@ -1,0 +1,44 @@
+{
+  "locale": "fr",
+  "messages": {
+    "confirmation.transaction.title": {
+      "message": "Demande de transaction"
+    },
+    "confirmation.estimatedChanges.title": {
+      "message": "Changements estimés"
+    },
+    "confirmation.estimatedChanges.tooltip": {
+      "message": "Les changements estimés représentent ce qui pourrait se produire si vous effectuez cette transaction. Il s’agit juste d’une estimation fournie à titre d’information."
+    },
+    "confirmation.estimatedChanges.send": {
+      "message": "Vous envoyez"
+    },
+    "confirmation.bandwidthConsumed": {
+      "message": "Bande passante utilisée"
+    },
+    "confirmation.estimatedChanges.receive": {
+      "message": "Vous recevez"
+    },
+    "confirmation.origin": {
+      "message": "Demande de la part de"
+    },
+    "confirmation.origin.tooltip": {
+      "message": "This is the site asking for your confirmation."
+    },
+    "confirmation.account": {
+      "message": "Compte"
+    },
+    "confirmation.network": {
+      "message": "Réseau"
+    },
+    "confirmation.transactionFee": {
+      "message": "Frais de réseau"
+    },
+    "confirmation.confirmButton": {
+      "message": "Confirmer"
+    },
+    "confirmation.cancelButton": {
+      "message": "Annuler"
+    }
+  }
+}

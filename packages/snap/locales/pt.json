@@ -1,0 +1,44 @@
+{
+  "locale": "pt",
+  "messages": {
+    "confirmation.transaction.title": {
+      "message": "Solicitação de transação"
+    },
+    "confirmation.estimatedChanges.title": {
+      "message": "Alterações estimadas"
+    },
+    "confirmation.estimatedChanges.tooltip": {
+      "message": "Alterações estimadas são o que pode acontecer se você prosseguir com essa transação. Isso é apenas uma previsão, não uma garantia."
+    },
+    "confirmation.estimatedChanges.send": {
+      "message": "Você envia"
+    },
+    "confirmation.bandwidthConsumed": {
+      "message": "Largura de banda consumida"
+    },
+    "confirmation.estimatedChanges.receive": {
+      "message": "Você recebe"
+    },
+    "confirmation.origin": {
+      "message": "Solicitação de"
+    },
+    "confirmation.origin.tooltip": {
+      "message": "This is the site asking for your confirmation."
+    },
+    "confirmation.account": {
+      "message": "Conta"
+    },
+    "confirmation.network": {
+      "message": "Rede"
+    },
+    "confirmation.transactionFee": {
+      "message": "Taxa de rede"
+    },
+    "confirmation.confirmButton": {
+      "message": "Confirmar"
+    },
+    "confirmation.cancelButton": {
+      "message": "Cancelar"
+    }
+  }
+}

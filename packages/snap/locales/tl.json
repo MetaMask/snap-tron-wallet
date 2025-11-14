@@ -1,0 +1,44 @@
+{
+  "locale": "tl",
+  "messages": {
+    "confirmation.transaction.title": {
+      "message": "Hiling na transaksyon"
+    },
+    "confirmation.estimatedChanges.title": {
+      "message": "Tinatayang mga pagbabago"
+    },
+    "confirmation.estimatedChanges.tooltip": {
+      "message": "Ang tinatayang mga pagbabago ay ang maaaring mangyari kung magpapatuloy ka sa transaksyong ito. Ito ay isang hula lamang, hindi isang garantiya."
+    },
+    "confirmation.estimatedChanges.send": {
+      "message": "Nagpadala ka ng"
+    },
+    "confirmation.bandwidthConsumed": {
+      "message": "Ginamit na bandwidth"
+    },
+    "confirmation.estimatedChanges.receive": {
+      "message": "Nakatanggap ka ng"
+    },
+    "confirmation.origin": {
+      "message": "Kahilingan mula sa/kay"
+    },
+    "confirmation.origin.tooltip": {
+      "message": "This is the site asking for your confirmation."
+    },
+    "confirmation.account": {
+      "message": "Account"
+    },
+    "confirmation.network": {
+      "message": "Network"
+    },
+    "confirmation.transactionFee": {
+      "message": "Bayad sa network"
+    },
+    "confirmation.confirmButton": {
+      "message": "Kumpirmahin"
+    },
+    "confirmation.cancelButton": {
+      "message": "Kanselahin"
+    }
+  }
+}

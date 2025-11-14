@@ -1,0 +1,44 @@
+{
+  "locale": "ko",
+  "messages": {
+    "confirmation.transaction.title": {
+      "message": "트랜잭션 요청"
+    },
+    "confirmation.estimatedChanges.title": {
+      "message": "예상 변동 사항"
+    },
+    "confirmation.estimatedChanges.tooltip": {
+      "message": "예상 변동 사항은 이 트랜잭션을 진행할 경우 발생하는 결과를 예측한 것입니다. 이는 예측일 뿐 결과를 보장하지는 않습니다."
+    },
+    "confirmation.estimatedChanges.send": {
+      "message": "전송:"
+    },
+    "confirmation.bandwidthConsumed": {
+      "message": "소모된 대역폭"
+    },
+    "confirmation.estimatedChanges.receive": {
+      "message": "받음:"
+    },
+    "confirmation.origin": {
+      "message": "요청자:"
+    },
+    "confirmation.origin.tooltip": {
+      "message": "This is the site asking for your confirmation."
+    },
+    "confirmation.account": {
+      "message": "계정"
+    },
+    "confirmation.network": {
+      "message": "네트워크"
+    },
+    "confirmation.transactionFee": {
+      "message": "네트워크 수수료"
+    },
+    "confirmation.confirmButton": {
+      "message": "컨펌"
+    },
+    "confirmation.cancelButton": {
+      "message": "취소"
+    }
+  }
+}

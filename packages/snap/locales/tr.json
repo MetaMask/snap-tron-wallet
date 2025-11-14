@@ -1,0 +1,44 @@
+{
+  "locale": "tr",
+  "messages": {
+    "confirmation.transaction.title": {
+      "message": "İşlem talebi"
+    },
+    "confirmation.estimatedChanges.title": {
+      "message": "Tahmini değişiklikler"
+    },
+    "confirmation.estimatedChanges.tooltip": {
+      "message": "Tahmini değişiklikler bu işlemi gerçekleştirirseniz meydana gelebilecek değişikliklerdir. Bu bir garanti değil, sadece bir tahmindir."
+    },
+    "confirmation.estimatedChanges.send": {
+      "message": "Gönderdiğiniz"
+    },
+    "confirmation.bandwidthConsumed": {
+      "message": "Kullanılan bant genişliği"
+    },
+    "confirmation.estimatedChanges.receive": {
+      "message": "Aldığınız"
+    },
+    "confirmation.origin": {
+      "message": "Talebi gönderen"
+    },
+    "confirmation.origin.tooltip": {
+      "message": "This is the site asking for your confirmation."
+    },
+    "confirmation.account": {
+      "message": "Hesap"
+    },
+    "confirmation.network": {
+      "message": "Ağ"
+    },
+    "confirmation.transactionFee": {
+      "message": "Ağ ücreti"
+    },
+    "confirmation.confirmButton": {
+      "message": "Onayla"
+    },
+    "confirmation.cancelButton": {
+      "message": "İptal"
+    }
+  }
+}
