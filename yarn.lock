@@ -21435,7 +21435,7 @@ __metadata:
 
 "tronweb@patch:tronweb@npm%3A6.0.4#~/.yarn/patches/tronweb-npm-6.0.4-2b661b7651.patch":
   version: 6.0.4
-  resolution: "tronweb@patch:tronweb@npm%3A6.0.4#~/.yarn/patches/tronweb-npm-6.0.4-2b661b7651.patch::version=6.0.4&hash=5fd739"
+  resolution: "tronweb@patch:tronweb@npm%3A6.0.4#~/.yarn/patches/tronweb-npm-6.0.4-2b661b7651.patch::version=6.0.4&hash=7aa56c"
   dependencies:
     "@babel/runtime": "npm:7.26.10"
     axios: "npm:1.11.0"
@@ -21446,7 +21446,7 @@ __metadata:
     google-protobuf: "npm:3.21.4"
     semver: "npm:7.7.1"
     validator: "npm:13.12.0"
-  checksum: 10/6c318705ec8f84d0336801051615634651931d984e54060e948121ae39afa90b3059e0181bbab9d6d35f629f24352d016a575c4d3e2b0c471e103317abbf2203
+  checksum: 10/c175ae38dcfc00e6d4aa1f28808543dad05ee876c9810d9d0e4eba1fda13e4cad78a58320f8b69267dbcf41f6834095b377c8f510aa95739b541e137ecbbd9a1
   languageName: node
   linkType: hard
 
