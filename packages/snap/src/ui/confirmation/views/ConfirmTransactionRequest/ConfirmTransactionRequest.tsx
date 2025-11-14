@@ -90,10 +90,10 @@ export const ConfirmTransactionRequest = ({
             <SnapText>{origin}</SnapText>
           </Box>
           <Box>{null}</Box>
-          {/* Account */}
+          {/* From */}
           <Box alignment="space-between" direction="horizontal">
             <SnapText fontWeight="medium" color="alternative">
-              {translate('confirmation.account')}
+              {translate('confirmation.from')}
             </SnapText>
             <Address
               address={`${scope}:${fromAddress}`}
@@ -103,13 +103,18 @@ export const ConfirmTransactionRequest = ({
             />
           </Box>
           <Box>{null}</Box>
-          {/* Recipient */}
+          {/* To */}
           {toAddress && (
             <Box alignment="space-between" direction="horizontal">
               <SnapText fontWeight="medium" color="alternative">
-                {translate('confirmation.recipient')}
+                {translate('confirmation.to')}
               </SnapText>
-              <Address address={`${scope}:${toAddress}`} truncate />
+              <Address
+                address={`${scope}:${toAddress}`}
+                truncate
+                displayName
+                avatar
+              />
             </Box>
           )}
           <Box>{null}</Box>
