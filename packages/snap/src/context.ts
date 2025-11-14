@@ -45,6 +45,7 @@ const state = new State({
     assets: {},
     tokenPrices: {},
     transactions: {},
+    mapInterfaceNameToId: {},
   },
 });
 
@@ -146,6 +147,8 @@ const cronHandler = new CronHandler({
   logger,
   snapClient,
   accountsService,
+  state,
+  priceApiClient,
 });
 const lifecycleHandler = new LifecycleHandler({
   logger,
@@ -165,6 +168,10 @@ const userInputHandler = new UserInputHandler({
 });
 
 export type SnapExecutionContext = {
+  /**
+   * Clients
+   */
+  snapClient: SnapClient;
   /**
    * Services
    */
@@ -191,6 +198,10 @@ export type SnapExecutionContext = {
 };
 
 const snapContext: SnapExecutionContext = {
+  /**
+   * Clients
+   */
+  snapClient,
   /**
    * Services
    */
@@ -226,7 +237,7 @@ export {
   keyringHandler,
   lifecycleHandler,
   rpcHandler,
-  userInputHandler,
+  userInputHandler
 };
 
 export default snapContext;
