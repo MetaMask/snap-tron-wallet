@@ -325,23 +325,28 @@ export class ClientRequestHandler {
     const scope = chainId as Network;
 
     /**
+     * Get available Energy and Bandwidth from account assets.
+     */
+    const assetsPromise = this.#assetsService.getAssetsByAccountId(
+      fromAccountId,
+      [Networks[scope].bandwidth.id, Networks[scope].energy.id],
+    );
+
+    /**
      * Build the transaction that will be sent
      */
-    const transaction = await this.#sendService.buildTransaction({
+    const transactionPromise = this.#sendService.buildTransaction({
       fromAccountId,
       toAddress,
       asset,
       amount: BigNumber(amount).toNumber(),
     });
 
-    /**
-     * Estimate the fee using the built transaction
-     */
-    const [bandwidthAsset, energyAsset] =
-      await this.#assetsService.getAssetsByAccountId(fromAccountId, [
-        Networks[scope].bandwidth.id,
-        Networks[scope].energy.id,
-      ]);
+    // wait for both
+    const [[bandwidthAsset, energyAsset], transaction] = await Promise.all([
+      assetsPromise,
+      transactionPromise,
+    ]);
 
     const availableEnergy = energyAsset
       ? BigNumber(energyAsset.rawAmount)
