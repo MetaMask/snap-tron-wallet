@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0]
+
+### Uncategorized
+
+- feat: add from and to to confirmation ([#88](https://github.com/MetaMask/snap-tron-wallet/pull/88))
+- chore: remove logs ([#87](https://github.com/MetaMask/snap-tron-wallet/pull/87))
+- feat: implement confirmation UI ([#86](https://github.com/MetaMask/snap-tron-wallet/pull/86))
+
 ## [1.7.4]
 
 ### Fixed
@@ -169,7 +177,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release of Tron wallet snap
 - Support for TRX and token assets balances ([#12](https://github.com/MetaMask/snap-tron-wallet/pull/12))
 
-[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.7.4...HEAD
+[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.7.4...v1.8.0
 [1.7.4]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.7.3...v1.7.4
 [1.7.3]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.7.2...v1.7.3
 [1.7.2]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.7.1...v1.7.2
