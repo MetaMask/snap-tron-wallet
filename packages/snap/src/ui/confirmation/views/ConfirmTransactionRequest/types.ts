@@ -7,6 +7,7 @@ export type ConfirmTransactionRequestContext = {
   origin: string;
   scope: Network;
   fromAddress: string | null;
+  toAddress: string | null;
   amount: string | null;
   fees: ComputeFeeResult;
   asset: AssetEntity;

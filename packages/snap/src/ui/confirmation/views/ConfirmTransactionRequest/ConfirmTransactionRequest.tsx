@@ -25,6 +25,7 @@ export const ConfirmTransactionRequest = ({
     origin,
     scope,
     fromAddress,
+    toAddress,
     asset,
     amount,
     fees,
@@ -101,6 +102,16 @@ export const ConfirmTransactionRequest = ({
               avatar
             />
           </Box>
+          <Box>{null}</Box>
+          {/* Recipient */}
+          {toAddress && (
+            <Box alignment="space-between" direction="horizontal">
+              <SnapText fontWeight="medium" color="alternative">
+                {translate('confirmation.recipient')}
+              </SnapText>
+              <Address address={`${scope}:${toAddress}`} truncate />
+            </Box>
+          )}
           <Box>{null}</Box>
           {/* Network */}
           <Box alignment="space-between" direction="horizontal">

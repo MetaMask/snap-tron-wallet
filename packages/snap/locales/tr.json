@@ -28,6 +28,9 @@
     "confirmation.account": {
       "message": "Hesap"
     },
+    "confirmation.recipient": {
+      "message": "Alıcı"
+    },
     "confirmation.network": {
       "message": "Ağ"
     },

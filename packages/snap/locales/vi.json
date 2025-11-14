@@ -28,6 +28,9 @@
     "confirmation.account": {
       "message": "Tài khoản"
     },
+    "confirmation.recipient": {
+      "message": "Người nhận"
+    },
     "confirmation.network": {
       "message": "Mạng"
     },

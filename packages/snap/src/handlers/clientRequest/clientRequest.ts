@@ -365,15 +365,14 @@ export class ClientRequestHandler {
     /**
      * Show the confirmation UI
      */
-    const confirmed = await this.#confirmationHandler.confirmTransactionRequest(
-      {
-        scope,
-        fromAddress: account.address,
-        amount,
-        fees,
-        asset,
-      },
-    );
+    const confirmed = await this.#confirmationHandler.confirmTransactionRequest({
+      scope,
+      fromAddress: account.address,
+      toAddress,
+      amount,
+      fees,
+      asset,
+    });
 
     if (!confirmed) {
       throw new UserRejectedRequestError() as unknown as Error;

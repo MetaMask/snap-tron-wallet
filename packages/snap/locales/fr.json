@@ -28,6 +28,9 @@
     "confirmation.account": {
       "message": "Compte"
     },
+    "confirmation.recipient": {
+      "message": "Destinataire"
+    },
     "confirmation.network": {
       "message": "Réseau"
     },

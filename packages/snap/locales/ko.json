@@ -28,6 +28,9 @@
     "confirmation.account": {
       "message": "계정"
     },
+    "confirmation.recipient": {
+      "message": "수신자"
+    },
     "confirmation.network": {
       "message": "네트워크"
     },

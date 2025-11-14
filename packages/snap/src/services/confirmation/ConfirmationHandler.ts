@@ -14,12 +14,14 @@ export class ConfirmationHandler {
   async confirmTransactionRequest({
     scope,
     fromAddress,
+    toAddress,
     amount,
     fees,
     asset,
   }: {
     scope: Network;
     fromAddress: string;
+    toAddress: string;
     amount: string;
     fees: ComputeFeeResult;
     asset: AssetEntity;
@@ -27,6 +29,7 @@ export class ConfirmationHandler {
     const result = await renderConfirmTransactionRequest(this.#snapClient, {
       scope,
       fromAddress,
+      toAddress,
       amount,
       fees,
       asset,

@@ -28,6 +28,9 @@
     "confirmation.account": {
       "message": "अकाउंट"
     },
+    "confirmation.recipient": {
+      "message": "द्वारा प्राप्त किया गया"
+    },
     "confirmation.network": {
       "message": "नेटवर्क"
     },

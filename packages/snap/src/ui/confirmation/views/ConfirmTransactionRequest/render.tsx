@@ -13,6 +13,7 @@ import { getIconUrlForKnownAsset } from '../../utils/getIconUrlForKnownAsset';
 export const DEFAULT_CONFIRMATION_CONTEXT: ConfirmTransactionRequestContext = {
   scope: Network.Mainnet,
   fromAddress: null,
+  toAddress: null,
   amount: null,
   fees: [],
   asset: {
@@ -60,6 +61,7 @@ export async function render(
   incomingContext: {
     scope: Network;
     fromAddress: string;
+    toAddress: string;
     amount: string;
     fees: ComputeFeeResult;
     asset: AssetEntity;
