@@ -4,11 +4,11 @@ import { ConfirmTransactionRequest } from './ConfirmTransactionRequest';
 import type { ConfirmTransactionRequestContext } from './types';
 import type { SnapClient } from '../../../../clients/snap/SnapClient';
 import { Network } from '../../../../constants';
+import type { AssetEntity } from '../../../../entities/assets';
 import type { ComputeFeeResult } from '../../../../services/send/types';
 import { TRX_IMAGE_SVG } from '../../../../static/tron-logo';
-import type { AssetEntity } from '../../../../entities/assets';
-import { getIconUrlForKnownAsset } from '../../utils/getIconUrlForKnownAsset';
 import { generateImageComponent } from '../../../utils/generateImageComponent';
+import { getIconUrlForKnownAsset } from '../../utils/getIconUrlForKnownAsset';
 
 export const DEFAULT_CONFIRMATION_CONTEXT: ConfirmTransactionRequestContext = {
   scope: Network.Mainnet,
@@ -51,7 +51,7 @@ export const DEFAULT_CONFIRMATION_CONTEXT: ConfirmTransactionRequestContext = {
  * @param incomingContext.fromAddress - The sender address.
  * @param incomingContext.amount - The amount to send (as a string).
  * @param incomingContext.fees - The detailed fee breakdown array.
- * @param incomingContext.assetSymbol - The asset symbol (e.g., TRX).
+ * @param incomingContext.asset - The asset involved in the transaction.
  * @param incomingContext.origin - The origin string to display.
  * @returns A dialog result with the user's decision.
  */
@@ -71,7 +71,10 @@ export async function render(
     ...incomingContext,
   };
 
-  console.log('RENDERING CONFIRM TRANSACTION REQUEST WITH CONTEXT', JSON.stringify(context))
+  console.log(
+    'RENDERING CONFIRM TRANSACTION REQUEST WITH CONTEXT',
+    JSON.stringify(context),
+  );
 
   try {
     context.preferences = await snapClient.getPreferences();
@@ -84,9 +87,13 @@ export async function render(
    */
   const [assetSvg, ...feeSvgs] = await Promise.all([
     generateImageComponent(context.asset.iconUrl, 16, 16),
-    ...context.fees.map((fee) =>
-      generateImageComponent(getIconUrlForKnownAsset(fee.asset.type), 16, 16),
-    ),
+    ...context.fees.map(async (fee) => {
+      return await generateImageComponent(
+        getIconUrlForKnownAsset(fee.asset.type),
+        16,
+        16,
+      );
+    }),
   ]);
 
   /**
@@ -94,10 +101,10 @@ export async function render(
    */
   context.asset = {
     ...context.asset,
-    imageSvg: assetSvg as string,
+    imageSvg: assetSvg,
   };
   context.fees.forEach((fee, index) => {
-    fee.asset.imageSvg = feeSvgs[index] as string;
+    fee.asset.imageSvg = feeSvgs[index] ?? '';
   });
 
   const id = await snapClient.createInterface(

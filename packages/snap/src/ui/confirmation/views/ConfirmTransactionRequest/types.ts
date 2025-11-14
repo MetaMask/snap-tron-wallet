@@ -1,7 +1,7 @@
 import type { Network } from '../../../../constants';
+import type { AssetEntity } from '../../../../entities/assets';
 import type { ComputeFeeResult } from '../../../../services/send/types';
 import type { Preferences } from '../../../../types/snap';
-import type { AssetEntity } from '../../../../entities/assets';
 
 export type ConfirmTransactionRequestContext = {
   origin: string;

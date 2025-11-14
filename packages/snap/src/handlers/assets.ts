@@ -36,7 +36,10 @@ export class AssetsHandler {
 
     const { from, to } = params;
 
-    const historicalPrice = await this.#assetsService.getHistoricalPrice(from, to);
+    const historicalPrice = await this.#assetsService.getHistoricalPrice(
+      from,
+      to,
+    );
 
     return {
       historicalPrice,

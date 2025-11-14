@@ -27,11 +27,7 @@ import type {
   TokenCaipAssetType,
 } from './types';
 import type { PriceApiClient } from '../../clients/price-api/PriceApiClient';
-import type {
-  FiatTicker,
-  SpotPrice,
-  VsCurrencyParam,
-} from '../../clients/price-api/types';
+import type { FiatTicker, SpotPrice } from '../../clients/price-api/types';
 import {
   GET_HISTORICAL_PRICES_RESPONSE_NULL_OBJECT,
   VsCurrencyParamStruct,
@@ -58,7 +54,6 @@ import { configProvider } from '../../context';
 import type { AssetEntity } from '../../entities/assets';
 import { createPrefixedLogger, type ILogger } from '../../utils/logger';
 import type { State, UnencryptedStateValue } from '../state/State';
-import QUESTION_MARK_SVG from '../../../images/question-mark.svg';
 
 export class AssetsService {
   readonly #logger: ILogger;
@@ -227,9 +222,14 @@ export class AssetsService {
         asset.assetType
       ] as FungibleAssetMetadata | null;
 
-      let { symbol } = asset;
-      let decimals = asset.decimals ?? 0;
-      let iconUrl = asset.iconUrl; // Keep existing iconUrl as fallback
+      const {
+        symbol: initialSymbol,
+        decimals: initialDecimals = 0,
+        iconUrl: initialIconUrl,
+      } = asset;
+      let symbol = initialSymbol;
+      let decimals = initialDecimals;
+      let iconUrl = initialIconUrl;
 
       if (metadata?.fungible) {
         const unit = metadata.units?.[0];
@@ -523,8 +523,6 @@ export class AssetsService {
       ...tokenTrc10AssetTypes,
       ...tokenTrc20AssetTypes,
     ]);
-
-    console.log('[debug] ASSETS METADATA RESOLVED', JSON.stringify(tokensMetadata))
 
     const result = {
       ...nativeTokensMetadata,
@@ -1310,7 +1308,7 @@ export class AssetsService {
         .getHistoricalPrices({
           assetType: from,
           timePeriod,
-          vsCurrency: toTicker as VsCurrencyParam,
+          vsCurrency: toTicker,
         })
         // Wrap the response in an object with the time period and the response for easier reducing
         .then((response) => ({

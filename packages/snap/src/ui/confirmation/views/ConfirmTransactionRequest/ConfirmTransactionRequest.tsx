@@ -17,8 +17,8 @@ import { ConfirmSignAndSendTransactionFormNames } from './events';
 import { type ConfirmTransactionRequestContext } from './types';
 import { Networks } from '../../../../constants';
 import { i18n } from '../../../../utils/i18n';
-import { Fees } from '../../components/Fees';
 import { Asset } from '../../components/Asset/Asset';
+import { Fees } from '../../components/Fees';
 
 export const ConfirmTransactionRequest = ({
   context: {
