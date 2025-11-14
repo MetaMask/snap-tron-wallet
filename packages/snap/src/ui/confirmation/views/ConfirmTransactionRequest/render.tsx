@@ -50,6 +50,7 @@ export const DEFAULT_CONFIRMATION_CONTEXT: ConfirmTransactionRequestContext = {
  * @param incomingContext - The initial context for the confirmation view.
  * @param incomingContext.scope - The network scope for the transaction.
  * @param incomingContext.fromAddress - The sender address.
+ * @param incomingContext.toAddress - The recipient address.
  * @param incomingContext.amount - The amount to send (as a string).
  * @param incomingContext.fees - The detailed fee breakdown array.
  * @param incomingContext.asset - The asset involved in the transaction.
