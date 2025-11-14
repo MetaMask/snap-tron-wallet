@@ -18,15 +18,16 @@ import { type ConfirmTransactionRequestContext } from './types';
 import { Networks } from '../../../../constants';
 import { i18n } from '../../../../utils/i18n';
 import { Fees } from '../../components/Fees';
+import { Asset } from '../../components/Asset/Asset';
 
 export const ConfirmTransactionRequest = ({
   context: {
     origin,
     scope,
     fromAddress,
+    asset,
     amount,
     fees,
-    assetSymbol,
     preferences,
     networkImage,
   },
@@ -65,9 +66,11 @@ export const ConfirmTransactionRequest = ({
                 {translate('confirmation.estimatedChanges.send')}
               </SnapText>
             </Box>
-            <SnapText>
-              {assetSymbol ? `${amount} ${assetSymbol}` : amount}
-            </SnapText>
+            <Asset
+              amount={amount ?? ''}
+              symbol={asset.symbol}
+              iconSvg={asset.imageSvg ?? ''}
+            />
           </Box>
         </Section>
 

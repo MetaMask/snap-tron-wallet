@@ -1,6 +1,7 @@
 import type { Network } from '../../../../constants';
 import type { ComputeFeeResult } from '../../../../services/send/types';
 import type { Preferences } from '../../../../types/snap';
+import type { AssetEntity } from '../../../../entities/assets';
 
 export type ConfirmTransactionRequestContext = {
   origin: string;
@@ -8,7 +9,7 @@ export type ConfirmTransactionRequestContext = {
   fromAddress: string | null;
   amount: string | null;
   fees: ComputeFeeResult;
-  assetSymbol: string;
+  asset: AssetEntity;
   preferences: Preferences;
   networkImage: string;
 };

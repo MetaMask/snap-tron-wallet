@@ -6,13 +6,26 @@ import type { SnapClient } from '../../../../clients/snap/SnapClient';
 import { Network } from '../../../../constants';
 import type { ComputeFeeResult } from '../../../../services/send/types';
 import { TRX_IMAGE_SVG } from '../../../../static/tron-logo';
+import type { AssetEntity } from '../../../../entities/assets';
+import { getIconUrlForKnownAsset } from '../../utils/getIconUrlForKnownAsset';
+import { generateImageComponent } from '../../../utils/generateImageComponent';
 
 export const DEFAULT_CONFIRMATION_CONTEXT: ConfirmTransactionRequestContext = {
   scope: Network.Mainnet,
   fromAddress: null,
   amount: null,
   fees: [],
-  assetSymbol: 'TRX',
+  asset: {
+    assetType: `${Network.Mainnet}/slip44:195`,
+    keyringAccountId: '',
+    network: Network.Mainnet,
+    symbol: 'TRX',
+    decimals: 6,
+    rawAmount: '0',
+    uiAmount: '0',
+    iconUrl: '',
+    imageSvg: TRX_IMAGE_SVG,
+  },
   origin: 'MetaMask',
   networkImage: TRX_IMAGE_SVG,
   preferences: {
@@ -49,7 +62,7 @@ export async function render(
     fromAddress: string;
     amount: string;
     fees: ComputeFeeResult;
-    assetSymbol: string;
+    asset: AssetEntity;
     origin: string;
   },
 ): Promise<DialogResult> {
@@ -58,11 +71,34 @@ export async function render(
     ...incomingContext,
   };
 
+  console.log('RENDERING CONFIRM TRANSACTION REQUEST WITH CONTEXT', JSON.stringify(context))
+
   try {
     context.preferences = await snapClient.getPreferences();
   } catch {
     // keep defaults
   }
+
+  /**
+   * Generate SVG images for all assets (it's an async process so it must be done here).
+   */
+  const [assetSvg, ...feeSvgs] = await Promise.all([
+    generateImageComponent(context.asset.iconUrl, 16, 16),
+    ...context.fees.map((fee) =>
+      generateImageComponent(getIconUrlForKnownAsset(fee.asset.type), 16, 16),
+    ),
+  ]);
+
+  /**
+   * There will always be SVGs for the assets because we fallback to the question mark SVG.
+   */
+  context.asset = {
+    ...context.asset,
+    imageSvg: assetSvg as string,
+  };
+  context.fees.forEach((fee, index) => {
+    fee.asset.imageSvg = feeSvgs[index] as string;
+  });
 
   const id = await snapClient.createInterface(
     <ConfirmTransactionRequest context={context} />,

@@ -10,9 +10,11 @@ import type {
   AssetMetadata,
   FungibleAssetMarketData,
   FungibleAssetMetadata,
+  HistoricalPriceIntervals,
 } from '@metamask/snaps-sdk';
+import { assert } from '@metamask/superstruct';
 import type { CaipAssetType } from '@metamask/utils';
-import { parseCaipAssetType } from '@metamask/utils';
+import { CaipAssetTypeStruct, parseCaipAssetType } from '@metamask/utils';
 import { BigNumber } from 'bignumber.js';
 import { pick } from 'lodash';
 
@@ -25,7 +27,15 @@ import type {
   TokenCaipAssetType,
 } from './types';
 import type { PriceApiClient } from '../../clients/price-api/PriceApiClient';
-import type { FiatTicker, SpotPrice } from '../../clients/price-api/types';
+import type {
+  FiatTicker,
+  SpotPrice,
+  VsCurrencyParam,
+} from '../../clients/price-api/types';
+import {
+  GET_HISTORICAL_PRICES_RESPONSE_NULL_OBJECT,
+  VsCurrencyParamStruct,
+} from '../../clients/price-api/types';
 import type { TokenApiClient } from '../../clients/token-api/TokenApiClient';
 import type { AccountResources } from '../../clients/tron-http';
 import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
@@ -48,6 +58,7 @@ import { configProvider } from '../../context';
 import type { AssetEntity } from '../../entities/assets';
 import { createPrefixedLogger, type ILogger } from '../../utils/logger';
 import type { State, UnencryptedStateValue } from '../state/State';
+import QUESTION_MARK_SVG from '../../../images/question-mark.svg';
 
 export class AssetsService {
   readonly #logger: ILogger;
@@ -158,6 +169,7 @@ export class AssetsService {
           keyringAccountId: account.id,
           network: scope,
           rawAmount: '0',
+          iconUrl: Networks[scope].nativeToken.iconUrl,
         },
       ];
     }
@@ -217,6 +229,7 @@ export class AssetsService {
 
       let { symbol } = asset;
       let decimals = asset.decimals ?? 0;
+      let iconUrl = asset.iconUrl; // Keep existing iconUrl as fallback
 
       if (metadata?.fungible) {
         const unit = metadata.units?.[0];
@@ -226,6 +239,8 @@ export class AssetsService {
         } else {
           symbol = metadata?.symbol ?? symbol;
         }
+        // Include iconUrl from metadata if available
+        iconUrl = metadata.iconUrl ?? iconUrl;
       }
 
       const uiAmount = new BigNumber(asset.rawAmount)
@@ -237,6 +252,7 @@ export class AssetsService {
         symbol,
         decimals,
         uiAmount,
+        iconUrl,
       };
     });
 
@@ -262,6 +278,7 @@ export class AssetsService {
       uiAmount: new BigNumber(tronAccountInfo.balance)
         .dividedBy(10 ** Networks[scope].nativeToken.decimals)
         .toString(),
+      iconUrl: Networks[scope].nativeToken.iconUrl,
     };
 
     return asset;
@@ -313,6 +330,7 @@ export class AssetsService {
         uiAmount: new BigNumber(stakedBandwidthAmount)
           .dividedBy(10 ** Networks[scope].stakedForBandwidth.decimals)
           .toString(),
+        iconUrl: Networks[scope].stakedForBandwidth.iconUrl,
       };
       assets.push(stakedBandwidthAsset);
     }
@@ -328,6 +346,7 @@ export class AssetsService {
         uiAmount: new BigNumber(stakedEnergyAmount)
           .dividedBy(10 ** Networks[scope].stakedForEnergy.decimals)
           .toString(),
+        iconUrl: Networks[scope].stakedForEnergy.iconUrl,
       };
       assets.push(stakedEnergyAsset);
     }
@@ -359,6 +378,7 @@ export class AssetsService {
         decimals: Networks[scope].bandwidth.decimals,
         rawAmount: bandwidth.toString(),
         uiAmount: bandwidth.toString(),
+        iconUrl: Networks[scope].bandwidth.iconUrl,
       },
       {
         assetType: Networks[scope].maximumBandwidth.id,
@@ -368,6 +388,7 @@ export class AssetsService {
         decimals: Networks[scope].maximumBandwidth.decimals,
         rawAmount: maximumBandwidth.toString(),
         uiAmount: maximumBandwidth.toString(),
+        iconUrl: Networks[scope].maximumBandwidth.iconUrl,
       },
     ];
   }
@@ -393,6 +414,7 @@ export class AssetsService {
         decimals: Networks[scope].energy.decimals,
         rawAmount: energy.toString(),
         uiAmount: energy.toString(),
+        iconUrl: Networks[scope].energy.iconUrl,
       },
       {
         assetType: Networks[scope].maximumEnergy.id,
@@ -402,6 +424,7 @@ export class AssetsService {
         decimals: Networks[scope].maximumEnergy.decimals,
         rawAmount: maximumEnergy.toString(),
         uiAmount: maximumEnergy.toString(),
+        iconUrl: Networks[scope].maximumEnergy.iconUrl,
       },
     ];
   }
@@ -429,6 +452,7 @@ export class AssetsService {
           decimals: 0,
           rawAmount: tokenObject.value?.toString() ?? '0',
           uiAmount: '0',
+          iconUrl: '', // Will be enriched with metadata later
         };
       }) ?? [];
 
@@ -457,6 +481,7 @@ export class AssetsService {
             decimals: 0,
             rawAmount: balance,
             uiAmount: '0',
+            iconUrl: '', // Will be enriched with metadata later
           };
         });
       }) ?? [];
@@ -498,6 +523,8 @@ export class AssetsService {
       ...tokenTrc10AssetTypes,
       ...tokenTrc20AssetTypes,
     ]);
+
+    console.log('[debug] ASSETS METADATA RESOLVED', JSON.stringify(tokensMetadata))
 
     const result = {
       ...nativeTokensMetadata,

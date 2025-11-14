@@ -2,6 +2,7 @@ import { Box, Text as SnapText } from '@metamask/snaps-sdk/jsx';
 import type { ComputeFeeResult } from '../../../services/send/types';
 import { i18n } from '../../../utils/i18n';
 import type { Preferences } from '../../../types/snap';
+import { Asset } from './Asset/Asset';
 
 type FeesProps = {
   fees: ComputeFeeResult;
@@ -41,10 +42,12 @@ export const Fees = ({ fees, preferences }: FeesProps) => {
             <Box>{null}</Box>
           )}
           
-          {/* Right side - fee value */}
-          <SnapText>
-            {feeItem.asset.amount} {feeItem.asset.unit}
-          </SnapText>
+          {/* Right side - fee value with asset display */}
+          <Asset
+            amount={feeItem.asset.amount}
+            symbol={feeItem.asset.unit}
+            iconSvg={feeItem.asset.imageSvg}
+          />
         </Box>
       ))}
     </Box>

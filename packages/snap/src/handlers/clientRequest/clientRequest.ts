@@ -361,11 +361,11 @@ export class ClientRequestHandler {
      */
     const confirmed = await this.#confirmationHandler.confirmTransactionRequest(
       {
-        scope: Network.Mainnet,
+        scope,
         fromAddress: account.address,
         amount,
         fees,
-        assetSymbol: asset.symbol,
+        asset,
       },
     );
 
