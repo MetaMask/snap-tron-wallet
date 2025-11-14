@@ -450,7 +450,7 @@ export class SendService {
       await this.#snapClient.trackTransactionSubmitted({
         origin,
         accountType: account.type,
-        chainIdCaip: `${scope}:${account.address.split(':')[0] ?? scope}`,
+        chainIdCaip: scope,
       });
 
       // Track Transaction Finalised event
