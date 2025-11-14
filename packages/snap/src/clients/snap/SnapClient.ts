@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import type { JsonSLIP10Node } from '@metamask/key-tree';
 import type { EntropySourceId } from '@metamask/keyring-api';
 import type {
@@ -243,9 +244,7 @@ export class SnapClient {
     await this.trackEvent(TransactionEventType.TransactionAdded, {
       message: 'Snap transaction added',
       origin: properties.origin,
-      /* eslint-disable-next-line @typescript-eslint/naming-convention */
       account_type: properties.accountType,
-      /* eslint-disable-next-line @typescript-eslint/naming-convention */
       chain_id_caip: properties.chainIdCaip,
     });
   }
@@ -266,9 +265,7 @@ export class SnapClient {
     await this.trackEvent(TransactionEventType.TransactionRejected, {
       message: 'Snap transaction rejected',
       origin: properties.origin,
-      /* eslint-disable-next-line @typescript-eslint/naming-convention */
       account_type: properties.accountType,
-      /* eslint-disable-next-line @typescript-eslint/naming-convention */
       chain_id_caip: properties.chainIdCaip,
     });
   }
@@ -289,9 +286,7 @@ export class SnapClient {
     await this.trackEvent(TransactionEventType.TransactionSubmitted, {
       message: 'Snap transaction submitted',
       origin: properties.origin,
-      /* eslint-disable-next-line @typescript-eslint/naming-convention */
       account_type: properties.accountType,
-      /* eslint-disable-next-line @typescript-eslint/naming-convention */
       chain_id_caip: properties.chainIdCaip,
     });
   }
@@ -312,9 +307,7 @@ export class SnapClient {
     await this.trackEvent(TransactionEventType.TransactionApproved, {
       message: 'Snap transaction approved',
       origin: properties.origin,
-      /* eslint-disable-next-line @typescript-eslint/naming-convention */
       account_type: properties.accountType,
-      /* eslint-disable-next-line @typescript-eslint/naming-convention */
       chain_id_caip: properties.chainIdCaip,
     });
   }
@@ -339,13 +332,9 @@ export class SnapClient {
     await this.trackEvent(TransactionEventType.TransactionFinalised, {
       message: 'Snap transaction finalised',
       origin: properties.origin,
-      /* eslint-disable-next-line @typescript-eslint/naming-convention */
       account_type: properties.accountType,
-      /* eslint-disable-next-line @typescript-eslint/naming-convention */
       chain_id_caip: properties.chainIdCaip,
-      /* eslint-disable-next-line @typescript-eslint/naming-convention */
       transaction_status: properties.transactionStatus,
-      /* eslint-disable-next-line @typescript-eslint/naming-convention */
       transaction_type: properties.transactionType,
     });
   }
