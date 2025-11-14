@@ -4,6 +4,8 @@ import type { AssetEntity } from '../../../../entities/assets';
 import type { ComputeFeeResult } from '../../../../services/send/types';
 import type { FetchStatus, Preferences } from '../../../../types/snap';
 
+export const CONFIRM_TRANSACTION_INTERFACE_NAME = 'confirmTransaction';
+
 export type ConfirmTransactionRequestContext = {
   origin: string;
   scope: Network;

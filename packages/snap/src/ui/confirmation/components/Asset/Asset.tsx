@@ -1,5 +1,10 @@
 import type { ComponentOrElement } from '@metamask/snaps-sdk';
-import { Box, Image, Skeleton, Text as SnapText } from '@metamask/snaps-sdk/jsx';
+import {
+  Box,
+  Image,
+  Skeleton,
+  Text as SnapText,
+} from '@metamask/snaps-sdk/jsx';
 
 import type { Preferences } from '../../../../types/snap';
 import { formatFiat } from '../../../../utils/formatFiat';
@@ -24,30 +29,28 @@ type AssetProps = {
  */
 export const Asset = (props: AssetProps): ComponentOrElement => {
   const { symbol, amount, iconSvg, price, preferences, priceLoading } = props;
-  
+
+  const fiatValue =
+    preferences && price
+      ? formatFiat(
+          tokenToFiat(amount, price),
+          preferences.currency,
+          preferences.locale,
+        )
+      : '';
+
+  const showPriceInfo = preferences !== undefined;
+  const showSkeleton = showPriceInfo && priceLoading;
+  const showFiat = showPriceInfo && !priceLoading && fiatValue;
+
   return (
     <Box direction="horizontal" alignment="center">
+      {showSkeleton && <Skeleton width={80} />}
+      {showFiat && <SnapText color="muted">{fiatValue}</SnapText>}
       <Box alignment="center" center>
         <Image borderRadius="full" src={iconSvg} />
       </Box>
-      <Box direction="vertical">
-        <SnapText>{`${amount} ${symbol}`}</SnapText>
-        {preferences && (
-          <Box>
-            {priceLoading ? (
-              <Skeleton width={60} height={16} />
-            ) : price ? (
-              <SnapText color="muted" size="sm">
-                {formatFiat(
-                  tokenToFiat(amount, price),
-                  preferences.currency,
-                  preferences.locale
-                )}
-              </SnapText>
-            ) : null}
-          </Box>
-        )}
-      </Box>
+      <SnapText>{`${amount} ${symbol}`}</SnapText>
     </Box>
   );
 };

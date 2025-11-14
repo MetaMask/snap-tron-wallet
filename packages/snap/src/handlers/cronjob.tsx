@@ -4,8 +4,10 @@ import type { SnapClient } from '../clients/snap/SnapClient';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { State, UnencryptedStateValue } from '../services/state/State';
 import { ConfirmTransactionRequest } from '../ui/confirmation/views/ConfirmTransactionRequest/ConfirmTransactionRequest';
-import { CONFIRM_TRANSACTION_INTERFACE_NAME } from '../ui/confirmation/views/ConfirmTransactionRequest/render';
-import type { ConfirmTransactionRequestContext } from '../ui/confirmation/views/ConfirmTransactionRequest/types';
+import {
+  CONFIRM_TRANSACTION_INTERFACE_NAME,
+  type ConfirmTransactionRequestContext,
+} from '../ui/confirmation/views/ConfirmTransactionRequest/types';
 import type { ILogger } from '../utils/logger';
 import { createPrefixedLogger } from '../utils/logger';
 
@@ -94,7 +96,7 @@ export class CronHandler {
 
     await this.#snapClient.scheduleBackgroundEvent({
       method: BackgroundEventMethod.ContinuouslySynchronizeSelectedAccounts,
-      duration: '30s',
+      duration: 'PT30S',
     });
   }
 
@@ -161,48 +163,54 @@ export class CronHandler {
   async refreshConfirmationPrices(): Promise<void> {
     this.#logger.info('Background price refresh triggered for confirmation...');
 
-    try {
-      // Get interface ID from the map (Solana pattern)
-      const mapInterfaceNameToId =
-        (await this.#state.getKey<UnencryptedStateValue['mapInterfaceNameToId']>(
-          'mapInterfaceNameToId',
-        )) ?? {};
+    const mapInterfaceNameToId =
+      (await this.#state.getKey<UnencryptedStateValue['mapInterfaceNameToId']>(
+        'mapInterfaceNameToId',
+      )) ?? {};
 
-      const confirmationInterfaceId =
-        mapInterfaceNameToId[CONFIRM_TRANSACTION_INTERFACE_NAME];
+    const confirmationInterfaceId =
+      mapInterfaceNameToId[CONFIRM_TRANSACTION_INTERFACE_NAME];
 
-      // Don't do anything if the confirmation interface is not open
-      if (!confirmationInterfaceId) {
-        this.#logger.info('No active confirmation interface found');
-        return;
-      }
+    // Don't do anything if the confirmation interface is not open
+    if (!confirmationInterfaceId) {
+      this.#logger.info('No active confirmation interface found');
+      return;
+    }
 
-      // Get the current interface context (contains all data we need!)
-      const interfaceContext = (await this.#snapClient.getInterfaceContext(
+    // Get the current interface context (contains all data we need!)
+    const interfaceContext =
+      await this.#snapClient.getInterfaceContext<ConfirmTransactionRequestContext>(
         confirmationInterfaceId,
-      )) as ConfirmTransactionRequestContext | null;
+      );
 
-      if (!interfaceContext) {
-        this.#logger.info('Interface context no longer exists, cleaning up');
-        await this.#state.setKey(
-          `mapInterfaceNameToId.${CONFIRM_TRANSACTION_INTERFACE_NAME}`,
-          null,
-        );
-        return;
-      }
+    if (!interfaceContext) {
+      this.#logger.info('Interface context no longer exists, cleaning up');
+      await this.#state.setKey(
+        `mapInterfaceNameToId.${CONFIRM_TRANSACTION_INTERFACE_NAME}`,
+        null,
+      );
+      return;
+    }
 
-      // Skip if pricing is disabled in preferences
-      if (!interfaceContext.preferences?.useExternalPricingData) {
-        this.#logger.info('External pricing data is disabled in preferences');
-        return;
-      }
-
+    try {
       // Extract CAIP IDs from context (main asset + fee assets)
       const assetCaipIds = [
         interfaceContext.asset.assetType,
         ...interfaceContext.fees.map((fee) => fee.asset.type),
       ];
       const uniqueAssetCaipIds = [...new Set(assetCaipIds)];
+
+      // First, update UI to show loading skeletons (Solana pattern)
+      const fetchingContext: ConfirmTransactionRequestContext = {
+        ...interfaceContext,
+        tokenPricesFetchStatus: 'fetching' as const,
+      };
+
+      await this.#snapClient.updateInterface(
+        confirmationInterfaceId,
+        <ConfirmTransactionRequest context={fetchingContext} />,
+        fetchingContext,
+      );
 
       // Fetch fresh prices
       this.#logger.info(
@@ -232,10 +240,36 @@ export class CronHandler {
       // Schedule the next refresh (20 seconds like Solana)
       await this.#snapClient.scheduleBackgroundEvent({
         method: BackgroundEventMethod.RefreshConfirmationPrices,
-        duration: '20s',
+        duration: 'PT20S',
       });
     } catch (error) {
       this.#logger.error('Error refreshing confirmation prices:', error);
+
+      // Try to update the UI to show error state if possible
+      try {
+        const currentContext =
+          await this.#snapClient.getInterfaceContext<ConfirmTransactionRequestContext>(
+            confirmationInterfaceId,
+          );
+
+        if (!currentContext) {
+          return;
+        }
+
+        const errorContext: ConfirmTransactionRequestContext = {
+          ...currentContext,
+          tokenPricesFetchStatus: 'error' as const,
+        };
+
+        await this.#snapClient.updateInterface(
+          confirmationInterfaceId,
+          <ConfirmTransactionRequest context={errorContext} />,
+          errorContext,
+        );
+      } catch {
+        // Ignore errors when trying to update error state
+      }
+
       // Don't schedule another refresh on error - the dialog might be gone
     }
   }

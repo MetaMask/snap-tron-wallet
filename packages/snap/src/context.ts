@@ -123,6 +123,7 @@ const stakingService = new StakingService({
 
 const confirmationHandler = new ConfirmationHandler({
   snapClient,
+  state,
 });
 
 /**
@@ -237,7 +238,7 @@ export {
   keyringHandler,
   lifecycleHandler,
   rpcHandler,
-  userInputHandler
+  userInputHandler,
 };
 
 export default snapContext;

@@ -1,11 +1,11 @@
 import type { ComponentOrElement } from '@metamask/snaps-sdk';
 import { Box, Text as SnapText } from '@metamask/snaps-sdk/jsx';
 
+import { Asset } from './Asset/Asset';
 import type { SpotPrices } from '../../../clients/price-api/types';
 import type { ComputeFeeResult } from '../../../services/send/types';
 import type { FetchStatus, Preferences } from '../../../types/snap';
 import { i18n } from '../../../utils/i18n';
-import { Asset } from './Asset/Asset';
 
 type FeesProps = {
   fees: ComputeFeeResult;
@@ -14,11 +14,11 @@ type FeesProps = {
   tokenPricesFetchStatus?: FetchStatus;
 };
 
-export const Fees = ({ 
-  fees, 
-  preferences, 
-  tokenPrices = {}, 
-  tokenPricesFetchStatus = 'initial' 
+export const Fees = ({
+  fees,
+  preferences,
+  tokenPrices = {},
+  tokenPricesFetchStatus = 'initial',
 }: FeesProps): ComponentOrElement => {
   const translate = i18n(preferences.locale);
   const priceLoading = tokenPricesFetchStatus === 'fetching';
@@ -40,8 +40,9 @@ export const Fees = ({
     <Box>
       {sortedFees.map((feeItem, index) => {
         // Get the price for this specific fee asset
-        const feePrice = (tokenPrices as any)[feeItem.asset.type]?.price ?? null;
-        
+        const feePrice =
+          (tokenPrices as any)[feeItem.asset.type]?.price ?? null;
+
         return (
           <Box
             key={`${feeItem.asset.type}-${feeItem.asset.unit}-${index}`}

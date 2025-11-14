@@ -8,7 +8,7 @@ import type {
   GetInterfaceStateResult,
   Json,
   ResolveInterfaceResult,
-  UpdateInterfaceResult
+  UpdateInterfaceResult,
 } from '@metamask/snaps-sdk';
 
 import { TransactionEventType } from '../../types/analytics';

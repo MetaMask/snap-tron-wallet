@@ -14,13 +14,13 @@ import {
   Tooltip,
 } from '@metamask/snaps-sdk/jsx';
 
+import { ConfirmSignAndSendTransactionFormNames } from './events';
+import { type ConfirmTransactionRequestContext } from './types';
 import { Networks } from '../../../../constants';
 import { getExplorerUrl } from '../../../../utils/getExplorerUrl';
 import { i18n } from '../../../../utils/i18n';
 import { Asset } from '../../components/Asset/Asset';
 import { Fees } from '../../components/Fees';
-import { ConfirmSignAndSendTransactionFormNames } from './events';
-import { type ConfirmTransactionRequestContext } from './types';
 
 export const ConfirmTransactionRequest = ({
   context: {
@@ -146,8 +146,8 @@ export const ConfirmTransactionRequest = ({
           </Box>
           <Box>{null}</Box>
           {/* Fee Breakdown */}
-          <Fees 
-            fees={fees} 
+          <Fees
+            fees={fees}
             preferences={preferences}
             tokenPrices={tokenPrices}
             tokenPricesFetchStatus={tokenPricesFetchStatus}
