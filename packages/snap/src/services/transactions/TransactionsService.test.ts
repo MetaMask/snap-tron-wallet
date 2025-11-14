@@ -96,7 +96,7 @@ describe('TransactionsService', () => {
         contractInfoMock.data as ContractTransactionInfo[],
       );
 
-      const result = await transactionsService.fetchTransactionsForAccount(
+      await transactionsService.fetchTransactionsForAccount(
         Network.Mainnet,
         mockAccount,
       );
@@ -127,7 +127,7 @@ describe('TransactionsService', () => {
         [],
       );
 
-      const result = await transactionsService.fetchTransactionsForAccount(
+      await transactionsService.fetchTransactionsForAccount(
         Network.Mainnet,
         mockAccount2,
       );
@@ -591,7 +591,7 @@ describe('TransactionsService', () => {
         [],
       );
 
-      const result = await transactionsService.fetchTransactionsForAccount(
+      await transactionsService.fetchTransactionsForAccount(
         Network.Mainnet,
         mockAccount2,
       );
