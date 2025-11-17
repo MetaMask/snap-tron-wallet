@@ -9,13 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.0]
 
-### Uncategorized
+### Added
 
-- feat: implement confirmation UI (#86) ([#86](https://github.com/MetaMask/snap-tron-wallet/pull/86))
-- feat: transactions analytics ([#90](https://github.com/MetaMask/snap-tron-wallet/pull/90))
-- feat: add from and to to confirmation ([#88](https://github.com/MetaMask/snap-tron-wallet/pull/88))
-- chore: remove logs ([#87](https://github.com/MetaMask/snap-tron-wallet/pull/87))
-- feat: implement confirmation UI ([#86](https://github.com/MetaMask/snap-tron-wallet/pull/86))
+- Confirmation UI (#86) ([#86](https://github.com/MetaMask/snap-tron-wallet/pull/86))
+- Transactions analytics ([#90](https://github.com/MetaMask/snap-tron-wallet/pull/90))
+- Add `from` and `to` to confirmation ([#88](https://github.com/MetaMask/snap-tron-wallet/pull/88))
+
+### Fixed
+
+- Remove logs ([#87](https://github.com/MetaMask/snap-tron-wallet/pull/87))
 
 ## [1.7.4]
 
