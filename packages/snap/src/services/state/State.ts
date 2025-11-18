@@ -1,5 +1,6 @@
 import type { Transaction } from '@metamask/keyring-api';
 import { unset } from 'lodash';
+import { Mutex } from 'async-mutex';
 
 import type { IStateManager } from './IStateManager';
 import type { SpotPrices } from '../../clients/price-api/types';
@@ -51,6 +52,8 @@ export type StateConfig<TValue extends Record<string, Serializable>> = {
 export class State<TStateValue extends Record<string, Serializable>>
   implements IStateManager<TStateValue>
 {
+  readonly #mutex = new Mutex();
+
   readonly #config: StateConfig<TStateValue>;
 
   constructor(config: StateConfig<TStateValue>) {
@@ -109,8 +112,12 @@ export class State<TStateValue extends Record<string, Serializable>>
   async update(
     updaterFunction: (state: TStateValue) => TStateValue,
   ): Promise<TStateValue> {
-    return this.get().then(async (state) => {
-      const newState = updaterFunction(state);
+    // Because this function modifies the entire state blob,
+    // we must protect against parallel requests.
+    return await this.#mutex.runExclusive(async () => {
+      const currentState = await this.get();
+
+      const newState = updaterFunction(currentState);
 
       await snap.request({
         method: 'snap_manageState',
