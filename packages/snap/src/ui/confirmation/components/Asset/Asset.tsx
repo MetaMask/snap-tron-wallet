@@ -1,11 +1,13 @@
 import type { ComponentOrElement } from '@metamask/snaps-sdk';
 import {
   Box,
+  Icon,
   Image,
   Skeleton,
   Text as SnapText,
 } from '@metamask/snaps-sdk/jsx';
 
+import { KnownCaip19Id } from '../../../../constants';
 import type { Preferences } from '../../../../types/snap';
 import { formatFiat } from '../../../../utils/formatFiat';
 import { tokenToFiat } from '../../../../utils/tokenToFiat';
@@ -14,6 +16,7 @@ type AssetProps = {
   symbol: string;
   amount: string;
   iconSvg: string;
+  caipId?: string;
   showAmount?: boolean;
   price?: number | null;
   preferences?: Preferences;
@@ -28,7 +31,8 @@ type AssetProps = {
  * @returns The rendered asset element.
  */
 export const Asset = (props: AssetProps): ComponentOrElement => {
-  const { symbol, amount, iconSvg, price, preferences, priceLoading } = props;
+  const { symbol, amount, iconSvg, caipId, price, preferences, priceLoading } =
+    props;
 
   const fiatValue =
     preferences && price
@@ -43,12 +47,26 @@ export const Asset = (props: AssetProps): ComponentOrElement => {
   const showSkeleton = showPriceInfo && priceLoading;
   const showFiat = showPriceInfo && !priceLoading && fiatValue;
 
+  const isBandwidth =
+    caipId === KnownCaip19Id.BandwidthMainnet ||
+    caipId === KnownCaip19Id.BandwidthNile ||
+    caipId === KnownCaip19Id.BandwidthShasta;
+
+  const isEnergy =
+    caipId === KnownCaip19Id.EnergyMainnet ||
+    caipId === KnownCaip19Id.EnergyNile ||
+    caipId === KnownCaip19Id.EnergyShasta;
+
+  const isNormalAsset = !isBandwidth && !isEnergy;
+
   return (
     <Box direction="horizontal" alignment="center">
       {showSkeleton ? <Skeleton width={80} /> : null}
       {showFiat ? <SnapText color="muted">{fiatValue}</SnapText> : null}
       <Box alignment="center" center>
-        <Image borderRadius="full" src={iconSvg} />
+        {isBandwidth ? <Icon name="connect" size="md" /> : null}
+        {isEnergy ? <Icon name="flash" size="md" /> : null}
+        {isNormalAsset ? <Image borderRadius="full" src={iconSvg} /> : null}
       </Box>
       <SnapText>{`${amount} ${symbol}`}</SnapText>
     </Box>
