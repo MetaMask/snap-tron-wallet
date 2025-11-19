@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.1]
+
+### Uncategorized
+
+- fix: `computeFee` is not working ([#84](https://github.com/MetaMask/snap-tron-wallet/pull/84))
+
 ## [1.7.4]
 
 ## [1.7.1]
@@ -45,7 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release of Tron wallet site
 
-[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.7.4...HEAD
+[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.8.1...HEAD
+[1.8.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.7.4...v1.8.1
 [1.7.4]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.7.1...v1.7.4
 [1.7.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.3.0...v1.7.1
 [1.3.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.1.0...v1.3.0
