@@ -150,6 +150,7 @@ const cronHandler = new CronHandler({
   accountsService,
   state,
   priceApiClient,
+  tronHttpClient,
 });
 const lifecycleHandler = new LifecycleHandler({
   logger,

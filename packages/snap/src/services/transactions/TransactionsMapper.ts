@@ -86,7 +86,15 @@ export class TransactionMapper {
 
     const from = TronWeb.address.fromHex(contractValue.owner_address);
     const to = TronWeb.address.fromHex(contractValue.to_address);
-    const timestamp = Math.floor(trongridTransaction.block_timestamp / 1000);
+
+    // Determine transaction status based on blockNumber presence
+    const isPending = !trongridTransaction.blockNumber;
+    const status = isPending ? 'submitted' : 'confirmed';
+
+    // Use transaction timestamp for confirmed, current time for pending
+    const timestamp = isPending
+      ? Math.floor(Date.now() / 1000)
+      : Math.floor(trongridTransaction.block_timestamp / 1000);
 
     // Convert from sun to TRX (divide by 10^6)
     const amountInSun = contractValue.amount;
@@ -137,12 +145,12 @@ export class TransactionMapper {
       ],
       events: [
         {
-          status: 'confirmed',
+          status,
           timestamp,
         },
       ],
       chain: scope,
-      status: 'confirmed',
+      status,
       account: account.id,
       timestamp,
       fees,
@@ -173,7 +181,15 @@ export class TransactionMapper {
 
     const from = TronWeb.address.fromHex(contractValue.owner_address);
     const to = TronWeb.address.fromHex(contractValue.to_address);
-    const timestamp = Math.floor(trongridTransaction.block_timestamp / 1000);
+
+    // Determine transaction status based on blockNumber presence
+    const isPending = !trongridTransaction.blockNumber;
+    const status = isPending ? 'submitted' : 'confirmed';
+
+    // Use transaction timestamp for confirmed, current time for pending
+    const timestamp = isPending
+      ? Math.floor(Date.now() / 1000)
+      : Math.floor(trongridTransaction.block_timestamp / 1000);
 
     // Convert from smallest unit to human-readable amount (TRC10 typically uses 6 decimals)
     const amountInSmallestUnit = contractValue.amount;
@@ -223,12 +239,12 @@ export class TransactionMapper {
       ],
       events: [
         {
-          status: 'confirmed',
+          status,
           timestamp,
         },
       ],
       chain: scope,
-      status: 'confirmed',
+      status,
       account: account.id,
       timestamp,
       fees,
@@ -265,6 +281,15 @@ export class TransactionMapper {
 
     const { from } = trc20AssistanceData;
     const { to } = trc20AssistanceData;
+
+    // Determine transaction status based on blockNumber presence
+    const isPending = !trongridTransaction.blockNumber;
+    const status = isPending ? 'submitted' : 'confirmed';
+
+    // Use transaction timestamp for confirmed, current time for pending
+    const timestamp = isPending
+      ? Math.floor(Date.now() / 1000)
+      : Math.floor(trc20AssistanceData.block_timestamp / 1000);
 
     // Convert from smallest unit to human-readable amount using token decimals
     const valueInSmallestUnit = trc20AssistanceData.value;
@@ -316,14 +341,14 @@ export class TransactionMapper {
       ],
       events: [
         {
-          status: 'confirmed',
-          timestamp: Math.floor(trc20AssistanceData.block_timestamp / 1000),
+          status,
+          timestamp,
         },
       ],
       chain: scope,
-      status: 'confirmed',
+      status,
       account: account.id,
-      timestamp: Math.floor(trc20AssistanceData.block_timestamp / 1000),
+      timestamp,
       fees,
     };
   }
