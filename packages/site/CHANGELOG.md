@@ -9,11 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.1]
 
-### Uncategorized
+### Added
 
-- fix: `computeFee` is not working ([#84](https://github.com/MetaMask/snap-tron-wallet/pull/84))
-
-## [1.7.4]
+- Add `computeFee` test button ([#84](https://github.com/MetaMask/snap-tron-wallet/pull/84))
 
 ## [1.7.1]
 
@@ -29,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.0]
 
-### Uncategorized
+### Added
 
 - Add "Get Assets" and "Get Transactions" test buttons ([#27](https://github.com/MetaMask/snap-tron-wallet/pull/27))
 
