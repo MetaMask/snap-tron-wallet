@@ -9,10 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.1]
 
-### Uncategorized
+### Added
 
-- feat: add Bandwidth and Energy confirmation logos ([#95](https://github.com/MetaMask/snap-tron-wallet/pull/95))
-- fix: `computeFee` is not working ([#84](https://github.com/MetaMask/snap-tron-wallet/pull/84))
+- Bandwidth and Energy confirmation logos ([#95](https://github.com/MetaMask/snap-tron-wallet/pull/95))
+
+### Fixed
+
+- `computeFee` was returning in SUN and inaccurate values ([#84](https://github.com/MetaMask/snap-tron-wallet/pull/84))
 
 ## [1.8.0]
 
