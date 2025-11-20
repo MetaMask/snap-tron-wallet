@@ -9,10 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.9.0]
 
-### Uncategorized
+### Added
 
-- fix: track transaction when executed and map failed and swap transactions ([#98](https://github.com/MetaMask/snap-tron-wallet/pull/98))
-- fix: dont allow clients requesting assets for tesnets ([#99](https://github.com/MetaMask/snap-tron-wallet/pull/99))
+- Track transaction when executed and map `failed` and `swap` transactions ([#98](https://github.com/MetaMask/snap-tron-wallet/pull/98))
+
+### Fixed
+
+- Dont allow clients requesting assets for tesnets ([#99](https://github.com/MetaMask/snap-tron-wallet/pull/99))
 
 ## [1.8.1]
 
