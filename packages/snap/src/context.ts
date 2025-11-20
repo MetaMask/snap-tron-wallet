@@ -90,6 +90,7 @@ const transactionsService = new TransactionsService({
   logger,
   transactionsRepository,
   trongridApiClient,
+  tronHttpClient,
 });
 
 const accountsService = new AccountsService({
