@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.9.1]
 
-### FIxed
+### Fixed
 
 - Use available `triggerConstantContract` instead of `estimateEnergy` ([#101](https://github.com/MetaMask/snap-tron-wallet/pull/101))
 - Use mutex for state blob modifications ([#93](https://github.com/MetaMask/snap-tron-wallet/pull/93))
