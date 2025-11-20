@@ -1,6 +1,6 @@
 import type { Transaction } from '@metamask/keyring-api';
-import { unset } from 'lodash';
 import { Mutex } from 'async-mutex';
+import { unset } from 'lodash';
 
 import type { IStateManager } from './IStateManager';
 import type { SpotPrices } from '../../clients/price-api/types';
