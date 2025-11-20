@@ -4072,6 +4072,7 @@ __metadata:
     "@metamask/utils": "npm:^11.4.2"
     "@types/jest": "npm:^30.0.0"
     "@types/lodash": "npm:^4.17.20"
+    async-mutex: "npm:^0.5.0"
     bignumber.js: "npm:^9.3.1"
     concurrently: "npm:^9.2.0"
     dotenv: "npm:^17.0.0"
