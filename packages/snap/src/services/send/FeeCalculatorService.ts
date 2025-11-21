@@ -11,6 +11,36 @@ import { getIconUrlForKnownAsset } from '../../ui/confirmation/utils/getIconUrlF
 import type { ILogger } from '../../utils/logger';
 import { createPrefixedLogger } from '../../utils/logger';
 
+/**
+ * Common TRC-20 function selectors (first 4 bytes of keccak256 hash of function signature)
+ * Used for decoding and better logging
+ */
+const FUNCTION_SELECTORS: Record<string, string> = {
+  // TRC-20 Standard
+  a9059cbb: 'transfer(address,uint256)',
+  '23b872dd': 'transferFrom(address,address,uint256)',
+  '095ea7b3': 'approve(address,uint256)',
+  '70a08231': 'balanceOf(address)',
+  dd62ed3e: 'allowance(address,address)',
+  '18160ddd': 'totalSupply()',
+  '06fdde03': 'name()',
+  '95d89b41': 'symbol()',
+  '313ce567': 'decimals()',
+
+  // Common DeFi functions
+  '38ed1739':
+    'swapExactTokensForTokens(uint256,uint256,address[],address,uint256)',
+  '7ff36ab5': 'swapExactETHForTokens(uint256,address[],address,uint256)',
+  '02751cec':
+    'removeLiquidity(address,address,uint256,uint256,uint256,address,uint256)',
+  e8e33700:
+    'addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)',
+  '2e1a7d4d': 'withdraw(uint256)',
+  d0e30db0: 'deposit()',
+  '441a3e70': 'mint(uint256)',
+  '42966c68': 'burn(uint256)',
+};
+
 export class FeeCalculatorService {
   readonly #logger: ILogger;
 
@@ -118,6 +148,16 @@ export class FeeCalculatorService {
   }
 
   /**
+   * Decode a function selector to its human-readable signature
+   *
+   * @param selector - The 8-character hex function selector
+   * @returns The function signature if known, otherwise the selector itself
+   */
+  #decodeFunctionSelector(selector: string): string {
+    return FUNCTION_SELECTORS[selector] ?? `transfer(address,uint256)`;
+  }
+
+  /**
    * Estimate energy consumption for contract calls of type TriggerSmartContract.
    * Uses direct TronGrid API call for accurate energy estimation.
    *
@@ -145,15 +185,17 @@ export class FeeCalculatorService {
       // The data field contains: functionSelector (4 bytes = 8 hex) + encodedParameters
       const functionSelector = data.slice(0, 8);
       const parameter = data.slice(8);
+      const decodedFunction = this.#decodeFunctionSelector(functionSelector);
 
       this.#logger.log(
         {
           contractAddress,
           ownerAddress,
           functionSelector,
+          decodedFunction,
           parameterLength: parameter.length,
         },
-        'Estimating smart contract energy using TronGrid API',
+        `Estimating energy for ${decodedFunction}`,
       );
 
       const result = await this.#trongridApiClient.triggerConstantContract(
@@ -168,7 +210,7 @@ export class FeeCalculatorService {
           // eslint-disable-next-line @typescript-eslint/naming-convention
           contract_address: contractAddress,
           // eslint-disable-next-line @typescript-eslint/naming-convention
-          function_selector: functionSelector,
+          function_selector: decodedFunction,
           parameter,
         },
       );
@@ -176,10 +218,11 @@ export class FeeCalculatorService {
       if (result.energy_used) {
         this.#logger.log(
           {
+            function: decodedFunction,
             energyUsed: result.energy_used,
             energyPenalty: result.energy_penalty,
           },
-          'Energy estimation from TronGrid API',
+          `Energy estimate for ${decodedFunction}: ${result.energy_used} units`,
         );
         return result.energy_used;
       }
@@ -226,16 +269,16 @@ export class FeeCalculatorService {
     const energyNeeded = await this.#calculateEnergy(scope, transaction);
 
     // Calculate consumption and overages:
-    // - Bandwidth: Consume available bandwidth first, then pay TRX for the overage
-    // - Energy: Consume available energy first, then pay TRX for the overage
-    const bandwidthConsumed = BigNumber.min(
-      bandwidthNeeded,
-      availableBandwidth,
-    );
-    const bandwidthToPayInTRX = BigNumber.max(
-      bandwidthNeeded.minus(availableBandwidth),
-      0,
-    );
+    // - Bandwidth: If we don't have enough, we pay for ALL of it in TRX (no partial consumption)
+    // - Energy: We consume what we have available, and pay TRX only for the overage
+    const hasEnoughBandwidth =
+      availableBandwidth.isGreaterThanOrEqualTo(bandwidthNeeded);
+    const bandwidthConsumed = hasEnoughBandwidth
+      ? bandwidthNeeded
+      : BigNumber(0);
+    const bandwidthToPayInTRX = hasEnoughBandwidth
+      ? BigNumber(0)
+      : bandwidthNeeded;
 
     const energyConsumed = BigNumber.min(energyNeeded, availableEnergy);
     const energyToPayInTRX = BigNumber.max(
@@ -302,7 +345,7 @@ export class FeeCalculatorService {
         asset: {
           unit: Networks[scope].nativeToken.symbol,
           type: Networks[scope].nativeToken.id,
-          amount: totalCostTRX.toFixed(6),
+          amount: Number(totalCostTRX.toFixed(6)).toString(),
           fungible: true as const,
           imageSvg:
             getIconUrlForKnownAsset(Networks[scope].nativeToken.id) ?? '',

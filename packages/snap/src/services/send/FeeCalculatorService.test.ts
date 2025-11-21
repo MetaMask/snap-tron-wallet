@@ -150,27 +150,17 @@ describe('FeeCalculatorService', () => {
           availableBandwidth,
         });
 
-        // Should have bandwidth consumption (100) and TRX cost for overage (166)
-        // Bandwidth consumed: 100
-        // Bandwidth overage: 166 * 1000 SUN = 166,000 SUN = 0.166 TRX
+        // New behavior: When there's not enough bandwidth, ALL bandwidth is paid in TRX
+        // Bandwidth needed: 266 bytes
+        // No bandwidth consumed (since we don't have enough)
+        // TRX cost: 266 * 1000 SUN = 266,000 SUN = 0.266 TRX
         expect(result).toStrictEqual([
-          {
-            type: FeeType.Base,
-            asset: {
-              unit: 'BANDWIDTH',
-              type: 'tron:728126428/slip44:bandwidth',
-              amount: '100',
-              fungible: true,
-              imageSvg:
-                'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
-            },
-          },
           {
             type: FeeType.Base,
             asset: {
               unit: 'TRX',
               type: 'tron:728126428/slip44:195',
-              amount: '0.166000',
+              amount: '0.266',
               fungible: true,
               imageSvg:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
@@ -235,7 +225,7 @@ describe('FeeCalculatorService', () => {
             asset: {
               unit: 'TRX',
               type: 'tron:728126428/slip44:195',
-              amount: '3.000000',
+              amount: '3',
               fungible: true,
               imageSvg:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
@@ -289,7 +279,7 @@ describe('FeeCalculatorService', () => {
             asset: {
               unit: 'TRX',
               type: 'tron:728126428/slip44:195',
-              amount: '10.000000',
+              amount: '10',
               fungible: true,
               imageSvg:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
@@ -311,15 +301,15 @@ describe('FeeCalculatorService', () => {
           availableBandwidth,
         });
 
-        // Should have energy consumption, bandwidth consumption, and TRX cost for overages
+        // Should have energy consumption and TRX cost for overages
         // Energy: 130000 (hardcoded), available: 100000
         // Energy consumed: 100000, overage: 30000
         // Energy TRX cost: 30000 * 100 SUN = 3,000,000 SUN = 3 TRX
         // Note: raw_data_hex doesn't change when we modify the data field,
         // so bandwidth is still 345 bytes (not the larger theoretical size)
-        // Bandwidth consumed: 100, overage: 245
-        // Bandwidth TRX cost: 245 * 1000 SUN = 245,000 SUN = 0.245 TRX
-        // Total TRX cost: 3.245 TRX
+        // New behavior: Not enough bandwidth (100 < 345), so ALL bandwidth is paid in TRX
+        // Bandwidth TRX cost: 345 * 1000 SUN = 345,000 SUN = 0.345 TRX
+        // Total TRX cost: 3.345 TRX
         expect(result).toStrictEqual([
           {
             type: FeeType.Base,
@@ -335,20 +325,9 @@ describe('FeeCalculatorService', () => {
           {
             type: FeeType.Base,
             asset: {
-              unit: 'BANDWIDTH',
-              type: 'tron:728126428/slip44:bandwidth',
-              amount: '100',
-              fungible: true,
-              imageSvg:
-                'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
-            },
-          },
-          {
-            type: FeeType.Base,
-            asset: {
               unit: 'TRX',
               type: 'tron:728126428/slip44:195',
-              amount: '3.245000',
+              amount: '3.345',
               fungible: true,
               imageSvg:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
@@ -370,11 +349,12 @@ describe('FeeCalculatorService', () => {
           availableBandwidth,
         });
 
-        // Should have energy consumption, bandwidth consumption, and TRX cost for both overages
+        // Should have energy consumption and TRX cost for both overages
         // Energy: 130000 (hardcoded), available: 30000
         // Energy consumed: 30000, overage: 100000 → 10 TRX
-        // Bandwidth consumed: 100, overage: 245 → 0.245 TRX
-        // Total: 10.245 TRX
+        // New behavior: Not enough bandwidth (100 < 345), so ALL bandwidth is paid in TRX
+        // Bandwidth TRX cost: 345 * 1000 SUN = 345,000 SUN = 0.345 TRX
+        // Total: 10.345 TRX
         expect(result).toStrictEqual([
           {
             type: FeeType.Base,
@@ -390,20 +370,9 @@ describe('FeeCalculatorService', () => {
           {
             type: FeeType.Base,
             asset: {
-              unit: 'BANDWIDTH',
-              type: 'tron:728126428/slip44:bandwidth',
-              amount: '100',
-              fungible: true,
-              imageSvg:
-                'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
-            },
-          },
-          {
-            type: FeeType.Base,
-            asset: {
               unit: 'TRX',
               type: 'tron:728126428/slip44:195',
-              amount: '10.245000',
+              amount: '10.345',
               fungible: true,
               imageSvg:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
@@ -434,7 +403,7 @@ describe('FeeCalculatorService', () => {
             asset: {
               unit: 'TRX',
               type: 'tron:728126428/slip44:195',
-              amount: '0.266000',
+              amount: '0.266',
               fungible: true,
               imageSvg:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
@@ -524,7 +493,7 @@ describe('FeeCalculatorService', () => {
             asset: {
               unit: 'TRX',
               type: 'tron:728126428/slip44:195',
-              amount: '3.000000',
+              amount: '3',
               fungible: true,
               imageSvg:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
@@ -560,9 +529,9 @@ describe('FeeCalculatorService', () => {
         // Energy TRX cost: 30000 * 100 = 3,000,000 SUN = 3 TRX
         // Note: Modifying the data field doesn't update raw_data_hex,
         // so bandwidth is still calculated from the original hex (345 bytes)
-        // Bandwidth consumed: 100, overage: 245
-        // Bandwidth TRX cost: 245 * 1000 SUN = 245,000 SUN = 0.245 TRX
-        // Total TRX cost: 3.245 TRX
+        // New behavior: Not enough bandwidth (100 < 345), so ALL bandwidth is paid in TRX
+        // Bandwidth TRX cost: 345 * 1000 SUN = 345,000 SUN = 0.345 TRX
+        // Total TRX cost: 3.345 TRX
         expect(result).toStrictEqual([
           {
             type: FeeType.Base,
@@ -578,20 +547,9 @@ describe('FeeCalculatorService', () => {
           {
             type: FeeType.Base,
             asset: {
-              unit: 'BANDWIDTH',
-              type: 'tron:728126428/slip44:bandwidth',
-              amount: '100',
-              fungible: true,
-              imageSvg:
-                'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
-            },
-          },
-          {
-            type: FeeType.Base,
-            asset: {
               unit: 'TRX',
               type: 'tron:728126428/slip44:195',
-              amount: '3.245000',
+              amount: '3.345',
               fungible: true,
               imageSvg:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
