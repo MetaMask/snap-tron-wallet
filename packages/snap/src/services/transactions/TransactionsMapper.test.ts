@@ -1,4 +1,4 @@
-// eslint-disable-file @typescript-eslint/no-non-null-assertion
+/* eslint-disable @typescript-eslint/no-non-null-assertion, @typescript-eslint/naming-convention */
 import { TransactionType, TransactionStatus } from '@metamask/keyring-api';
 
 import { TransactionMapper } from './TransactionsMapper';
@@ -334,8 +334,8 @@ describe('TransactionMapper', () => {
   describe('Staking (Freeze/Unfreeze)', () => {
     it('should map FreezeBalanceV2Contract (stake) as send with staked asset', () => {
       const native = nativeTransferMock as TransactionInfo;
-      const ownerHex =
-        (native.raw_data.contract?.[0] as any)?.parameter?.value?.owner_address;
+      const ownerHex = (native.raw_data.contract?.[0] as any)?.parameter?.value
+        ?.owner_address;
 
       const freezeTx = {
         ret: [{ contractRet: 'SUCCESS', fee: 200000 }], // 0.2 TRX
@@ -359,7 +359,8 @@ describe('TransactionMapper', () => {
                   frozen_balance: 1_000_000, // 1 TRX
                   resource: 'BANDWIDTH',
                 },
-                type_url: 'type.googleapis.com/protocol.FreezeBalanceV2Contract',
+                type_url:
+                  'type.googleapis.com/protocol.FreezeBalanceV2Contract',
               },
             },
           ],
@@ -405,8 +406,8 @@ describe('TransactionMapper', () => {
 
     it('should map UnfreezeBalanceV2Contract (unstake) as receive with staked asset', () => {
       const native = nativeTransferMock as TransactionInfo;
-      const ownerHex =
-        (native.raw_data.contract?.[0] as any)?.parameter?.value?.owner_address;
+      const ownerHex = (native.raw_data.contract?.[0] as any)?.parameter?.value
+        ?.owner_address;
 
       const unfreezeTx = {
         ret: [{ contractRet: 'SUCCESS', fee: 150000 }], // 0.15 TRX
@@ -516,7 +517,6 @@ describe('TransactionMapper', () => {
     it('should handle transaction with missing contract data', () => {
       const malformedTransaction = {
         txID: 'test-tx-id',
-        // eslint-disable-next-line @typescript-eslint/naming-convention
         raw_data: {
           contract: undefined,
         },
@@ -535,7 +535,6 @@ describe('TransactionMapper', () => {
       const mockRawData = nativeTransferMock?.raw_data;
       const rawTransaction = {
         ...nativeTransferMock,
-        // eslint-disable-next-line @typescript-eslint/naming-convention
         raw_data: {
           ...mockRawData,
           contract: [
@@ -667,7 +666,6 @@ describe('TransactionMapper', () => {
         ...swapTransactionMock,
       } as unknown as TransactionInfo;
 
-      /* eslint-disable @typescript-eslint/naming-convention */
       const trc20Transfers: ContractTransactionInfo[] = [
         {
           transaction_id: mockTrc20Swap.txID,
@@ -698,7 +696,6 @@ describe('TransactionMapper', () => {
           value: '99500000',
         },
       ];
-      /* eslint-enable @typescript-eslint/naming-convention */
 
       const result = TransactionMapper.mapTransaction({
         scope: Network.Mainnet,
@@ -718,7 +715,6 @@ describe('TransactionMapper', () => {
 
   describe('Non-Swap Scenarios', () => {
     it('does not detect a swap when only receiving TRC20 (no TRX movement)', () => {
-      /* eslint-disable @typescript-eslint/naming-convention */
       const mockTx = {
         ...swapTransactionMock,
         internal_transactions: [],
@@ -740,7 +736,6 @@ describe('TransactionMapper', () => {
           value: '50000000',
         },
       ];
-      /* eslint-enable @typescript-eslint/naming-convention */
 
       const result = TransactionMapper.mapTransaction({
         scope: Network.Mainnet,
@@ -754,7 +749,6 @@ describe('TransactionMapper', () => {
     });
 
     it('does not detect a swap when only sending TRC20', () => {
-      /* eslint-disable @typescript-eslint/naming-convention */
       const mockTx = {
         ...swapTransactionMock,
         internal_transactions: [],
@@ -776,7 +770,6 @@ describe('TransactionMapper', () => {
           value: '50000000',
         },
       ];
-      /* eslint-enable @typescript-eslint/naming-convention */
 
       const result = TransactionMapper.mapTransaction({
         scope: Network.Mainnet,
@@ -790,7 +783,6 @@ describe('TransactionMapper', () => {
     });
 
     it('does not detect a swap when sending and receiving the same token (send to self)', () => {
-      /* eslint-disable @typescript-eslint/naming-convention */
       const mockTx = {
         ...swapTransactionMock,
       } as unknown as TransactionInfo;
@@ -825,7 +817,6 @@ describe('TransactionMapper', () => {
           value: '100000000',
         },
       ];
-      /* eslint-enable @typescript-eslint/naming-convention */
 
       const result = TransactionMapper.mapTransaction({
         scope: Network.Mainnet,
@@ -839,7 +830,6 @@ describe('TransactionMapper', () => {
     });
 
     it('does not detect TRX swap when there are no internal transactions', () => {
-      /* eslint-disable @typescript-eslint/naming-convention */
       const mockTx = {
         ...swapTransactionMock,
         internal_transactions: [],
@@ -861,7 +851,6 @@ describe('TransactionMapper', () => {
           value: '50000000',
         },
       ];
-      /* eslint-enable @typescript-eslint/naming-convention */
 
       const result = TransactionMapper.mapTransaction({
         scope: Network.Mainnet,
@@ -875,7 +864,6 @@ describe('TransactionMapper', () => {
     });
 
     it('handles TRX movements with zero callValue correctly', () => {
-      /* eslint-disable @typescript-eslint/naming-convention */
       const mockTx = {
         ...swapTransactionMock,
         internal_transactions: [
@@ -908,7 +896,6 @@ describe('TransactionMapper', () => {
           value: '50000000',
         },
       ];
-      /* eslint-enable @typescript-eslint/naming-convention */
 
       const result = TransactionMapper.mapTransaction({
         scope: Network.Mainnet,
@@ -930,7 +917,6 @@ describe('TransactionMapper', () => {
         trc20TransferMock,
       ] as TransactionInfo[];
 
-      /* eslint-disable @typescript-eslint/naming-convention */
       const trc20Transactions = [
         ...contractInfoMock.data,
         {
@@ -948,7 +934,6 @@ describe('TransactionMapper', () => {
           value: '1000000000000000000',
         },
       ] as ContractTransactionInfo[];
-      /* eslint-enable @typescript-eslint/naming-convention */
 
       const result = TransactionMapper.mapTransactions({
         scope: Network.Mainnet,
@@ -970,7 +955,6 @@ describe('TransactionMapper', () => {
 
   describe('TRX-Only Contract Interactions', () => {
     it('maps a TriggerSmartContract with TRX call_value but no TRC20 data', () => {
-      /* eslint-disable @typescript-eslint/naming-convention */
       const mockTrxOnlyContract = {
         ...trc20TransferMock,
         raw_data: {
@@ -992,7 +976,6 @@ describe('TransactionMapper', () => {
           ],
         },
       } as unknown as TransactionInfo;
-      /* eslint-enable @typescript-eslint/naming-convention */
 
       const result = TransactionMapper.mapTransaction({
         scope: Network.Mainnet,

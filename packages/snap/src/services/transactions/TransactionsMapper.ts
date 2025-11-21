@@ -924,6 +924,12 @@ export class TransactionMapper {
   /**
    * Maps a FreezeBalance(V2) staking transaction to a Transaction.
    * Treat as a "send" of TRX into a staked resource asset (bandwidth/energy).
+   *
+   * @param options0 - The options object.
+   * @param options0.scope - The network scope.
+   * @param options0.account - The account executing the stake.
+   * @param options0.trongridTransaction - The raw transaction to map.
+   * @returns The mapped transaction or null if unsupported.
    */
   static #mapFreezeBalanceContract({
     scope,
@@ -938,7 +944,6 @@ export class TransactionMapper {
       .contract[0] as GeneralContractInfo;
     const contractValue = firstContract?.parameter?.value as ContractValue & {
       resource?: 'BANDWIDTH' | 'ENERGY';
-      frozen_balance_v2?: number;
     };
     if (!contractValue) {
       return null;
@@ -953,12 +958,14 @@ export class TransactionMapper {
 
     // V2 uses "frozen_balance"; legacy may use "frozen_balance" or "frozen_balance_v2"
     const amountInSun: number =
-      Number(contractValue.frozen_balance ?? contractValue.frozen_balance_v2) ||
-      0;
+      Number(
+        contractValue.frozen_balance ??
+          (contractValue as any).frozen_balance_v2,
+      ) || 0;
     const amountInTrx = (amountInSun / 1_000_000).toString();
 
     // Determine resource and corresponding staked asset metadata
-    const resource: string | undefined = contractValue.resource;
+    const { resource } = contractValue as { resource?: 'BANDWIDTH' | 'ENERGY' };
     const isEnergy = resource === 'ENERGY';
     const isBandwidth = resource === 'BANDWIDTH';
     if (!isEnergy && !isBandwidth) {
@@ -977,7 +984,7 @@ export class TransactionMapper {
     );
 
     return {
-      type: 'send',
+      type: TransactionType.Send,
       id: trongridTransaction.txID,
       from: [
         {
@@ -1003,12 +1010,12 @@ export class TransactionMapper {
       ],
       events: [
         {
-          status: 'confirmed',
+          status: TransactionStatus.Confirmed,
           timestamp,
         },
       ],
       chain: scope,
-      status: 'confirmed',
+      status: TransactionStatus.Confirmed,
       account: account.id,
       timestamp,
       fees,
@@ -1018,6 +1025,12 @@ export class TransactionMapper {
   /**
    * Maps an UnfreezeBalance(V2) unstaking transaction to a Transaction.
    * Treat as a "receive" of TRX from a staked resource asset (bandwidth/energy).
+   *
+   * @param options0 - The options object.
+   * @param options0.scope - The network scope.
+   * @param options0.account - The account executing the unstake.
+   * @param options0.trongridTransaction - The raw transaction to map.
+   * @returns The mapped transaction or null if unsupported.
    */
   static #mapUnfreezeBalanceContract({
     scope,
@@ -1049,7 +1062,7 @@ export class TransactionMapper {
     const amountInTrx = (amountInSun / 1_000_000).toString();
 
     // Determine resource and corresponding staked asset metadata
-    const resource: string | undefined = contractValue.resource;
+    const { resource } = contractValue as { resource?: 'BANDWIDTH' | 'ENERGY' };
     const isEnergy = resource === 'ENERGY';
     const isBandwidth = resource === 'BANDWIDTH';
     if (!isEnergy && !isBandwidth) {
@@ -1067,7 +1080,7 @@ export class TransactionMapper {
     );
 
     return {
-      type: 'receive',
+      type: TransactionType.Receive,
       id: trongridTransaction.txID,
       from: [
         {
@@ -1093,12 +1106,12 @@ export class TransactionMapper {
       ],
       events: [
         {
-          status: 'confirmed',
+          status: TransactionStatus.Confirmed,
           timestamp,
         },
       ],
       chain: scope,
-      status: 'confirmed',
+      status: TransactionStatus.Confirmed,
       account: account.id,
       timestamp,
       fees,
