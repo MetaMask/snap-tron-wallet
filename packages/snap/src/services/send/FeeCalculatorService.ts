@@ -56,11 +56,12 @@ export class FeeCalculatorService {
    * Calculate the energy requirements for a TRON transaction.
    * Depends on the type of contracts in the transaction.
    *
+   * @param scope - The network scope for the transaction
    * @param transaction - The base64 encoded transaction
    * @returns Promise<BigNumber> - The calculated energy consumption
    */
   async #calculateEnergy(
-    // scope: Network,
+    scope: Network,
     transaction: SignedTransaction & Transaction,
   ): Promise<BigNumber> {
     const contracts = transaction.raw_data.contract;
@@ -92,13 +93,9 @@ export class FeeCalculatorService {
          * TRC20
          */
         case 'TriggerSmartContract': {
-          // currentContractEnergy = BigNumber(
-          //   await this.#estimateTriggerSmartContractEnergy(
-          //     scope,
-          //     contract as TransactionContract<TriggerSmartContract>,
-          //   ),
-          // );
-          currentContractEnergy = BigNumber(130000);
+          currentContractEnergy = BigNumber(
+            await this.#estimateTriggerSmartContractEnergy(scope, contract),
+          );
           break;
         }
         default:
@@ -120,74 +117,83 @@ export class FeeCalculatorService {
     return totalEnergy;
   }
 
-  // /**
-  //  * Estimate energy consumption for contract calls of type TriggerSmartContract (V2).
-  //  * Uses direct TronGrid API call bypassing TronWeb for better reliability.
-  //  *
-  //  * @param scope - The network scope for the contract
-  //  * @param contract - The contract object from the transaction
-  //  * @returns Promise<number> - The estimated energy consumption (defaults to 65000 if estimation fails)
-  //  */
-  // async #estimateTriggerSmartContractEnergy(
-  //   scope: Network,
-  //   contract: TransactionContract<TriggerSmartContract>,
-  // ): Promise<number> {
-  //   try {
-  //     const {
-  //       data,
-  //       owner_address: ownerAddress,
-  //       contract_address: contractAddress,
-  //     } = contract.parameter.value;
+  /**
+   * Estimate energy consumption for contract calls of type TriggerSmartContract.
+   * Uses direct TronGrid API call for accurate energy estimation.
+   *
+   * @param scope - The network scope for the contract
+   * @param contract - The contract object from the transaction
+   * @returns Promise<number> - The estimated energy consumption (defaults to 130000 if estimation fails)
+   */
+  async #estimateTriggerSmartContractEnergy(
+    scope: Network,
+    contract: any,
+  ): Promise<number> {
+    try {
+      const {
+        data,
+        owner_address: ownerAddress,
+        contract_address: contractAddress,
+      } = contract.parameter.value;
 
-  //     if (!data) {
-  //       this.#logger.warn('No data field found in contract, using fallback');
-  //       return 130000;
-  //     }
+      if (!data) {
+        this.#logger.warn('No data field found in contract, using fallback');
+        return 130000;
+      }
 
-  //     this.#logger.log(
-  //       {
-  //         contractAddress,
-  //         ownerAddress,
-  //         data,
-  //       },
-  //       'Estimating smart contract energy (V2 - Direct TronGrid)',
-  //     );
+      // Extract function selector (first 8 hex chars) and parameters (rest)
+      // The data field contains: functionSelector (4 bytes = 8 hex) + encodedParameters
+      const functionSelector = data.slice(0, 8);
+      const parameter = data.slice(8);
 
-  //     const result = await this.#trongridApiClient.triggerConstantContract(
-  //       scope,
-  //       {
-  //         /**
-  //          * These addresses are in hex format. If they weren't we would need to
-  //          * pass `visible: true` to the request.
-  //          */
-  //         owner_address: ownerAddress,
-  //         contract_address: contractAddress,
-  //         function_selector: 'transfer(address,uint256)',
-  //         parameter: data,
-  //       },
-  //     );
+      this.#logger.log(
+        {
+          contractAddress,
+          ownerAddress,
+          functionSelector,
+          parameterLength: parameter.length,
+        },
+        'Estimating smart contract energy using TronGrid API',
+      );
 
-  //     if (result.energy_used) {
-  //       this.#logger.log(
-  //         {
-  //           energyUsed: result.energy_used,
-  //           energyPenalty: result.energy_penalty,
-  //         },
-  //         'Energy estimation from TronGrid API',
-  //       );
-  //       return result.energy_used;
-  //     }
+      const result = await this.#trongridApiClient.triggerConstantContract(
+        scope,
+        {
+          /**
+           * These addresses are in hex format. If they weren't we would need to
+           * pass `visible: true` to the request.
+           */
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          owner_address: ownerAddress,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          contract_address: contractAddress,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          function_selector: functionSelector,
+          parameter,
+        },
+      );
 
-  //     this.#logger.warn('No energy_used in result, using fallback');
-  //     return 130000;
-  //   } catch (error) {
-  //     this.#logger.error(
-  //       { error },
-  //       'Failed to estimate smart contract energy (V2), using fallback',
-  //     );
-  //     return 130000;
-  //   }
-  // }
+      if (result.energy_used) {
+        this.#logger.log(
+          {
+            energyUsed: result.energy_used,
+            energyPenalty: result.energy_penalty,
+          },
+          'Energy estimation from TronGrid API',
+        );
+        return result.energy_used;
+      }
+
+      this.#logger.warn('No energy_used in result, using fallback');
+      return 130000;
+    } catch (error) {
+      this.#logger.error(
+        { error },
+        'Failed to estimate smart contract energy, using fallback',
+      );
+      return 130000;
+    }
+  }
 
   /**
    * Calculate complete fee breakdown for a TRON transaction
@@ -217,20 +223,19 @@ export class FeeCalculatorService {
     );
 
     const bandwidthNeeded = this.#calculateBandwidth(transaction);
-    // const energyNeeded = await this.#calculateEnergy(scope, transaction);
-    const energyNeeded = await this.#calculateEnergy(transaction);
+    const energyNeeded = await this.#calculateEnergy(scope, transaction);
 
     // Calculate consumption and overages:
-    // - Bandwidth: If we don't have enough, we pay for ALL of it in TRX (no partial consumption)
-    // - Energy: We consume what we have available, and pay TRX only for the overage
-    const hasEnoughBandwidth =
-      availableBandwidth.isGreaterThanOrEqualTo(bandwidthNeeded);
-    const bandwidthConsumed = hasEnoughBandwidth
-      ? bandwidthNeeded
-      : BigNumber(0);
-    const bandwidthToPayInTRX = hasEnoughBandwidth
-      ? BigNumber(0)
-      : bandwidthNeeded;
+    // - Bandwidth: Consume available bandwidth first, then pay TRX for the overage
+    // - Energy: Consume available energy first, then pay TRX for the overage
+    const bandwidthConsumed = BigNumber.min(
+      bandwidthNeeded,
+      availableBandwidth,
+    );
+    const bandwidthToPayInTRX = BigNumber.max(
+      bandwidthNeeded.minus(availableBandwidth),
+      0,
+    );
 
     const energyConsumed = BigNumber.min(energyNeeded, availableEnergy);
     const energyToPayInTRX = BigNumber.max(

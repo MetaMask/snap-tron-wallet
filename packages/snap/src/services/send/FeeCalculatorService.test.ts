@@ -15,6 +15,7 @@ const mockTronWebFactory = {
 
 const mockTrongridApiClient = {
   getChainParameters: jest.fn(),
+  triggerConstantContract: jest.fn(),
 } as any;
 
 // Helper to get transaction examples in the expected format
@@ -149,15 +150,27 @@ describe('FeeCalculatorService', () => {
           availableBandwidth,
         });
 
-        // Should only have TRX cost for bandwidth overage
-        // 266 bandwidth * 1000 SUN = 266,000 SUN = 0.266 TRX
+        // Should have bandwidth consumption (100) and TRX cost for overage (166)
+        // Bandwidth consumed: 100
+        // Bandwidth overage: 166 * 1000 SUN = 166,000 SUN = 0.166 TRX
         expect(result).toStrictEqual([
+          {
+            type: FeeType.Base,
+            asset: {
+              unit: 'BANDWIDTH',
+              type: 'tron:728126428/slip44:bandwidth',
+              amount: '100',
+              fungible: true,
+              imageSvg:
+                'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
+            },
+          },
           {
             type: FeeType.Base,
             asset: {
               unit: 'TRX',
               type: 'tron:728126428/slip44:195',
-              amount: '0.266000',
+              amount: '0.166000',
               fungible: true,
               imageSvg:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
@@ -170,11 +183,11 @@ describe('FeeCalculatorService', () => {
     describe('TriggerSmartContract scenarios (energy needed)', () => {
       beforeEach(() => {
         // Mock energy calculation for smart contracts
-        mockTronWebClient.transactionBuilder.triggerConstantContract.mockResolvedValue(
-          {
-            energy_used: 50000,
-          },
-        );
+        mockTrongridApiClient.triggerConstantContract.mockResolvedValue({
+          energy_used: 130000,
+          result: { result: true },
+          constant_result: [],
+        });
       });
 
       it('has enough bandwidth + has enough energy', async () => {
@@ -298,14 +311,15 @@ describe('FeeCalculatorService', () => {
           availableBandwidth,
         });
 
-        // Should have energy consumption and TRX cost for bandwidth and energy overages
+        // Should have energy consumption, bandwidth consumption, and TRX cost for overages
         // Energy: 130000 (hardcoded), available: 100000
         // Energy consumed: 100000, overage: 30000
         // Energy TRX cost: 30000 * 100 SUN = 3,000,000 SUN = 3 TRX
         // Note: raw_data_hex doesn't change when we modify the data field,
         // so bandwidth is still 345 bytes (not the larger theoretical size)
-        // Bandwidth TRX cost: 345 * 1000 SUN = 345,000 SUN = 0.345 TRX
-        // Total TRX cost: 3.345 TRX
+        // Bandwidth consumed: 100, overage: 245
+        // Bandwidth TRX cost: 245 * 1000 SUN = 245,000 SUN = 0.245 TRX
+        // Total TRX cost: 3.245 TRX
         expect(result).toStrictEqual([
           {
             type: FeeType.Base,
@@ -321,9 +335,20 @@ describe('FeeCalculatorService', () => {
           {
             type: FeeType.Base,
             asset: {
+              unit: 'BANDWIDTH',
+              type: 'tron:728126428/slip44:bandwidth',
+              amount: '100',
+              fungible: true,
+              imageSvg:
+                'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
+            },
+          },
+          {
+            type: FeeType.Base,
+            asset: {
               unit: 'TRX',
               type: 'tron:728126428/slip44:195',
-              amount: '3.345000',
+              amount: '3.245000',
               fungible: true,
               imageSvg:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
@@ -345,11 +370,11 @@ describe('FeeCalculatorService', () => {
           availableBandwidth,
         });
 
-        // Should have energy consumption and TRX cost for both energy and bandwidth overages
+        // Should have energy consumption, bandwidth consumption, and TRX cost for both overages
         // Energy: 130000 (hardcoded), available: 30000
         // Energy consumed: 30000, overage: 100000 → 10 TRX
-        // Bandwidth overage: 345 → 0.345 TRX
-        // Total: 10.345 TRX
+        // Bandwidth consumed: 100, overage: 245 → 0.245 TRX
+        // Total: 10.245 TRX
         expect(result).toStrictEqual([
           {
             type: FeeType.Base,
@@ -365,9 +390,20 @@ describe('FeeCalculatorService', () => {
           {
             type: FeeType.Base,
             asset: {
+              unit: 'BANDWIDTH',
+              type: 'tron:728126428/slip44:bandwidth',
+              amount: '100',
+              fungible: true,
+              imageSvg:
+                'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
+            },
+          },
+          {
+            type: FeeType.Base,
+            asset: {
               unit: 'TRX',
               type: 'tron:728126428/slip44:195',
-              amount: '10.345000',
+              amount: '10.245000',
               fungible: true,
               imageSvg:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
@@ -439,11 +475,11 @@ describe('FeeCalculatorService', () => {
 
         const transaction = getTransactionExample('trc20');
 
-        mockTronWebClient.transactionBuilder.triggerConstantContract.mockResolvedValue(
-          {
-            energy_used: 150000,
-          },
-        );
+        mockTrongridApiClient.triggerConstantContract.mockResolvedValue({
+          energy_used: 130000,
+          result: { result: true },
+          constant_result: [],
+        });
 
         const availableEnergy = BigNumber(100000);
         const availableBandwidth = BigNumber(2000000); // Ensure enough bandwidth
@@ -503,11 +539,11 @@ describe('FeeCalculatorService', () => {
         veryLargeTransaction.raw_data.contract[0].parameter.value.data =
           'b'.repeat(10000);
 
-        mockTronWebClient.transactionBuilder.triggerConstantContract.mockResolvedValue(
-          {
-            energy_used: 50000,
-          },
-        );
+        mockTrongridApiClient.triggerConstantContract.mockResolvedValue({
+          energy_used: 130000,
+          result: { result: true },
+          constant_result: [],
+        });
 
         const availableEnergy = BigNumber(100000);
         const availableBandwidth = BigNumber(100); // Less than needed (345)
@@ -524,8 +560,9 @@ describe('FeeCalculatorService', () => {
         // Energy TRX cost: 30000 * 100 = 3,000,000 SUN = 3 TRX
         // Note: Modifying the data field doesn't update raw_data_hex,
         // so bandwidth is still calculated from the original hex (345 bytes)
-        // Bandwidth TRX cost: 345 * 1000 SUN = 345,000 SUN = 0.345 TRX
-        // Total TRX cost: 3.345 TRX
+        // Bandwidth consumed: 100, overage: 245
+        // Bandwidth TRX cost: 245 * 1000 SUN = 245,000 SUN = 0.245 TRX
+        // Total TRX cost: 3.245 TRX
         expect(result).toStrictEqual([
           {
             type: FeeType.Base,
@@ -541,9 +578,20 @@ describe('FeeCalculatorService', () => {
           {
             type: FeeType.Base,
             asset: {
+              unit: 'BANDWIDTH',
+              type: 'tron:728126428/slip44:bandwidth',
+              amount: '100',
+              fungible: true,
+              imageSvg:
+                'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
+            },
+          },
+          {
+            type: FeeType.Base,
+            asset: {
               unit: 'TRX',
               type: 'tron:728126428/slip44:195',
-              amount: '3.345000',
+              amount: '3.245000',
               fungible: true,
               imageSvg:
                 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
