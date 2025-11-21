@@ -6,6 +6,8 @@ import type {
   TransactionInfo,
   TransferContractInfo,
   TransferAssetContractInfo,
+  GeneralContractInfo,
+  ContractValue,
 } from '../../clients/trongrid/types';
 import type { Network } from '../../constants';
 import { Networks } from '../../constants';
@@ -236,6 +238,186 @@ export class TransactionMapper {
   }
 
   /**
+   * Maps a FreezeBalance(V2) staking transaction to a Transaction.
+   * Treat as a "send" of TRX into a staked resource asset (bandwidth/energy).
+   */
+  static #mapFreezeBalanceContract({
+    scope,
+    account,
+    trongridTransaction,
+  }: {
+    scope: Network;
+    account: TronKeyringAccount;
+    trongridTransaction: TransactionInfo;
+  }): Transaction | null {
+    const firstContract = trongridTransaction.raw_data
+      .contract[0] as GeneralContractInfo;
+    const contractValue = firstContract?.parameter
+      ?.value as ContractValue & {
+      resource?: 'BANDWIDTH' | 'ENERGY';
+      frozen_balance_v2?: number;
+    };
+    if (!contractValue) {
+      return null;
+    }
+
+    const ownerAddress: string | undefined = contractValue.owner_address;
+    if (!ownerAddress) {
+      return null;
+    }
+    const from = TronWeb.address.fromHex(ownerAddress);
+    const timestamp = Math.floor(trongridTransaction.block_timestamp / 1000);
+
+    // V2 uses "frozen_balance"; legacy may use "frozen_balance" or "frozen_balance_v2"
+    const amountInSun: number =
+      Number(contractValue.frozen_balance ?? contractValue.frozen_balance_v2) ||
+      0;
+    const amountInTrx = (amountInSun / 1_000_000).toString();
+
+    // Determine resource and corresponding staked asset metadata
+    const resource: string | undefined = contractValue.resource;
+    const isEnergy = resource === 'ENERGY';
+    const isBandwidth = resource === 'BANDWIDTH';
+    if (!isEnergy && !isBandwidth) {
+      // If we cannot determine the resource, skip mapping to avoid incorrect classification
+      return null;
+    }
+
+    const tronAsset = Networks[scope].nativeToken;
+    const stakedAsset = isEnergy
+      ? Networks[scope].stakedForEnergy
+      : Networks[scope].stakedForBandwidth;
+
+    const fees = TransactionMapper.#calculateTronFees(scope, trongridTransaction);
+
+    return {
+      type: 'send',
+      id: trongridTransaction.txID,
+      from: [
+        {
+          address: from,
+          asset: {
+            unit: tronAsset.symbol,
+            type: tronAsset.id,
+            amount: amountInTrx,
+            fungible: true,
+          },
+        },
+      ],
+      to: [
+        {
+          address: from,
+          asset: {
+            unit: stakedAsset.symbol,
+            type: stakedAsset.id as CaipAssetType,
+            amount: amountInTrx,
+            fungible: true,
+          },
+        },
+      ],
+      events: [
+        {
+          status: 'confirmed',
+          timestamp,
+        },
+      ],
+      chain: scope,
+      status: 'confirmed',
+      account: account.id,
+      timestamp,
+      fees,
+    };
+  }
+
+  /**
+   * Maps an UnfreezeBalance(V2) unstaking transaction to a Transaction.
+   * Treat as a "receive" of TRX from a staked resource asset (bandwidth/energy).
+   */
+  static #mapUnfreezeBalanceContract({
+    scope,
+    account,
+    trongridTransaction,
+  }: {
+    scope: Network;
+    account: TronKeyringAccount;
+    trongridTransaction: TransactionInfo;
+  }): Transaction | null {
+    const firstContract = trongridTransaction.raw_data
+      .contract[0] as GeneralContractInfo;
+    const contractValue = firstContract?.parameter
+      ?.value as ContractValue & {
+      resource?: 'BANDWIDTH' | 'ENERGY';
+    };
+    if (!contractValue) {
+      return null;
+    }
+
+    const ownerAddress: string | undefined = contractValue.owner_address;
+    if (!ownerAddress) {
+      return null;
+    }
+    const to = TronWeb.address.fromHex(ownerAddress);
+    const timestamp = Math.floor(trongridTransaction.block_timestamp / 1000);
+
+    // V2 uses "unfreeze_balance"; legacy may use this or a similar field
+    const amountInSun: number = Number(contractValue.unfreeze_balance) || 0;
+    const amountInTrx = (amountInSun / 1_000_000).toString();
+
+    // Determine resource and corresponding staked asset metadata
+    const resource: string | undefined = contractValue.resource;
+    const isEnergy = resource === 'ENERGY';
+    const isBandwidth = resource === 'BANDWIDTH';
+    if (!isEnergy && !isBandwidth) {
+      return null;
+    }
+
+    const tronAsset = Networks[scope].nativeToken;
+    const stakedAsset = isEnergy
+      ? Networks[scope].stakedForEnergy
+      : Networks[scope].stakedForBandwidth;
+
+    const fees = TransactionMapper.#calculateTronFees(scope, trongridTransaction);
+
+    return {
+      type: 'receive',
+      id: trongridTransaction.txID,
+      from: [
+        {
+          address: to,
+          asset: {
+            unit: stakedAsset.symbol,
+            type: stakedAsset.id as CaipAssetType,
+            amount: amountInTrx,
+            fungible: true,
+          },
+        },
+      ],
+      to: [
+        {
+          address: to,
+          asset: {
+            unit: tronAsset.symbol,
+            type: tronAsset.id,
+            amount: amountInTrx,
+            fungible: true,
+          },
+        },
+      ],
+      events: [
+        {
+          status: 'confirmed',
+          timestamp,
+        },
+      ],
+      chain: scope,
+      status: 'confirmed',
+      account: account.id,
+      timestamp,
+      fees,
+    };
+  }
+
+  /**
    * Maps a TriggerSmartContract transaction, which can be a TRC20 transfer.
    * Uses TRC20 assistance data when available for enhanced parsing.
    *
@@ -376,6 +558,22 @@ export class TransactionMapper {
 
       case 'TransferAssetContract':
         return this.#mapTransferAssetContract({
+          scope,
+          account,
+          trongridTransaction,
+        });
+
+      case 'FreezeBalanceV2Contract':
+      case 'FreezeBalanceContract':
+        return this.#mapFreezeBalanceContract({
+          scope,
+          account,
+          trongridTransaction,
+        });
+
+      case 'UnfreezeBalanceV2Contract':
+      case 'UnfreezeBalanceContract':
+        return this.#mapUnfreezeBalanceContract({
           scope,
           account,
           trongridTransaction,

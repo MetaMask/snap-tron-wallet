@@ -324,6 +324,150 @@ describe('TransactionMapper', () => {
     });
   });
 
+  describe('Staking (Freeze/Unfreeze)', () => {
+    it('should map FreezeBalanceV2Contract (stake) as send with staked asset', () => {
+      const native = nativeTransferMock as TransactionInfo;
+      const ownerHex =
+        (native.raw_data.contract?.[0] as any)?.parameter?.value?.owner_address;
+
+      const freezeTx = {
+        ret: [{ contractRet: 'SUCCESS', fee: 200000 }], // 0.2 TRX
+        signature: [],
+        txID: 'freeze-stake-txid',
+        net_usage: 100,
+        raw_data_hex: '0x',
+        net_fee: 0,
+        energy_usage: 0,
+        blockNumber: 1,
+        block_timestamp: native.block_timestamp,
+        energy_fee: 0,
+        energy_usage_total: 0,
+        raw_data: {
+          contract: [
+            {
+              type: 'FreezeBalanceV2Contract',
+              parameter: {
+                value: {
+                  owner_address: ownerHex,
+                  frozen_balance: 1_000_000, // 1 TRX
+                  resource: 'BANDWIDTH',
+                },
+                type_url: 'type.googleapis.com/protocol.FreezeBalanceV2Contract',
+              },
+            },
+          ],
+          ref_block_bytes: '0x00',
+          ref_block_hash: '0x00',
+          expiration: Date.now() + 60_000,
+          timestamp: native.block_timestamp,
+        },
+        internal_transactions: [],
+      } as unknown as TransactionInfo;
+
+      const result = TransactionMapper.mapTransaction({
+        scope: Network.Mainnet,
+        account: mockAccount,
+        trongridTransaction: freezeTx,
+      });
+
+      expect(result).toBeDefined();
+      const tx = result!;
+      expect(tx.type).toBe('send');
+      expect(tx.account).toBe(mockAccount.id);
+      expect(tx.chain).toBe(Network.Mainnet);
+      // From native TRX, to staked asset
+      const fromAsset = tx.from[0]!.asset as {
+        unit: string;
+        type: string;
+        amount: string;
+        fungible: true;
+      };
+      const toAsset = tx.to[0]!.asset as {
+        unit: string;
+        type: string;
+        amount: string;
+        fungible: true;
+      };
+      expect(fromAsset.type).toBe('tron:728126428/slip44:195');
+      expect(fromAsset.amount).toBe('1');
+      expect(toAsset.type).toBe(
+        'tron:728126428/slip44:195-staked-for-bandwidth',
+      );
+      expect(toAsset.amount).toBe('1');
+    });
+
+    it('should map UnfreezeBalanceV2Contract (unstake) as receive with staked asset', () => {
+      const native = nativeTransferMock as TransactionInfo;
+      const ownerHex =
+        (native.raw_data.contract?.[0] as any)?.parameter?.value?.owner_address;
+
+      const unfreezeTx = {
+        ret: [{ contractRet: 'SUCCESS', fee: 150000 }], // 0.15 TRX
+        signature: [],
+        txID: 'unfreeze-unstake-txid',
+        net_usage: 80,
+        raw_data_hex: '0x',
+        net_fee: 0,
+        energy_usage: 0,
+        blockNumber: 2,
+        block_timestamp: native.block_timestamp,
+        energy_fee: 0,
+        energy_usage_total: 0,
+        raw_data: {
+          contract: [
+            {
+              type: 'UnfreezeBalanceV2Contract',
+              parameter: {
+                value: {
+                  owner_address: ownerHex,
+                  unfreeze_balance: 2_000_000, // 2 TRX
+                  resource: 'ENERGY',
+                },
+                type_url:
+                  'type.googleapis.com/protocol.UnfreezeBalanceV2Contract',
+              },
+            },
+          ],
+          ref_block_bytes: '0x00',
+          ref_block_hash: '0x00',
+          expiration: Date.now() + 60_000,
+          timestamp: native.block_timestamp,
+        },
+        internal_transactions: [],
+      } as unknown as TransactionInfo;
+
+      const result = TransactionMapper.mapTransaction({
+        scope: Network.Mainnet,
+        account: mockAccount,
+        trongridTransaction: unfreezeTx,
+      });
+
+      expect(result).toBeDefined();
+      const tx2 = result!;
+      expect(tx2.type).toBe('receive');
+      expect(tx2.account).toBe(mockAccount.id);
+      expect(tx2.chain).toBe(Network.Mainnet);
+      // From staked asset, to native TRX
+      const fromAsset2 = tx2.from[0]!.asset as {
+        unit: string;
+        type: string;
+        amount: string;
+        fungible: true;
+      };
+      const toAsset2 = tx2.to[0]!.asset as {
+        unit: string;
+        type: string;
+        amount: string;
+        fungible: true;
+      };
+      expect(fromAsset2.type).toBe(
+        'tron:728126428/slip44:195-staked-for-energy',
+      );
+      expect(fromAsset2.amount).toBe('2');
+      expect(toAsset2.type).toBe('tron:728126428/slip44:195');
+      expect(toAsset2.amount).toBe('2');
+    });
+  });
   describe('mapTransactions', () => {
     it('should map multiple different transaction types correctly', () => {
       const rawTransactions = [
