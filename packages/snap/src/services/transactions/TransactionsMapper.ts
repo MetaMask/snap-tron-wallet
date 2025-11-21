@@ -925,10 +925,10 @@ export class TransactionMapper {
    * Maps a FreezeBalance(V2) staking transaction to a Transaction.
    * Treat as a "send" of TRX into a staked resource asset (bandwidth/energy).
    *
-   * @param options0 - The options object.
-   * @param options0.scope - The network scope.
-   * @param options0.account - The account executing the stake.
-   * @param options0.trongridTransaction - The raw transaction to map.
+   * @param params - The options object.
+   * @param params.scope - The network scope.
+   * @param params.account - The account executing the stake.
+   * @param params.trongridTransaction - The raw transaction to map.
    * @returns The mapped transaction or null if unsupported.
    */
   static #mapFreezeBalanceContract({
@@ -1026,10 +1026,10 @@ export class TransactionMapper {
    * Maps an UnfreezeBalance(V2) unstaking transaction to a Transaction.
    * Treat as a "receive" of TRX from a staked resource asset (bandwidth/energy).
    *
-   * @param options0 - The options object.
-   * @param options0.scope - The network scope.
-   * @param options0.account - The account executing the unstake.
-   * @param options0.trongridTransaction - The raw transaction to map.
+   * @param params - The options object.
+   * @param params.scope - The network scope.
+   * @param params.account - The account executing the unstake.
+   * @param params.trongridTransaction - The raw transaction to map.
    * @returns The mapped transaction or null if unsupported.
    */
   static #mapUnfreezeBalanceContract({
