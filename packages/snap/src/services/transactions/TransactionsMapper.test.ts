@@ -380,7 +380,7 @@ describe('TransactionMapper', () => {
 
       expect(result).toBeDefined();
       const tx = result!;
-      expect(tx.type).toBe('send');
+      expect(tx.type).toBe(TransactionType.StakeDeposit);
       expect(tx.account).toBe(mockAccount.id);
       expect(tx.chain).toBe(Network.Mainnet);
       // From native TRX, to staked asset
@@ -452,7 +452,7 @@ describe('TransactionMapper', () => {
 
       expect(result).toBeDefined();
       const tx2 = result!;
-      expect(tx2.type).toBe('receive');
+      expect(tx2.type).toBe(TransactionType.StakeWithdraw);
       expect(tx2.account).toBe(mockAccount.id);
       expect(tx2.chain).toBe(Network.Mainnet);
       // From staked asset, to native TRX

@@ -984,7 +984,7 @@ export class TransactionMapper {
     );
 
     return {
-      type: TransactionType.Send,
+      type: TransactionType.StakeDeposit,
       id: trongridTransaction.txID,
       from: [
         {
@@ -1080,7 +1080,7 @@ export class TransactionMapper {
     );
 
     return {
-      type: TransactionType.Receive,
+      type: TransactionType.StakeWithdraw,
       id: trongridTransaction.txID,
       from: [
         {
