@@ -9,11 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.10.0]
 
-### Uncategorized
+### Fixed
 
-- fix: compute fee ([#103](https://github.com/MetaMask/snap-tron-wallet/pull/103))
-- fix: fix `getAccount` and `listAccounts` ([#105](https://github.com/MetaMask/snap-tron-wallet/pull/105))
-- fix: dont remove tron resources from assets ([#104](https://github.com/MetaMask/snap-tron-wallet/pull/104))
+- Compute fee accuracy ([#103](https://github.com/MetaMask/snap-tron-wallet/pull/103))
+- Fix `getAccount` and `listAccounts` ([#105](https://github.com/MetaMask/snap-tron-wallet/pull/105))
+- Don't remove tron resources from assets ([#104](https://github.com/MetaMask/snap-tron-wallet/pull/104))
 
 ## [1.9.1]
 
