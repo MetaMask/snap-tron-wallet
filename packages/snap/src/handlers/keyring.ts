@@ -212,7 +212,7 @@ export class KeyringHandler implements Keyring {
       this.#logger.info('Listing account transactions...');
       const { limit, next } = pagination;
 
-      const keyringAccount = await this.getAccount(accountId);
+      const keyringAccount = await this.#getAccount(accountId);
 
       if (!keyringAccount) {
         throw new Error('Account not found');
