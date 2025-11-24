@@ -465,6 +465,7 @@ describe('ClientRequestHandler - computeStakeFee', () => {
   let mockSnapClient: jest.Mocked<SnapClient>;
   let mockStakingService: jest.Mocked<StakingService>;
   let mockConfirmationHandler: jest.Mocked<ConfirmationHandler>;
+  let mockTransactionsService: jest.Mocked<TransactionsService>;
   let mockTronWeb: any;
 
   const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
@@ -502,7 +503,9 @@ describe('ClientRequestHandler - computeStakeFee', () => {
     mockSnapClient = {} as unknown as jest.Mocked<SnapClient>;
     mockStakingService = {} as unknown as jest.Mocked<StakingService>;
     mockConfirmationHandler = {} as unknown as jest.Mocked<ConfirmationHandler>;
-
+    mockTransactionsService = {
+      save: jest.fn(),
+    } as unknown as jest.Mocked<TransactionsService>;
     clientRequestHandler = new ClientRequestHandler({
       logger: mockLogger,
       accountsService: mockAccountsService,
@@ -513,6 +516,7 @@ describe('ClientRequestHandler - computeStakeFee', () => {
       snapClient: mockSnapClient,
       stakingService: mockStakingService,
       confirmationHandler: mockConfirmationHandler,
+      transactionsService: mockTransactionsService,
     });
   });
 
