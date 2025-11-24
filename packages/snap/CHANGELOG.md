@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.11.0]
 
-### Uncategorized
+### Added
 
-- feat: add pending transaction when executing ([#110](https://github.com/MetaMask/snap-tron-wallet/pull/110))
+- Pending transaction when executing ([#110](https://github.com/MetaMask/snap-tron-wallet/pull/110))
 
 ## [1.10.1]
 
