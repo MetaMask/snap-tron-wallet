@@ -47,9 +47,9 @@ export class TransactionMapper {
         {
           address: account.address,
           asset: {
-            unit: '',
+            unit: 'TRX',
             type: `${scope}/slip44:195`,
-            amount: '',
+            amount: '0',
             fungible: true,
           },
         },
@@ -58,9 +58,9 @@ export class TransactionMapper {
         {
           address: account.address,
           asset: {
-            unit: '',
+            unit: 'TRX',
             type: `${scope}/slip44:195`,
-            amount: '',
+            amount: '0',
             fungible: true,
           },
         },
