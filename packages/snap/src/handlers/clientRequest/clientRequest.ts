@@ -12,8 +12,7 @@ import { sha256 } from 'ethers';
 
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
-import type { Network } from '../../constants';
-import { Networks } from '../../constants';
+import { Network, Networks } from '../../constants';
 import type { AccountsService } from '../../services/accounts/AccountsService';
 import type { AssetsService } from '../../services/assets/AssetsService';
 import type {
@@ -32,6 +31,7 @@ import { ClientRequestMethod, SendErrorCodes } from './types';
 import {
   ComputeFeeRequestStruct,
   ComputeFeeResponseStruct,
+  ComputeStakeFeeRequestStruct,
   OnAddressInputRequestStruct,
   OnAmountInputRequestStruct,
   OnConfirmSendRequestStruct,
@@ -125,6 +125,8 @@ export class ClientRequestHandler {
         return this.#handleConfirmSend(request);
       case ClientRequestMethod.ComputeFee:
         return this.#handleComputeFee(request);
+      case ClientRequestMethod.ComputeStakeFee:
+        return this.#handleComputeStakeFee(request);
       /**
        * Staking
        */
@@ -451,6 +453,96 @@ export class ClientRequestHandler {
      */
     const [bandwidthAsset, energyAsset] =
       await this.#assetsService.getAssetsByAccountId(accountId, [
+        Networks[scope].bandwidth.id,
+        Networks[scope].energy.id,
+      ]);
+
+    const availableEnergy = energyAsset
+      ? BigNumber(energyAsset.rawAmount)
+      : BigNumber(0);
+    const availableBandwidth = bandwidthAsset
+      ? BigNumber(bandwidthAsset.rawAmount)
+      : BigNumber(0);
+
+    /**
+     * Calculate complete fee breakdown using the service.
+     */
+    const result = await this.#feeCalculatorService.computeFee({
+      scope,
+      transaction: signedTransaction,
+      availableEnergy,
+      availableBandwidth,
+    });
+
+    assert(result, ComputeFeeResponseStruct);
+
+    return result;
+  }
+
+  /**
+   * Computes a fee preview for a staking transaction.
+   * It builds and signs a freezeBalanceV2 transaction on the fly and uses the
+   * FeeCalculatorService to estimate resource usage and TRX cost.
+   *
+   * @param request - The JSON-RPC request containing staking details.
+   * @returns The detailed fee breakdown for the staking transaction.
+   * @throws {InvalidParamsError} If the params are invalid.
+   */
+  async #handleComputeStakeFee(request: JsonRpcRequest): Promise<Json> {
+    assertOrThrow(
+      request,
+      ComputeStakeFeeRequestStruct,
+      new InvalidParamsError(),
+    );
+
+    const {
+      fromAccountId,
+      value,
+      options: { purpose },
+    } = request.params;
+
+    const account = await this.#accountsService.findByIdOrThrow(fromAccountId);
+
+    const scope = Network.Mainnet;
+
+    const asset = await this.#assetsService.getAssetByAccountId(
+      fromAccountId,
+      Networks[scope].nativeToken.id,
+    );
+
+    const accountBalance = asset ? BigNumber(asset.uiAmount) : BigNumber(0);
+    const requestBalance = BigNumber(value);
+
+    /**
+     * Check if account has enough of the asset for staking.
+     */
+    if (requestBalance.isGreaterThan(accountBalance)) {
+      return {
+        valid: false,
+        errors: [SendErrorCodes.InsufficientBalance],
+      };
+    }
+
+    const { privateKeyHex } = await this.#accountsService.deriveTronKeypair({
+      entropySource: account.entropySource,
+      derivationPath: account.derivationPath,
+    });
+    const tronWeb = this.#tronWebFactory.createClient(scope, privateKeyHex);
+
+    const amountInSun = requestBalance.multipliedBy(10 ** 6).toNumber();
+    const transaction = await tronWeb.transactionBuilder.freezeBalanceV2(
+      amountInSun,
+      purpose,
+      account.address,
+    );
+
+    const signedTransaction = await tronWeb.trx.sign(transaction);
+
+    /**
+     * Get available Energy and Bandwidth from account assets.
+     */
+    const [bandwidthAsset, energyAsset] =
+      await this.#assetsService.getAssetsByAccountId(fromAccountId, [
         Networks[scope].bandwidth.id,
         Networks[scope].energy.id,
       ]);
