@@ -9,10 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.10.1]
 
-### Uncategorized
+### Fixed
 
-- fix: computeFee error ([#108](https://github.com/MetaMask/snap-tron-wallet/pull/108))
-- chore: map freeze/unfreeze txs ([#107](https://github.com/MetaMask/snap-tron-wallet/pull/107))
+- `computeFee` error ([#108](https://github.com/MetaMask/snap-tron-wallet/pull/108))
+- Map freeze/unfreeze txs ([#107](https://github.com/MetaMask/snap-tron-wallet/pull/107))
 
 ## [1.10.0]
 
