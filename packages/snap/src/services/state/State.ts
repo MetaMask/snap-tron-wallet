@@ -42,13 +42,13 @@ export type StateConfig<TValue extends Record<string, Serializable>> = {
  * an ongoing manageState operation is not occurring.
  */
 class StateLock {
-  #blobModificationMutex = new Mutex();
+  readonly #blobModificationMutex = new Mutex();
 
-  #regularStateUpdateMutex = new Mutex();
+  readonly #regularStateUpdateMutex = new Mutex();
 
-  async wrapRegularStateOperation<T>(
-    callback: MutexInterface.Worker<T>,
-  ): Promise<T> {
+  async wrapRegularStateOperation<ReturnType>(
+    callback: MutexInterface.Worker<ReturnType>,
+  ): Promise<ReturnType> {
     // If we are currently doing a full blob update, wait it out.
     await this.#blobModificationMutex.waitForUnlock();
 
@@ -67,9 +67,9 @@ class StateLock {
     }
   }
 
-  async wrapManageStateOperation<T>(
-    callback: MutexInterface.Worker<T>,
-  ): Promise<T> {
+  async wrapManageStateOperation<ReturnType>(
+    callback: MutexInterface.Worker<ReturnType>,
+  ): Promise<ReturnType> {
     await this.#regularStateUpdateMutex.waitForUnlock();
 
     return await this.#blobModificationMutex.runExclusive(callback);
@@ -92,7 +92,8 @@ class StateLock {
  * letting us avoid a ton of null checks everywhere.
  */
 export class State<TStateValue extends Record<string, Serializable>>
-  implements IStateManager<TStateValue> {
+  implements IStateManager<TStateValue>
+{
   readonly #lock = new StateLock();
 
   readonly #config: StateConfig<TStateValue>;
@@ -142,7 +143,7 @@ export class State<TStateValue extends Record<string, Serializable>>
       }
 
       return deserialize(value) as TResponse;
-    })
+    });
   }
 
   async setKey(key: string, value: Serializable): Promise<void> {
@@ -155,7 +156,7 @@ export class State<TStateValue extends Record<string, Serializable>>
           encrypted: this.#config.encrypted,
         },
       });
-    })
+    });
   }
 
   async update(
