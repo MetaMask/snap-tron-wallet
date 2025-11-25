@@ -1,4 +1,5 @@
 import type { Transaction } from '@metamask/keyring-api';
+import type { MutexInterface } from 'async-mutex';
 import { Mutex } from 'async-mutex';
 import { unset } from 'lodash';
 
@@ -35,6 +36,47 @@ export type StateConfig<TValue extends Record<string, Serializable>> = {
 };
 
 /**
+ * Because we use both snap_manageState and snap_setState, we must protect against them being used at the same time.
+ * We must also protect against multiple parallel requests to snap_manageState.
+ * snap_setState, snap_getState etc does not have this limitation and can be accessed safely as long as
+ * an ongoing manageState operation is not occurring.
+ */
+class StateLock {
+  #blobModificationMutex = new Mutex();
+
+  #regularStateUpdateMutex = new Mutex();
+
+  async wrapRegularStateOperation<T>(
+    callback: MutexInterface.Worker<T>,
+  ): Promise<T> {
+    // If we are currently doing a full blob update, wait it out.
+    await this.#blobModificationMutex.waitForUnlock();
+
+    let release = null;
+
+    // Signal that regular state operations are ongoing by acquring the mutex.
+    // Other regular state operations can skip this, as they are safe to do in parallel.
+    if (!this.#regularStateUpdateMutex.isLocked()) {
+      release = await this.#regularStateUpdateMutex.acquire();
+    }
+
+    try {
+      return await callback();
+    } finally {
+      release?.();
+    }
+  }
+
+  async wrapManageStateOperation<T>(
+    callback: MutexInterface.Worker<T>,
+  ): Promise<T> {
+    await this.#regularStateUpdateMutex.waitForUnlock();
+
+    return await this.#blobModificationMutex.runExclusive(callback);
+  }
+}
+
+/**
  * This class is a layer on top the the `snap_manageState` API that facilitates its usage:
  *
  * Basic usage:
@@ -50,9 +92,8 @@ export type StateConfig<TValue extends Record<string, Serializable>> = {
  * letting us avoid a ton of null checks everywhere.
  */
 export class State<TStateValue extends Record<string, Serializable>>
-  implements IStateManager<TStateValue>
-{
-  readonly #mutex = new Mutex();
+  implements IStateManager<TStateValue> {
+  readonly #lock = new StateLock();
 
   readonly #config: StateConfig<TStateValue>;
 
@@ -60,7 +101,7 @@ export class State<TStateValue extends Record<string, Serializable>>
     this.#config = config;
   }
 
-  async get(): Promise<TStateValue> {
+  async #unsafeGet(): Promise<TStateValue> {
     const state = await snap.request({
       method: 'snap_getState',
       params: {
@@ -80,33 +121,41 @@ export class State<TStateValue extends Record<string, Serializable>>
     return stateWithDefaults;
   }
 
+  async get(): Promise<TStateValue> {
+    return this.#lock.wrapRegularStateOperation(async () => this.#unsafeGet());
+  }
+
   async getKey<TResponse extends Serializable>(
     key: string,
   ): Promise<TResponse | undefined> {
-    const value = await snap.request({
-      method: 'snap_getState',
-      params: {
-        key,
-        encrypted: this.#config.encrypted,
-      },
-    });
+    return this.#lock.wrapRegularStateOperation(async () => {
+      const value = await snap.request({
+        method: 'snap_getState',
+        params: {
+          key,
+          encrypted: this.#config.encrypted,
+        },
+      });
 
-    if (value === null) {
-      return undefined;
-    }
+      if (value === null) {
+        return undefined;
+      }
 
-    return deserialize(value) as TResponse;
+      return deserialize(value) as TResponse;
+    })
   }
 
   async setKey(key: string, value: Serializable): Promise<void> {
-    await snap.request({
-      method: 'snap_setState',
-      params: {
-        key,
-        value: serialize(value),
-        encrypted: this.#config.encrypted,
-      },
-    });
+    await this.#lock.wrapRegularStateOperation(async () => {
+      await snap.request({
+        method: 'snap_setState',
+        params: {
+          key,
+          value: serialize(value),
+          encrypted: this.#config.encrypted,
+        },
+      });
+    })
   }
 
   async update(
@@ -114,11 +163,13 @@ export class State<TStateValue extends Record<string, Serializable>>
   ): Promise<TStateValue> {
     // Because this function modifies the entire state blob,
     // we must protect against parallel requests.
-    return await this.#mutex.runExclusive(async () => {
-      const currentState = await this.get();
+    return await this.#lock.wrapManageStateOperation(async () => {
+      const currentState = await this.#unsafeGet();
 
       const newState = updaterFunction(currentState);
 
+      // Generally we should try to use snap_getState and snap_setState over this
+      // as snap_manageState is slower and error-prone due to requiring manual mutex management.
       await snap.request({
         method: 'snap_manageState',
         params: {
