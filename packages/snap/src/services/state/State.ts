@@ -46,24 +46,35 @@ class StateLock {
 
   readonly #regularStateUpdateMutex = new Mutex();
 
+  #pendingRegularStateUpdates = 0;
+
+  #releaseRegularStateUpdateMutex: MutexInterface.Releaser | null = null;
+
   async wrapRegularStateOperation<ReturnType>(
     callback: MutexInterface.Worker<ReturnType>,
   ): Promise<ReturnType> {
     // If we are currently doing a full blob update, wait it out.
     await this.#blobModificationMutex.waitForUnlock();
 
-    let release = null;
-
     // Signal that regular state operations are ongoing by acquring the mutex.
     // Other regular state operations can skip this, as they are safe to do in parallel.
     if (!this.#regularStateUpdateMutex.isLocked()) {
-      release = await this.#regularStateUpdateMutex.acquire();
+      this.#releaseRegularStateUpdateMutex =
+        await this.#regularStateUpdateMutex.acquire();
     }
 
     try {
+      this.#pendingRegularStateUpdates += 1;
       return await callback();
     } finally {
-      release?.();
+      this.#pendingRegularStateUpdates -= 1;
+
+      if (
+        this.#pendingRegularStateUpdates === 0 &&
+        this.#releaseRegularStateUpdateMutex
+      ) {
+        this.#releaseRegularStateUpdateMutex();
+      }
     }
   }
 
