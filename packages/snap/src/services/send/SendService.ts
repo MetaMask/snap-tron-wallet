@@ -1,4 +1,5 @@
 import { parseCaipAssetType } from '@metamask/utils';
+import { BigNumber } from 'bignumber.js';
 import type {
   BroadcastReturn,
   SignedTransaction,
@@ -191,14 +192,11 @@ export class SendService {
     const tronWeb = this.#tronWebFactory.createClient(scope, privateKeyHex);
 
     const functionSelector = 'transfer(address,uint256)';
-    // Convert amount to the smallest unit using string manipulation to avoid precision loss
+    // Convert amount to the smallest unit using BigNumber to avoid precision loss
     // This is necessary for tokens with 18 decimals where numbers exceed JavaScript's safe integer range
-    const amountStr = amount.toString();
-    const [integerPart = '0', fractionalPart = ''] = amountStr.split('.');
-    const paddedFractional = fractionalPart
-      .padEnd(decimals, '0')
-      .slice(0, decimals);
-    const decimalsAdjustedAmount = integerPart + paddedFractional;
+    const decimalsAdjustedAmount = BigNumber(amount)
+      .multipliedBy(BigNumber(10).pow(decimals))
+      .toFixed(0);
     const parameter = [
       { type: 'address', value: toAddress },
       { type: 'uint256', value: decimalsAdjustedAmount },
