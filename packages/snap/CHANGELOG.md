@@ -9,10 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.12.1]
 
-### Uncategorized
+### Fixed
 
-- fix: continuous synchronization of accounts not starting ([#117](https://github.com/MetaMask/snap-tron-wallet/pull/117))
-- fix: trc20 decimals ([#115](https://github.com/MetaMask/snap-tron-wallet/pull/115))
+- Continuous synchronization of accounts not starting until we locked and unlocked the client ([#117](https://github.com/MetaMask/snap-tron-wallet/pull/117))
+- Could not send TRC20 tokens where decimals were `18` ([#115](https://github.com/MetaMask/snap-tron-wallet/pull/115))
 
 ## [1.12.0]
 
