@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.13.0]
 
-### Uncategorized
+### Changed
 
-- fix: Ensure only safe concurrent state operations ([#116](https://github.com/MetaMask/snap-tron-wallet/pull/116))
+- Ensure only safe concurrent state operations ([#116](https://github.com/MetaMask/snap-tron-wallet/pull/116))
 
 ## [1.12.1]
 
