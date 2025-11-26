@@ -45,6 +45,8 @@ import {
   SignRewardsMessageRequestStruct,
 } from './validation';
 
+const ZERO = new BigNumber(0);
+
 export class ClientRequestHandler {
   readonly #logger: ILogger;
 
@@ -301,20 +303,19 @@ export class ClientRequestHandler {
           Networks[scope].energy.id,
         ]);
 
-      const assetToSendBalance = asset
-        ? BigNumber(asset.uiAmount)
-        : BigNumber(0);
+      const valueBN = new BigNumber(value);
+      const assetToSendBalance = asset ? new BigNumber(asset.uiAmount) : ZERO;
       const nativeTokenBalance = nativeTokenAsset
-        ? BigNumber(nativeTokenAsset.uiAmount)
-        : BigNumber(0);
+        ? new BigNumber(nativeTokenAsset.uiAmount)
+        : ZERO;
       const bandwidthBalance = bandwidthAsset
-        ? BigNumber(bandwidthAsset.uiAmount)
-        : BigNumber(0);
+        ? new BigNumber(bandwidthAsset.uiAmount)
+        : ZERO;
       const energyBalance = energyAsset
-        ? BigNumber(energyAsset.uiAmount)
-        : BigNumber(0);
+        ? new BigNumber(energyAsset.uiAmount)
+        : ZERO;
 
-      if (!asset || BigNumber(value).isGreaterThan(assetToSendBalance)) {
+      if (!asset || valueBN.isGreaterThan(assetToSendBalance)) {
         return {
           valid: false,
           errors: [SendErrorCodes.InsufficientBalance],
@@ -328,7 +329,7 @@ export class ClientRequestHandler {
         fromAccountId: accountId,
         toAddress: NULL_ADDRESS,
         asset,
-        amount: BigNumber(value).toNumber(),
+        amount: valueBN.toNumber(),
       });
       const fees = await this.#feeCalculatorService.computeFee({
         scope,
@@ -342,7 +343,7 @@ export class ClientRequestHandler {
        * so we only need to make sure we have enough TRX to cover overages.
        */
       const nativeTokenId = Networks[scope].nativeToken.id;
-      const trxFee = BigNumber(
+      const trxFee = new BigNumber(
         fees.find((fee) => fee.asset.type === nativeTokenId)?.asset.amount ??
           '0',
       );
@@ -353,7 +354,7 @@ export class ClientRequestHandler {
        */
       const totalTrxToSpend =
         // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-        assetId === nativeTokenId ? BigNumber(value).plus(trxFee) : trxFee;
+        assetId === nativeTokenId ? valueBN.plus(trxFee) : trxFee;
 
       if (totalTrxToSpend.isGreaterThan(nativeTokenBalance)) {
         return {
@@ -414,6 +415,8 @@ export class ClientRequestHandler {
     const { chainId } = parseCaipAssetType(assetId);
     const scope = chainId as Network;
 
+    const amountBN = new BigNumber(amount);
+
     const [[bandwidthAsset, energyAsset], transaction] = await Promise.all([
       /**
        * Get available Energy and Bandwidth from account assets.
@@ -430,16 +433,16 @@ export class ClientRequestHandler {
         fromAccountId,
         toAddress,
         asset,
-        amount: BigNumber(amount).toNumber(),
+        amount: amountBN.toNumber(),
       }),
     ]);
 
     const availableEnergy = energyAsset
-      ? BigNumber(energyAsset.rawAmount)
-      : BigNumber(0);
+      ? new BigNumber(energyAsset.rawAmount)
+      : ZERO;
     const availableBandwidth = bandwidthAsset
-      ? BigNumber(bandwidthAsset.rawAmount)
-      : BigNumber(0);
+      ? new BigNumber(bandwidthAsset.rawAmount)
+      : ZERO;
 
     const fees = await this.#feeCalculatorService.computeFee({
       scope,
@@ -559,11 +562,11 @@ export class ClientRequestHandler {
       ]);
 
     const availableEnergy = energyAsset
-      ? BigNumber(energyAsset.rawAmount)
-      : BigNumber(0);
+      ? new BigNumber(energyAsset.rawAmount)
+      : ZERO;
     const availableBandwidth = bandwidthAsset
-      ? BigNumber(bandwidthAsset.rawAmount)
-      : BigNumber(0);
+      ? new BigNumber(bandwidthAsset.rawAmount)
+      : ZERO;
 
     /**
      * Calculate complete fee breakdown using the service.
@@ -605,8 +608,8 @@ export class ClientRequestHandler {
     /**
      * If the account doesn't have this asset, treat it as having zero balance
      */
-    const accountBalance = asset ? BigNumber(asset.uiAmount) : BigNumber(0);
-    const requestBalance = BigNumber(value);
+    const accountBalance = asset ? new BigNumber(asset.uiAmount) : ZERO;
+    const requestBalance = new BigNumber(value);
 
     if (requestBalance.isGreaterThan(accountBalance)) {
       return {
@@ -649,8 +652,8 @@ export class ClientRequestHandler {
       assetId,
     );
 
-    const accountBalance = asset ? BigNumber(asset.uiAmount) : BigNumber(0);
-    const requestBalance = BigNumber(value);
+    const accountBalance = asset ? new BigNumber(asset.uiAmount) : ZERO;
+    const requestBalance = new BigNumber(value);
     /**
      * Check if account has enough of the asset...
      */
@@ -710,8 +713,8 @@ export class ClientRequestHandler {
       stakedAssetId,
     );
 
-    const accountBalance = asset ? BigNumber(asset.uiAmount) : BigNumber(0);
-    const requestBalance = BigNumber(value);
+    const accountBalance = asset ? new BigNumber(asset.uiAmount) : ZERO;
+    const requestBalance = new BigNumber(value);
 
     /**
      * Check if account has enough of the asset...
@@ -764,8 +767,8 @@ export class ClientRequestHandler {
       stakedAssetId,
     );
 
-    const accountBalance = asset ? BigNumber(asset.uiAmount) : BigNumber(0);
-    const requestBalance = BigNumber(value);
+    const accountBalance = asset ? new BigNumber(asset.uiAmount) : ZERO;
+    const requestBalance = new BigNumber(value);
 
     /**
      * Check if account has enough of the asset...
