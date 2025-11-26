@@ -50,7 +50,7 @@ class StateLock {
 
   #releaseRegularStateUpdateMutex: MutexInterface.Releaser | null = null;
 
-  async #acquireRegularStateUpdateMutex() {
+  async #acquireRegularStateUpdateMutex(): Promise<void> {
     if (!this.#regularStateUpdateMutex.isLocked()) {
       this.#releaseRegularStateUpdateMutex =
         await this.#regularStateUpdateMutex.acquire();
