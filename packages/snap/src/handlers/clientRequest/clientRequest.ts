@@ -10,6 +10,24 @@ import { parseCaipAssetType } from '@metamask/utils';
 import { BigNumber } from 'bignumber.js';
 import { sha256 } from 'ethers';
 
+import type { SnapClient } from '../../clients/snap/SnapClient';
+import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
+import { Network, Networks, NULL_ADDRESS } from '../../constants';
+import type { AccountsService } from '../../services/accounts/AccountsService';
+import type { AssetsService } from '../../services/assets/AssetsService';
+import type {
+  NativeCaipAssetType,
+  StakedCaipAssetType,
+} from '../../services/assets/types';
+import type { ConfirmationHandler } from '../../services/confirmation/ConfirmationHandler';
+import type { FeeCalculatorService } from '../../services/send/FeeCalculatorService';
+import type { SendService } from '../../services/send/SendService';
+import type { StakingService } from '../../services/staking/StakingService';
+import { TransactionMapper } from '../../services/transactions/TransactionsMapper';
+import type { TransactionsService } from '../../services/transactions/TransactionsService';
+import { assertOrThrow } from '../../utils/assertOrThrow';
+import type { ILogger } from '../../utils/logger';
+import { createPrefixedLogger } from '../../utils/logger';
 import { BackgroundEventMethod } from '../cronjob';
 import { ClientRequestMethod, SendErrorCodes } from './types';
 import {
@@ -26,24 +44,6 @@ import {
   SignAndSendTransactionRequestStruct,
   SignRewardsMessageRequestStruct,
 } from './validation';
-import type { SnapClient } from '../../clients/snap/SnapClient';
-import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
-import { Network, Networks } from '../../constants';
-import type { AccountsService } from '../../services/accounts/AccountsService';
-import type { AssetsService } from '../../services/assets/AssetsService';
-import type {
-  NativeCaipAssetType,
-  StakedCaipAssetType,
-} from '../../services/assets/types';
-import type { ConfirmationHandler } from '../../services/confirmation/ConfirmationHandler';
-import type { FeeCalculatorService } from '../../services/send/FeeCalculatorService';
-import type { SendService } from '../../services/send/SendService';
-import type { StakingService } from '../../services/staking/StakingService';
-import { TransactionMapper } from '../../services/transactions/TransactionsMapper';
-import type { TransactionsService } from '../../services/transactions/TransactionsService';
-import { assertOrThrow } from '../../utils/assertOrThrow';
-import type { ILogger } from '../../utils/logger';
-import { createPrefixedLogger } from '../../utils/logger';
 
 export class ClientRequestHandler {
   readonly #logger: ILogger;
@@ -206,6 +206,10 @@ export class ClientRequestHandler {
     const signedTx = await tronWeb.trx.sign(transaction);
     const result = await tronWeb.trx.sendRawTransaction(signedTx);
 
+    if (!result.result) {
+      throw new Error(`Failed to send transaction: ${result.message}`);
+    }
+
     // Immediately create and save a minimal pending transaction
     // This shows the transaction to the user right away
     const pendingTransaction = TransactionMapper.createPendingTransaction({
@@ -258,6 +262,10 @@ export class ClientRequestHandler {
 
   /**
    * Handles amount input validation and balance checking.
+   * - Asset must exist in the account
+   * - Asset amount must not be greater than the account balance
+   * - If native TRX + full amount, we need bandwidth
+   * -
    *
    * @param request - The JSON-RPC request containing amount and asset details.
    * @returns Validation result with balance and sufficiency status.
@@ -266,14 +274,11 @@ export class ClientRequestHandler {
     try {
       assert(request, OnAmountInputRequestStruct);
 
-      /**
-       * Check if the user has enough of the asset
-       */
       const { accountId, assetId, value } = request.params;
       const account = await this.#accountsService.findById(accountId);
 
       /**
-       * The account does not exist...
+       * Check if the account we want to send from exists...
        */
       if (!account) {
         return {
@@ -282,21 +287,78 @@ export class ClientRequestHandler {
         };
       }
 
-      const asset = await this.#assetsService.getAssetByAccountId(
-        accountId,
-        assetId,
-      );
-
       /**
-       * If the account doesn't have this asset, treat it as having zero balance
+       * Check if we have enough of the asset we want to send...
        */
-      const balance = asset ? BigNumber(asset.uiAmount) : BigNumber(0);
-      const amount = BigNumber(value);
+      const { chainId } = parseCaipAssetType(assetId);
+      const scope = chainId as Network;
 
-      if (amount.isGreaterThan(balance)) {
+      const [asset, nativeTokenAsset, bandwidthAsset, energyAsset] =
+        await this.#assetsService.getAssetsByAccountId(accountId, [
+          assetId,
+          Networks[scope].nativeToken.id,
+          Networks[scope].bandwidth.id,
+          Networks[scope].energy.id,
+        ]);
+
+      const assetToSendBalance = asset
+        ? BigNumber(asset.uiAmount)
+        : BigNumber(0);
+      const nativeTokenBalance = nativeTokenAsset
+        ? BigNumber(nativeTokenAsset.uiAmount)
+        : BigNumber(0);
+      const bandwidthBalance = bandwidthAsset
+        ? BigNumber(bandwidthAsset.uiAmount)
+        : BigNumber(0);
+      const energyBalance = energyAsset
+        ? BigNumber(energyAsset.uiAmount)
+        : BigNumber(0);
+
+      if (!asset || BigNumber(value).isGreaterThan(assetToSendBalance)) {
         return {
           valid: false,
           errors: [SendErrorCodes.InsufficientBalance],
+        };
+      }
+
+      /**
+       * Estimate the fees
+       */
+      const sendTransaction = await this.#sendService.buildTransaction({
+        fromAccountId: accountId,
+        toAddress: NULL_ADDRESS,
+        asset,
+        amount: BigNumber(value).toNumber(),
+      });
+      const fees = await this.#feeCalculatorService.computeFee({
+        scope,
+        transaction: sendTransaction,
+        availableEnergy: energyBalance,
+        availableBandwidth: bandwidthBalance,
+      });
+
+      /**
+       * The fee calculation already takes into account the energy and bandwidth consumption,
+       * so we only need to make sure we have enough TRX to cover overages.
+       */
+      const nativeTokenId = Networks[scope].nativeToken.id;
+      const trxFee = BigNumber(
+        fees.find((fee) => fee.asset.type === nativeTokenId)?.asset.amount ??
+          '0',
+      );
+
+      /**
+       * Don't forget that we can also be sending TRX so we must add the fees to the amount that will be
+       * sent.
+       */
+      const totalTrxToSpend =
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+        assetId === nativeTokenId ? BigNumber(value).plus(trxFee) : trxFee;
+
+      if (totalTrxToSpend.isGreaterThan(nativeTokenBalance)) {
+        return {
+          valid: false,
+          errors: [SendErrorCodes.InsufficientBalanceToCoverFee],
         };
       }
 
