@@ -9,7 +9,7 @@ import type { Serializable } from '../../utils/serialization/types';
 export class InMemoryState<TStateValue extends Record<string, Serializable>>
   implements IStateManager<TStateValue>
 {
-  #state: TStateValue;
+  readonly #state: TStateValue;
 
   constructor(initialState: TStateValue) {
     this.#state = initialState;
