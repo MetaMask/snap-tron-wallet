@@ -31,16 +31,12 @@ export class InMemoryState<TStateValue extends Record<string, Serializable>>
     set(this.#state, key, value); // Use lodash to set the value using a json path
   }
 
-  async update(
-    callback: (state: TStateValue) => TStateValue,
-  ): Promise<TStateValue> {
-    this.#state = callback(this.#state);
-
-    return this.#state;
-  }
-
   async deleteKey(key: string): Promise<void> {
     // Using lodash's unset to leverage the json path capabilities
     unset(this.#state, key);
+  }
+
+  async deleteKeys(keys: string[]): Promise<void> {
+    await Promise.all(keys.map(async (key) => this.deleteKey(key)));
   }
 }

@@ -163,12 +163,7 @@ export class StateCache implements ICache<Serializable | undefined> {
   ): Promise<Record<string, Serializable | undefined>> {
     const cacheStore = await this.#state.getKey(this.prefix);
 
-    // If cache is not initialized, return empty object
-    if (!cacheStore) {
-      return {};
-    }
-
-    const keysAndValues = Object.entries(cacheStore).filter(([key]) =>
+    const keysAndValues = Object.entries(cacheStore ?? {}).filter(([key]) =>
       keys.includes(key),
     );
 
@@ -179,34 +174,25 @@ export class StateCache implements ICache<Serializable | undefined> {
 
     await this.mdelete(expiredKeys.map(([key]) => key));
 
-    const result: Record<string, Serializable | undefined> = {};
+    return keysAndValues.reduce<Record<string, Serializable | undefined>>(
+      (acc, [key, cacheEntry]) => {
+        if (cacheEntry === undefined) {
+          this.logger.info(`[StateCache] ❌ Cache miss for key "${key}"`);
+          return acc;
+        }
 
-    // First, handle keys that exist in the cache
-    keysAndValues.forEach(([key, cacheEntry]) => {
-      if (cacheEntry === undefined) {
-        this.logger.info(`[StateCache] ❌ Cache miss for key "${key}"`);
-        result[key] = undefined;
-        return;
-      }
+        if (cacheEntry.expiresAt < Date.now()) {
+          this.logger.info(`[StateCache] ⌛ Cache expired for key "${key}"`);
+          acc[key] = undefined;
+        } else {
+          this.logger.info(`[StateCache] 🎉 Cache hit for key "${key}"`);
+          acc[key] = cacheEntry.value;
+        }
 
-      if (cacheEntry.expiresAt < Date.now()) {
-        this.logger.info(`[StateCache] ⌛ Cache expired for key "${key}"`);
-        result[key] = undefined;
-      } else {
-        this.logger.info(`[StateCache] 🎉 Cache hit for key "${key}"`);
-        result[key] = cacheEntry.value;
-      }
-    });
-
-    // Then, handle keys that don't exist in the cache
-    keys.forEach((key) => {
-      if (!(key in result)) {
-        this.logger.info(`[StateCache] ❌ Cache miss for key "${key}"`);
-        result[key] = undefined;
-      }
-    });
-
-    return result;
+        return acc;
+      },
+      {},
+    );
   }
 
   async mset(
@@ -227,43 +213,33 @@ export class StateCache implements ICache<Serializable | undefined> {
       this.#validateTtlOrThrow(ttlMilliseconds);
     });
 
-    // Using `state.update` is preferred for bulk `set`s, because it's more efficient and atomic.
-    await this.#state.update((stateValue) => {
-      const cacheStore = stateValue[this.prefix] ?? {};
-      entries.forEach(({ key, value, ttlMilliseconds }) => {
+    // Set all cache entries in parallel
+    await Promise.all(
+      entries.map(async ({ key, value, ttlMilliseconds }) => {
         if (value === undefined) {
-          return;
+          return Promise.resolve();
         }
-        cacheStore[key] = {
-          value,
-          expiresAt: Math.min(
-            Date.now() + (ttlMilliseconds ?? Number.MAX_SAFE_INTEGER),
-            Number.MAX_SAFE_INTEGER,
-          ),
-        };
-      });
-      stateValue[this.prefix] = cacheStore;
-      return stateValue;
-    });
+        return this.set(key, value, ttlMilliseconds);
+      }),
+    );
   }
 
   async mdelete(keys: string[]): Promise<Record<string, boolean>> {
     const result: Record<string, boolean> = {};
 
-    // Using `state.update` is preferred for bulk `delete`s, because it's more efficient and atomic.
-    await this.#state.update((stateValue) => {
-      const cacheStore = stateValue[this.prefix] ?? {};
-      keys.forEach((key) => {
-        if (cacheStore[key] === undefined) {
-          result[key] = false;
-        } else {
-          delete cacheStore[key];
-          result[key] = true;
+    // Check which keys exist before deleting
+    const cacheStore = await this.#state.getKey<CacheStore>(this.prefix);
+
+    // Delete all keys in parallel
+    await Promise.all(
+      keys.map(async (key) => {
+        const exists = cacheStore?.[key] !== undefined;
+        result[key] = exists;
+        if (exists) {
+          await this.#state.deleteKey(`${this.prefix}.${key}`);
         }
-      });
-      stateValue[this.prefix] = cacheStore;
-      return stateValue;
-    });
+      }),
+    );
 
     return result;
   }

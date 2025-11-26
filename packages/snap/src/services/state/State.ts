@@ -1,6 +1,4 @@
 import type { Transaction } from '@metamask/keyring-api';
-import { Mutex } from 'async-mutex';
-import { unset } from 'lodash';
 
 import type { IStateManager } from './IStateManager';
 import type { SpotPrices } from '../../clients/price-api/types';
@@ -35,7 +33,7 @@ export type StateConfig<TValue extends Record<string, Serializable>> = {
 };
 
 /**
- * This class is a layer on top the the `snap_manageState` API that facilitates its usage:
+ * This class is a layer on top the the `snap_getState` and `snap_setState` APIs that facilitates their usage:
  *
  * Basic usage:
  * - Get and update the sate of the snap
@@ -52,8 +50,6 @@ export type StateConfig<TValue extends Record<string, Serializable>> = {
 export class State<TStateValue extends Record<string, Serializable>>
   implements IStateManager<TStateValue>
 {
-  readonly #mutex = new Mutex();
-
   readonly #config: StateConfig<TStateValue>;
 
   constructor(config: StateConfig<TStateValue>) {
@@ -109,43 +105,11 @@ export class State<TStateValue extends Record<string, Serializable>>
     });
   }
 
-  async update(
-    updaterFunction: (state: TStateValue) => TStateValue,
-  ): Promise<TStateValue> {
-    // Because this function modifies the entire state blob,
-    // we must protect against parallel requests.
-    return await this.#mutex.runExclusive(async () => {
-      const currentState = await this.get();
-
-      const newState = updaterFunction(currentState);
-
-      await snap.request({
-        method: 'snap_manageState',
-        params: {
-          operation: 'update',
-          newState: serialize(newState),
-          encrypted: this.#config.encrypted,
-        },
-      });
-
-      return newState;
-    });
-  }
-
   async deleteKey(key: string): Promise<void> {
-    await this.update((state) => {
-      // Using lodash's unset to leverage the json path capabilities
-      unset(state, key);
-      return state;
-    });
+    return this.setKey(key, undefined);
   }
 
   async deleteKeys(keys: string[]): Promise<void> {
-    await this.update((state) => {
-      keys.forEach((key) => {
-        unset(state, key);
-      });
-      return state;
-    });
+    await Promise.all(keys.map(async (key) => this.deleteKey(key)));
   }
 }
