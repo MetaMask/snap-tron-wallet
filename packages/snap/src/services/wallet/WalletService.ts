@@ -1,5 +1,6 @@
+import type { ResolvedAccountAddress } from '@metamask/keyring-api';
 import { SnapError } from '@metamask/snaps-sdk';
-import type { Json } from '@metamask/utils';
+import type { Json, JsonRpcRequest } from '@metamask/utils';
 
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
 import type { Network } from '../../constants';
@@ -10,6 +11,8 @@ import {
 } from '../../handlers/keyring-types';
 import { createPrefixedLogger, type ILogger } from '../../utils/logger';
 import {
+  ResolveAccountAddressRequestStruct,
+  ResolveAccountAddressResponseStruct,
   SignMessageRequestStruct,
   SignMessageResponseStruct,
   SignTransactionRequestStruct,
@@ -242,5 +245,94 @@ export class WalletService {
 
       throw error;
     }
+  }
+
+  /**
+   * Resolves the address of an account from a signing request.
+   *
+   * This is required by the routing system of MetaMask to dispatch
+   * incoming non-EVM dapp signing requests.
+   *
+   * @param keyringAccounts - The accounts available in the keyring.
+   * @param scope - Request's scope (CAIP-2 chain ID).
+   * @param request - Signing request object.
+   * @returns A Promise that resolves to the account address in CAIP-10 format
+   * that must be used to process this signing request.
+   * @throws If the request is invalid or no matching account is found.
+   */
+  async resolveAccountAddress(
+    keyringAccounts: TronKeyringAccount[],
+    scope: Network,
+    request: JsonRpcRequest,
+  ): Promise<ResolvedAccountAddress> {
+    this.#logger.log('Resolving account address', {
+      accountCount: keyringAccounts.length,
+      scope,
+      request,
+    });
+
+    // Filter accounts that support this scope
+    const accountsWithThisScope = keyringAccounts.filter((account) =>
+      account.scopes.includes(scope),
+    );
+
+    if (accountsWithThisScope.length === 0) {
+      throw new Error(`No accounts with scope: ${scope}`);
+    }
+
+    // Validate the request structure (method and params)
+    validateRequest(request, ResolveAccountAddressRequestStruct);
+
+    // Extract the params from the validated request
+    const { params } = request;
+
+    // Validate that address exists in params
+    const { address } = params as any;
+    if (!address || typeof address !== 'string') {
+      throw new Error('Address parameter is required and must be a string');
+    }
+
+    const addressToValidate = address;
+
+    // Validate that the address is a valid Tron address
+    const tronWeb = this.#tronWebFactory.createClient(
+      scope,
+      // We don't need a private key for address validation
+      '0'.repeat(64),
+    );
+
+    const isValid = tronWeb.isAddress(addressToValidate);
+    if (!isValid) {
+      throw new Error(`Invalid Tron address: ${addressToValidate}`);
+    }
+
+    // Find the account in the keyring that matches the address
+    const foundAccount = accountsWithThisScope.find(
+      (account) => account.address === addressToValidate,
+    );
+
+    if (!foundAccount) {
+      throw new Error(
+        `Account not found in keyring for address: ${addressToValidate}`,
+      );
+    }
+
+    // Return the address in CAIP-10 format
+    // CAIP-10 format: chainId:address (e.g., "tron:0x2b6653dc:TJRabPrwbZy45sbavfcjinPJC18kjpRTv8")
+    const caip10Address =
+      `${scope}:${addressToValidate}` as ResolvedAccountAddress['address'];
+
+    // Validate the response format
+    validateResponse(caip10Address, ResolveAccountAddressResponseStruct);
+
+    this.#logger.log('Address resolved successfully', {
+      address: addressToValidate,
+      caip10Address,
+      accountId: foundAccount.id,
+    });
+
+    return {
+      address: caip10Address,
+    };
   }
 }

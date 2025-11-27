@@ -2,6 +2,7 @@
 import {
   KeyringEvent,
   ListAccountAssetsResponseStruct,
+  ResolveAccountAddressResponseStruct,
   type Balance,
   type DiscoveredAccount,
   type EntropySourceId,
@@ -351,11 +352,31 @@ export class KeyringHandler implements Keyring {
     }
   }
 
-  resolveAccountAddress?(
+  /**
+   * Resolves an account address from a request.
+   * Routes to WalletService for address resolution and validation.
+   *
+   * @param scope - The CAIP-2 chain ID.
+   * @param request - The JSON-RPC request containing the address parameter.
+   * @returns The resolved account address in CAIP-10 format, or null if resolution fails.
+   */
+  async resolveAccountAddress(
     scope: CaipChainId,
     request: JsonRpcRequest,
-  ): Promise<ResolvedAccountAddress | null> {
-    throw new Error('Method not implemented.');
+  ): Promise<ResolvedAccountAddress> {
+    this.#logger.info('Resolving account address', { scope, request });
+
+    // Get all keyring accounts
+    const keyringAccounts = await this.#listAccounts();
+
+    // Resolve the address using the wallet service
+    const caip10Address = await this.#walletService.resolveAccountAddress(
+      keyringAccounts,
+      scope as Network,
+      request,
+    );
+
+    return caip10Address;
   }
 
   async filterAccountChains(id: string, chains: string[]): Promise<string[]> {

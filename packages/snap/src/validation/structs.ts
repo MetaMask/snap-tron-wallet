@@ -16,7 +16,9 @@ import {
   record,
   refine,
   string,
+  type,
   union,
+  unknown,
 } from '@metamask/superstruct';
 import { TronWeb } from 'tronweb';
 
@@ -385,3 +387,21 @@ export const TronKeyringRequestStruct = object({
     params: union([SignTransactionRequestStruct, SignMessageRequestStruct]),
   }),
 });
+
+/**
+ * Validation struct for resolveAccountAddress request
+ * Only validates the presence of method and params
+ * (other fields like jsonrpc, id, and extra params are allowed)
+ */
+export const ResolveAccountAddressRequestStruct = type({
+  method: enums(Object.values(TronMultichainMethod)),
+  params: record(string(), unknown()),
+});
+
+/**
+ * Validation struct for resolveAccountAddress response
+ */
+export const ResolveAccountAddressResponseStruct = pattern(
+  string(),
+  /^[a-zA-Z0-9]+:[a-zA-Z0-9]+:[a-zA-Z0-9]+$/u,
+);

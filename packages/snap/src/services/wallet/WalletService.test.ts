@@ -60,6 +60,7 @@ describe('WalletService', () => {
           txPbToTxID: jest.fn().mockReturnValue({ txID: 'tx123' }),
         },
       },
+      isAddress: jest.fn().mockReturnValue(true),
     };
 
     mockAccountsService = {
@@ -324,6 +325,183 @@ describe('WalletService', () => {
       });
 
       expect(result.signature).toBe('0x');
+    });
+  });
+
+  describe('resolveAccountAddress', () => {
+    const keyringAccounts = [
+      {
+        ...mockAccount,
+        address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+        scopes: [Network.Mainnet, Network.Shasta],
+      },
+      {
+        ...mockAccount,
+        id: '987e6543-e89b-42d3-a456-426614174999',
+        address: 'TGehVcNhud84JDCGrNHKVz9jEAVKUpbuiv',
+        scopes: [Network.Mainnet],
+      },
+    ];
+
+    it('resolves valid Tron address for signMessage', async () => {
+      const scope = Network.Mainnet;
+      const address = 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8';
+      const request = {
+        jsonrpc: '2.0' as const,
+        id: 1,
+        method: 'signMessage',
+        params: { address, message: toBase64('test') },
+      };
+
+      mockTronWeb.isAddress.mockReturnValue(true);
+
+      const result = await walletService.resolveAccountAddress(
+        keyringAccounts,
+        scope,
+        request,
+      );
+
+      expect(result).toBe(`${scope}:${address}`);
+      expect(mockTronWeb.isAddress).toHaveBeenCalledWith(address);
+    });
+
+    it('resolves valid Tron address for signTransaction', async () => {
+      const scope = Network.Mainnet;
+      const address = 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8';
+      const request = {
+        jsonrpc: '2.0' as const,
+        id: 1,
+        method: 'signTransaction',
+        params: {
+          scope,
+          address,
+          transaction: toBase64('transaction-data'),
+        },
+      };
+
+      mockTronWeb.isAddress.mockReturnValue(true);
+
+      const result = await walletService.resolveAccountAddress(
+        keyringAccounts,
+        scope,
+        request,
+      );
+
+      expect(result).toBe(`${scope}:${address}`);
+      expect(mockTronWeb.isAddress).toHaveBeenCalledWith(address);
+    });
+
+    it('throws error for invalid address', async () => {
+      const scope = Network.Mainnet;
+      const request = {
+        jsonrpc: '2.0' as const,
+        id: 1,
+        method: 'signMessage',
+        params: { address: 'invalid-address', message: toBase64('test') },
+      };
+
+      mockTronWeb.isAddress.mockReturnValue(false);
+
+      await expect(
+        walletService.resolveAccountAddress(keyringAccounts, scope, request),
+      ).rejects.toThrow('Invalid Tron address');
+    });
+
+    it('throws error for missing address parameter', async () => {
+      const scope = Network.Mainnet;
+      const request = {
+        jsonrpc: '2.0' as const,
+        id: 1,
+        method: 'signMessage',
+        params: { message: toBase64('test') },
+      };
+
+      await expect(
+        walletService.resolveAccountAddress(keyringAccounts, scope, request),
+      ).rejects.toThrow('Address parameter is required');
+    });
+
+    it('throws error for account not in keyring', async () => {
+      const scope = Network.Mainnet;
+      const address = 'TUnknownAddressNotInKeyring1234567890';
+      const request = {
+        jsonrpc: '2.0' as const,
+        id: 1,
+        method: 'signMessage',
+        params: { address, message: toBase64('test') },
+      };
+
+      mockTronWeb.isAddress.mockReturnValue(true);
+
+      await expect(
+        walletService.resolveAccountAddress(keyringAccounts, scope, request),
+      ).rejects.toThrow('Account not found in keyring');
+    });
+
+    it('throws error for no accounts with scope', async () => {
+      const scope = Network.Nile;
+      const address = 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8';
+      const request = {
+        jsonrpc: '2.0' as const,
+        id: 1,
+        method: 'signMessage',
+        params: { address, message: toBase64('test') },
+      };
+
+      await expect(
+        walletService.resolveAccountAddress(keyringAccounts, scope, request),
+      ).rejects.toThrow('No accounts with scope');
+    });
+
+    it('throws error for unsupported method', async () => {
+      const scope = Network.Mainnet;
+      const request = {
+        jsonrpc: '2.0' as const,
+        id: 1,
+        method: 'unsupportedMethod',
+        params: { address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8' },
+      };
+
+      await expect(
+        walletService.resolveAccountAddress(keyringAccounts, scope, request),
+      ).rejects.toThrow('Expected one of');
+    });
+
+    it('resolves address for different networks', async () => {
+      const address = 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8';
+      const request = {
+        jsonrpc: '2.0' as const,
+        id: 1,
+        method: 'signMessage',
+        params: { address, message: toBase64('test') },
+      };
+
+      mockTronWeb.isAddress.mockReturnValue(true);
+
+      const shastaResult = await walletService.resolveAccountAddress(
+        keyringAccounts,
+        Network.Shasta,
+        request,
+      );
+
+      expect(shastaResult).toBe(`${Network.Shasta}:${address}`);
+      expect(mockTronWebFactory.createClient).toHaveBeenCalledWith(
+        Network.Shasta,
+        '0'.repeat(64),
+      );
+    });
+
+    it('throws error for missing method', async () => {
+      const scope = Network.Mainnet;
+      const request = {
+        jsonrpc: '2.0' as const,
+        id: 1,
+        params: { address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8' },
+      } as any;
+
+      await expect(
+        walletService.resolveAccountAddress(keyringAccounts, scope, request),
+      ).rejects.toThrow('Expected one of');
     });
   });
 });
