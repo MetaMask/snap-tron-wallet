@@ -361,7 +361,7 @@ describe('WalletService', () => {
         request,
       );
 
-      expect(result).toBe(`${scope}:${address}`);
+      expect(result).toStrictEqual({ address: `${scope}:${address}` });
       expect(mockTronWeb.isAddress).toHaveBeenCalledWith(address);
     });
 
@@ -387,7 +387,7 @@ describe('WalletService', () => {
         request,
       );
 
-      expect(result).toBe(`${scope}:${address}`);
+      expect(result).toStrictEqual({ address: `${scope}:${address}` });
       expect(mockTronWeb.isAddress).toHaveBeenCalledWith(address);
     });
 
@@ -484,7 +484,9 @@ describe('WalletService', () => {
         request,
       );
 
-      expect(shastaResult).toBe(`${Network.Shasta}:${address}`);
+      expect(shastaResult).toStrictEqual({
+        address: `${Network.Shasta}:${address}`,
+      });
       expect(mockTronWebFactory.createClient).toHaveBeenCalledWith(
         Network.Shasta,
         '0'.repeat(64),
