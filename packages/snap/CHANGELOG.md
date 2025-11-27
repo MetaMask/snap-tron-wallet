@@ -9,12 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.14.0]
 
-### Uncategorized
+### Added
 
-- Feat/wallet service ([#124](https://github.com/MetaMask/snap-tron-wallet/pull/124))
-- fix: improve Send flow amount validation with fee estimation ([#123](https://github.com/MetaMask/snap-tron-wallet/pull/123))
-- feat: signRewardsMessage ([#119](https://github.com/MetaMask/snap-tron-wallet/pull/119))
-- fix: set `isDev` to false ([#122](https://github.com/MetaMask/snap-tron-wallet/pull/122))
+- Dapp connectivity methods (`sign{Message/Transaction}`) ([#124](https://github.com/MetaMask/snap-tron-wallet/pull/124))
+- Client `signRewardsMessage` ([#119](https://github.com/MetaMask/snap-tron-wallet/pull/119))
+
+### Changed
+
+- Improve Send flow amount validation with fee estimation ([#123](https://github.com/MetaMask/snap-tron-wallet/pull/123))
+
+### Fixed
+
+- Det `isDev` to false ([#122](https://github.com/MetaMask/snap-tron-wallet/pull/122))
 
 ## [1.13.0]
 
