@@ -59,7 +59,7 @@ describe('KeyringHandler', () => {
     mockWalletService = {
       handleKeyringRequest: jest
         .fn()
-        .mockResolvedValue({ signature: 'signature123' }),
+        .mockResolvedValue({ signature: '0xsignature123' }),
     } as any;
     mockConfirmationHandler = {
       handleKeyringRequest: jest.fn().mockResolvedValue(true),
@@ -97,7 +97,7 @@ describe('KeyringHandler', () => {
 
         expect(result).toStrictEqual({
           pending: false,
-          result: { signature: 'signature123' },
+          result: { signature: '0xsignature123' },
         });
         expect(mockAccountsService.findById).toHaveBeenCalledWith(
           mockAccount.id,
@@ -182,7 +182,7 @@ describe('KeyringHandler', () => {
 
         expect(result).toStrictEqual({
           pending: false,
-          result: { signature: 'signature123' },
+          result: { signature: '0xsignature123' },
         });
         expect(mockWalletService.handleKeyringRequest).toHaveBeenCalledWith({
           account: mockAccount,

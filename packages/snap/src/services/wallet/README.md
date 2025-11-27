@@ -70,7 +70,7 @@ const result = await walletService.signMessage({
     message: Buffer.from('Hello World').toString('base64'),
   },
 });
-// result: { signature: 'abc123...' } // Note: No 0x prefix for Tron signatures
+// result: { signature: '0xabc123...' }
 ```
 
 ### `signTransaction()`
@@ -105,7 +105,7 @@ const result = await walletService.signTransaction({
     transaction: base64EncodedTransaction,
   },
 });
-// result: { signature: 'abc123...' } // Note: No 0x prefix for Tron signatures
+// result: { signature: '0xabc123...' }
 ```
 
 ## Error Handling

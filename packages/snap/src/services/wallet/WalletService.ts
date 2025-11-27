@@ -221,12 +221,12 @@ export class WalletService {
       const signedTx = await tronWeb.trx.sign(transaction, privateKeyHex);
 
       // Extract the signature from the signed transaction
-      // signedTx.signature is an array of hex strings (without 0x prefix)
+      // signedTx.signature is an array of hex strings
       const signatureArray = (signedTx as any).signature as string[];
       const signature = signatureArray?.[0] ?? '';
 
       const result = {
-        signature,
+        signature: `0x${signature}`,
       };
 
       this.#logger.log('Transaction signed successfully', { address, scope });

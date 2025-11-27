@@ -112,7 +112,7 @@ describe('WalletService', () => {
         params,
       });
 
-      expect(result).toStrictEqual({ signature: 'abcd1234signature' });
+      expect(result).toStrictEqual({ signature: '0xabcd1234signature' });
     });
 
     it('throws SnapError for unsupported methods', async () => {
@@ -234,7 +234,7 @@ describe('WalletService', () => {
         params,
       });
 
-      expect(result).toStrictEqual({ signature: 'abcd1234signature' });
+      expect(result).toStrictEqual({ signature: '0xabcd1234signature' });
       expect(mockTronWebFactory.createClient).toHaveBeenCalledWith(
         Network.Mainnet,
         mockTronKeypair.privateKeyHex,
@@ -286,7 +286,7 @@ describe('WalletService', () => {
       ).rejects.toThrow('Expected');
     });
 
-    it('returns signature without 0x prefix', async () => {
+    it('prefixes signature with 0x', async () => {
       mockTronWeb.trx.sign.mockResolvedValue({
         signature: ['abcdef123456'],
       });
@@ -300,8 +300,8 @@ describe('WalletService', () => {
         },
       });
 
-      expect(result.signature).not.toMatch(/^0x/u);
-      expect(result.signature).toBe('abcdef123456');
+      expect(result.signature).toMatch(/^0x/u);
+      expect(result.signature).toBe('0xabcdef123456');
     });
 
     it('handles empty signature array', async () => {
@@ -318,7 +318,7 @@ describe('WalletService', () => {
         },
       });
 
-      expect(result.signature).toBe('');
+      expect(result.signature).toBe('0x');
     });
   });
 
