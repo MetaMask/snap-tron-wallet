@@ -371,7 +371,6 @@ export const SignMessageResponseStruct = object({
  * Multichain API - signTransaction validation
  */
 export const SignTransactionRequestStruct = object({
-  scope: ScopeStringStruct,
   address: TronAddressStruct,
   transaction: Base64Struct,
 });

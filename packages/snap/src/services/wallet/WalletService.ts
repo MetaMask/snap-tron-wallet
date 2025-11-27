@@ -29,6 +29,8 @@ export class WalletService {
 
   readonly #tronWebFactory: TronWebFactory;
 
+  readonly #validationKey: string;
+
   constructor({
     logger,
     accountsService,
@@ -41,6 +43,8 @@ export class WalletService {
     this.#logger = createPrefixedLogger(logger, '[💼 WalletService]');
     this.#accountsService = accountsService;
     this.#tronWebFactory = tronWebFactory;
+    // We don't need a private key for address validation
+    this.#validationKey = '0'.repeat(64);
   }
 
   /**
@@ -297,8 +301,7 @@ export class WalletService {
     // Validate that the address is a valid Tron address
     const tronWeb = this.#tronWebFactory.createClient(
       scope,
-      // We don't need a private key for address validation
-      '0'.repeat(64),
+      this.#validationKey,
     );
 
     const isValid = tronWeb.isAddress(addressToValidate);
