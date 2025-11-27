@@ -101,7 +101,6 @@ describe('WalletService', () => {
 
     it('routes signTransaction requests correctly', async () => {
       const params = {
-        scope: Network.Mainnet,
         address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
         transaction: toBase64('transaction-data'),
       };
@@ -113,7 +112,7 @@ describe('WalletService', () => {
         params,
       });
 
-      expect(result).toStrictEqual({ signature: '0xabcd1234signature' });
+      expect(result).toStrictEqual({ signature: 'abcd1234signature' });
     });
 
     it('throws SnapError for unsupported methods', async () => {
@@ -225,7 +224,6 @@ describe('WalletService', () => {
     it('signs a transaction successfully', async () => {
       const transactionData = 'transaction-data-bytes';
       const params = {
-        scope: Network.Mainnet,
         address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
         transaction: toBase64(transactionData),
       };
@@ -236,7 +234,7 @@ describe('WalletService', () => {
         params,
       });
 
-      expect(result).toStrictEqual({ signature: '0xabcd1234signature' });
+      expect(result).toStrictEqual({ signature: 'abcd1234signature' });
       expect(mockTronWebFactory.createClient).toHaveBeenCalledWith(
         Network.Mainnet,
         mockTronKeypair.privateKeyHex,
@@ -245,7 +243,6 @@ describe('WalletService', () => {
 
     it('deserializes transaction from base64', async () => {
       const params = {
-        scope: Network.Mainnet,
         address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
         transaction: toBase64('tx-data'),
       };
@@ -270,7 +267,6 @@ describe('WalletService', () => {
           account: mockAccount,
           scope: Network.Mainnet,
           params: {
-            scope: Network.Mainnet,
             address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
             transaction: toBase64('valid-but-unparseable-transaction-data'),
           },
@@ -290,7 +286,7 @@ describe('WalletService', () => {
       ).rejects.toThrow('Expected');
     });
 
-    it('prefixes signature with 0x', async () => {
+    it('returns signature without 0x prefix', async () => {
       mockTronWeb.trx.sign.mockResolvedValue({
         signature: ['abcdef123456'],
       });
@@ -299,14 +295,13 @@ describe('WalletService', () => {
         account: mockAccount,
         scope: Network.Mainnet,
         params: {
-          scope: Network.Mainnet,
           address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
           transaction: toBase64('transaction-data'),
         },
       });
 
-      expect(result.signature).toMatch(/^0x/u);
-      expect(result.signature).toBe('0xabcdef123456');
+      expect(result.signature).not.toMatch(/^0x/u);
+      expect(result.signature).toBe('abcdef123456');
     });
 
     it('handles empty signature array', async () => {
@@ -318,13 +313,12 @@ describe('WalletService', () => {
         account: mockAccount,
         scope: Network.Mainnet,
         params: {
-          scope: Network.Mainnet,
           address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
           transaction: toBase64('transaction-data'),
         },
       });
 
-      expect(result.signature).toBe('0x');
+      expect(result.signature).toBe('');
     });
   });
 

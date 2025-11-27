@@ -59,7 +59,7 @@ describe('KeyringHandler', () => {
     mockWalletService = {
       handleKeyringRequest: jest
         .fn()
-        .mockResolvedValue({ signature: '0xsignature123' }),
+        .mockResolvedValue({ signature: 'signature123' }),
     } as any;
     mockConfirmationHandler = {
       handleKeyringRequest: jest.fn().mockResolvedValue(true),
@@ -97,7 +97,7 @@ describe('KeyringHandler', () => {
 
         expect(result).toStrictEqual({
           pending: false,
-          result: { signature: '0xsignature123' },
+          result: { signature: 'signature123' },
         });
         expect(mockAccountsService.findById).toHaveBeenCalledWith(
           mockAccount.id,
@@ -172,7 +172,6 @@ describe('KeyringHandler', () => {
           request: {
             method: TronMultichainMethod.SignTransaction,
             params: {
-              scope: Network.Mainnet,
               address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
               transaction: toBase64('transaction-data'),
             },
@@ -183,7 +182,7 @@ describe('KeyringHandler', () => {
 
         expect(result).toStrictEqual({
           pending: false,
-          result: { signature: '0xsignature123' },
+          result: { signature: 'signature123' },
         });
         expect(mockWalletService.handleKeyringRequest).toHaveBeenCalledWith({
           account: mockAccount,
@@ -204,7 +203,6 @@ describe('KeyringHandler', () => {
           request: {
             method: TronMultichainMethod.SignTransaction,
             params: {
-              scope: Network.Mainnet,
               address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
               transaction: toBase64('transaction-data'),
             },
@@ -259,7 +257,6 @@ describe('KeyringHandler', () => {
           request: {
             method: TronMultichainMethod.SignTransaction,
             params: {
-              scope: Network.Mainnet,
               address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
               transaction: toBase64('transaction-data'),
             },

@@ -69,7 +69,6 @@ describe('Keyring Validation Structs', () => {
   describe('SignTransactionRequestStruct', () => {
     it('validates valid signTransaction params', () => {
       const validParams = {
-        scope: Network.Mainnet,
         address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
         transaction: toBase64('transaction-data'),
       };
@@ -81,8 +80,7 @@ describe('Keyring Validation Structs', () => {
 
     it('rejects invalid scope', () => {
       const invalidParams = {
-        scope: 'invalid-scope',
-        address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+        address: 'not-a-tron-address',
         transaction: toBase64('transaction-data'),
       };
 
@@ -93,9 +91,8 @@ describe('Keyring Validation Structs', () => {
 
     it('rejects invalid address', () => {
       const invalidParams = {
-        scope: Network.Mainnet,
         address: 'not-a-tron-address',
-        transaction: toBase64('transaction-data'),
+        transaction: 'invalid-base64!!!',
       };
 
       expect(() => assert(invalidParams, SignTransactionRequestStruct)).toThrow(
@@ -115,9 +112,8 @@ describe('Keyring Validation Structs', () => {
       );
     });
 
-    it('rejects missing scope', () => {
+    it('rejects missing address', () => {
       const invalidParams = {
-        address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
         transaction: toBase64('transaction-data'),
       };
 
@@ -238,7 +234,6 @@ describe('Keyring Validation Structs', () => {
           request: {
             method: TronMultichainMethod.SignTransaction,
             params: {
-              scope: Network.Mainnet,
               address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
               transaction: toBase64('tx-data'),
             },
@@ -259,7 +254,6 @@ describe('Keyring Validation Structs', () => {
           request: {
             method: TronMultichainMethod.SignTransaction,
             params: {
-              scope: Network.Shasta,
               address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
               transaction: toBase64('transaction-data'),
             },
