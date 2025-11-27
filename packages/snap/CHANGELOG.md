@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0]
+
+### Uncategorized
+
+- Feat/wallet service ([#124](https://github.com/MetaMask/snap-tron-wallet/pull/124))
+- fix: improve Send flow amount validation with fee estimation ([#123](https://github.com/MetaMask/snap-tron-wallet/pull/123))
+- feat: signRewardsMessage ([#119](https://github.com/MetaMask/snap-tron-wallet/pull/119))
+- fix: set `isDev` to false ([#122](https://github.com/MetaMask/snap-tron-wallet/pull/122))
+
 ## [1.13.0]
 
 ### Changed
@@ -248,7 +257,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release of Tron wallet snap
 - Support for TRX and token assets balances ([#12](https://github.com/MetaMask/snap-tron-wallet/pull/12))
 
-[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.13.0...HEAD
+[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.14.0...HEAD
+[1.14.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.12.1...v1.13.0
 [1.12.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.12.0...v1.12.1
 [1.12.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.11.0...v1.12.0
