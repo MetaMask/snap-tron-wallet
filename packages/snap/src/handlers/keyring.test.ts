@@ -174,6 +174,7 @@ describe('KeyringHandler', () => {
             params: {
               address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
               transaction: toBase64('transaction-data'),
+              options: { visible: true, type: 'TransferContract' },
             },
           },
         };
@@ -205,6 +206,7 @@ describe('KeyringHandler', () => {
             params: {
               address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
               transaction: toBase64('transaction-data'),
+              options: { visible: true, type: 'TransferContract' },
             },
           },
         };
@@ -259,6 +261,7 @@ describe('KeyringHandler', () => {
             params: {
               address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
               transaction: toBase64('transaction-data'),
+              options: { visible: true, type: 'TransferContract' },
             },
           },
         };

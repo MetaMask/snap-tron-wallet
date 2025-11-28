@@ -71,6 +71,7 @@ describe('Keyring Validation Structs', () => {
       const validParams = {
         address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
         transaction: toBase64('transaction-data'),
+        options: { visible: true, type: 'TransferContract' },
       };
 
       expect(() =>
@@ -82,6 +83,7 @@ describe('Keyring Validation Structs', () => {
       const invalidParams = {
         address: 'not-a-tron-address',
         transaction: toBase64('transaction-data'),
+        options: { visible: true, type: 'TransferContract' },
       };
 
       expect(() => assert(invalidParams, SignTransactionRequestStruct)).toThrow(
@@ -93,6 +95,7 @@ describe('Keyring Validation Structs', () => {
       const invalidParams = {
         address: 'not-a-tron-address',
         transaction: 'invalid-base64!!!',
+        options: { visible: true, type: 'TransferContract' },
       };
 
       expect(() => assert(invalidParams, SignTransactionRequestStruct)).toThrow(
@@ -102,9 +105,9 @@ describe('Keyring Validation Structs', () => {
 
     it('rejects invalid base64 transaction', () => {
       const invalidParams = {
-        scope: Network.Mainnet,
         address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
         transaction: 'not-base64!!!',
+        options: { visible: true, type: 'TransferContract' },
       };
 
       expect(() => assert(invalidParams, SignTransactionRequestStruct)).toThrow(
@@ -115,6 +118,7 @@ describe('Keyring Validation Structs', () => {
     it('rejects missing address', () => {
       const invalidParams = {
         transaction: toBase64('transaction-data'),
+        options: { visible: true, type: 'TransferContract' },
       };
 
       expect(() => assert(invalidParams, SignTransactionRequestStruct)).toThrow(
@@ -124,8 +128,19 @@ describe('Keyring Validation Structs', () => {
 
     it('rejects missing transaction', () => {
       const invalidParams = {
-        scope: Network.Mainnet,
         address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+        options: { visible: true, type: 'TransferContract' },
+      };
+
+      expect(() => assert(invalidParams, SignTransactionRequestStruct)).toThrow(
+        StructError,
+      );
+    });
+
+    it('rejects missing options', () => {
+      const invalidParams = {
+        address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+        transaction: toBase64('transaction-data'),
       };
 
       expect(() => assert(invalidParams, SignTransactionRequestStruct)).toThrow(
@@ -236,6 +251,7 @@ describe('Keyring Validation Structs', () => {
             params: {
               address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
               transaction: toBase64('tx-data'),
+              options: { visible: true, type: 'TransferContract' },
             },
           },
         };
@@ -256,6 +272,7 @@ describe('Keyring Validation Structs', () => {
             params: {
               address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
               transaction: toBase64('transaction-data'),
+              options: { visible: true, type: 'TransferContract' },
             },
           },
         };

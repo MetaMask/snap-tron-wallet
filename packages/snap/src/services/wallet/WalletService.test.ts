@@ -57,7 +57,7 @@ describe('WalletService', () => {
       },
       utils: {
         transaction: {
-          txPbToTxID: jest.fn().mockReturnValue({ txID: 'tx123' }),
+          DeserializeTransaction: jest.fn().mockReturnValue({ contract: [] }),
         },
       },
       isAddress: jest.fn().mockReturnValue(true),
@@ -103,6 +103,7 @@ describe('WalletService', () => {
       const params = {
         address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
         transaction: toBase64('transaction-data'),
+        options: { visible: true, type: 'TransferContract' },
       };
 
       const result = await walletService.handleKeyringRequest({
@@ -226,6 +227,7 @@ describe('WalletService', () => {
       const params = {
         address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
         transaction: toBase64(transactionData),
+        options: { visible: true, type: 'TransferContract' },
       };
 
       const result = await walletService.signTransaction({
@@ -245,6 +247,7 @@ describe('WalletService', () => {
       const params = {
         address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
         transaction: toBase64('tx-data'),
+        options: { visible: true, type: 'TransferContract' },
       };
 
       await walletService.signTransaction({
@@ -253,14 +256,18 @@ describe('WalletService', () => {
         params,
       });
 
-      expect(mockTronWeb.utils.transaction.txPbToTxID).toHaveBeenCalled();
+      expect(
+        mockTronWeb.utils.transaction.DeserializeTransaction,
+      ).toHaveBeenCalled();
       expect(mockTronWeb.trx.sign).toHaveBeenCalled();
     });
 
     it('handles transaction format errors', async () => {
-      mockTronWeb.utils.transaction.txPbToTxID.mockImplementation(() => {
-        throw new Error('Failed to deserialize transaction');
-      });
+      mockTronWeb.utils.transaction.DeserializeTransaction.mockImplementation(
+        () => {
+          throw new Error('Failed to deserialize transaction');
+        },
+      );
 
       await expect(
         walletService.signTransaction({
@@ -269,6 +276,7 @@ describe('WalletService', () => {
           params: {
             address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
             transaction: toBase64('valid-but-unparseable-transaction-data'),
+            options: { visible: true, type: 'TransferContract' },
           },
         }),
       ).rejects.toThrow('Failed to deserialize transaction');
@@ -297,6 +305,7 @@ describe('WalletService', () => {
         params: {
           address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
           transaction: toBase64('transaction-data'),
+          options: { visible: true, type: 'TransferContract' },
         },
       });
 
@@ -315,6 +324,7 @@ describe('WalletService', () => {
         params: {
           address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
           transaction: toBase64('transaction-data'),
+          options: { visible: true, type: 'TransferContract' },
         },
       });
 
