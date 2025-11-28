@@ -197,7 +197,7 @@ export class WalletService {
 
       const {
         address,
-        transaction: transactionBase64,
+        rawDataHex,
         options: { visible, type },
       } = params;
 
@@ -211,11 +211,7 @@ export class WalletService {
       const tronWeb = this.#tronWebFactory.createClient(scope, privateKeyHex);
 
       // Rebuild the transaction from base64 (same logic as clientRequest handler)
-      // eslint-disable-next-line no-restricted-globals
-      const rawDataHex = Buffer.from(transactionBase64, 'base64').toString(
-        'hex',
-      );
-      const rawData = tronWeb.utils.transaction.DeserializeTransaction(
+      const rawData = tronWeb.utils.deserializeTx.deserializeTransaction(
         type,
         rawDataHex,
       );

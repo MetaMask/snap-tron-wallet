@@ -373,7 +373,7 @@ export const SignMessageResponseStruct = object({
  */
 export const SignTransactionRequestStruct = object({
   address: TronAddressStruct,
-  transaction: Base64Struct,
+  rawDataHex: string(),
   options: object({
     visible: boolean(),
     type: string(),
