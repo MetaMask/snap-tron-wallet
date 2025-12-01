@@ -6,6 +6,7 @@ import {
 import type { Struct } from '@metamask/superstruct';
 import {
   array,
+  boolean,
   define,
   enums,
   integer,
@@ -372,7 +373,11 @@ export const SignMessageResponseStruct = object({
  */
 export const SignTransactionRequestStruct = object({
   address: TronAddressStruct,
-  transactionBase64: string(),
+  rawDataHex: string(),
+  options: object({
+    visible: boolean(),
+    type: string(),
+  }),
 });
 
 /**
