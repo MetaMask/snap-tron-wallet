@@ -1,5 +1,5 @@
 import { assert, StructError } from '@metamask/superstruct';
-import { bytesToBase64, stringToBytes } from '@metamask/utils';
+import { bytesToBase64, bytesToHex, stringToBytes } from '@metamask/utils';
 
 import { Network } from '../constants';
 import {
@@ -11,6 +11,11 @@ import { TronMultichainMethod } from '../handlers/keyring-types';
 
 // Helper function to convert string to base64
 const toBase64 = (str: string): string => bytesToBase64(stringToBytes(str));
+
+// Helper function to convert string to hex
+const toHex = (str: string): string => {
+  return bytesToHex(stringToBytes(str)).slice(2);
+};
 
 describe('Keyring Validation Structs', () => {
   describe('SignMessageRequestStruct', () => {
@@ -70,8 +75,10 @@ describe('Keyring Validation Structs', () => {
     it('validates valid signTransaction params', () => {
       const validParams = {
         address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
-        transaction: toBase64('transaction-data'),
-        options: { visible: true, type: 'TransferContract' },
+        transaction: {
+          rawDataHex: toHex('transaction-data'),
+          type: 'TransferContract',
+        },
       };
 
       expect(() =>
@@ -82,8 +89,10 @@ describe('Keyring Validation Structs', () => {
     it('rejects invalid scope', () => {
       const invalidParams = {
         address: 'not-a-tron-address',
-        transaction: toBase64('transaction-data'),
-        options: { visible: true, type: 'TransferContract' },
+        transaction: {
+          rawDataHex: toHex('transaction-data'),
+          type: 'TransferContract',
+        },
       };
 
       expect(() => assert(invalidParams, SignTransactionRequestStruct)).toThrow(
@@ -94,20 +103,10 @@ describe('Keyring Validation Structs', () => {
     it('rejects invalid address', () => {
       const invalidParams = {
         address: 'not-a-tron-address',
-        transaction: 'invalid-base64!!!',
-        options: { visible: true, type: 'TransferContract' },
-      };
-
-      expect(() => assert(invalidParams, SignTransactionRequestStruct)).toThrow(
-        StructError,
-      );
-    });
-
-    it('rejects invalid base64 transaction', () => {
-      const invalidParams = {
-        address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
-        transaction: 'not-base64!!!',
-        options: { visible: true, type: 'TransferContract' },
+        transaction: {
+          rawDataHex: 'invalid-base64!!!',
+          type: 'TransferContract',
+        },
       };
 
       expect(() => assert(invalidParams, SignTransactionRequestStruct)).toThrow(
@@ -117,8 +116,10 @@ describe('Keyring Validation Structs', () => {
 
     it('rejects missing address', () => {
       const invalidParams = {
-        transaction: toBase64('transaction-data'),
-        options: { visible: true, type: 'TransferContract' },
+        transaction: {
+          rawDataHex: toHex('transaction-data'),
+          type: 'TransferContract',
+        },
       };
 
       expect(() => assert(invalidParams, SignTransactionRequestStruct)).toThrow(
@@ -129,7 +130,6 @@ describe('Keyring Validation Structs', () => {
     it('rejects missing transaction', () => {
       const invalidParams = {
         address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
-        options: { visible: true, type: 'TransferContract' },
       };
 
       expect(() => assert(invalidParams, SignTransactionRequestStruct)).toThrow(
@@ -137,10 +137,12 @@ describe('Keyring Validation Structs', () => {
       );
     });
 
-    it('rejects missing options', () => {
+    it('rejects missing transaction type', () => {
       const invalidParams = {
         address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
-        transaction: toBase64('transaction-data'),
+        transaction: {
+          rawDataHex: toHex('transaction-data'),
+        },
       };
 
       expect(() => assert(invalidParams, SignTransactionRequestStruct)).toThrow(
@@ -250,8 +252,10 @@ describe('Keyring Validation Structs', () => {
             method: TronMultichainMethod.SignTransaction,
             params: {
               address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
-              transaction: toBase64('tx-data'),
-              options: { visible: true, type: 'TransferContract' },
+              transaction: {
+                rawDataHex: toHex('tx-data'),
+                type: 'TransferContract',
+              },
             },
           },
         };
@@ -271,8 +275,10 @@ describe('Keyring Validation Structs', () => {
             method: TronMultichainMethod.SignTransaction,
             params: {
               address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
-              transaction: toBase64('transaction-data'),
-              options: { visible: true, type: 'TransferContract' },
+              transaction: {
+                rawDataHex: toHex('transaction-data'),
+                type: 'TransferContract',
+              },
             },
           },
         };

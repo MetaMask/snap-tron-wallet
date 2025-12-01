@@ -174,7 +174,7 @@ export class WalletService {
 
   /**
    * Signs a Tron transaction.
-   * The transaction must be provided as a base64-encoded serialized transaction string.
+   * The transaction rawDataHex must be provided as a hex-encoded string.
    *
    * @param request - The sign transaction request.
    * @param request.account - The account to sign with.
@@ -197,8 +197,7 @@ export class WalletService {
 
       const {
         address,
-        rawDataHex,
-        options: { visible, type },
+        transaction: { rawDataHex, type },
       } = params;
 
       // Derive the private key for signing
@@ -210,14 +209,14 @@ export class WalletService {
       // Create a TronWeb instance for transaction signing
       const tronWeb = this.#tronWebFactory.createClient(scope, privateKeyHex);
 
-      // Rebuild the transaction from base64 (same logic as clientRequest handler)
+      // Rebuild the transaction from hex (same logic as clientRequest handler)
       const rawData = tronWeb.utils.deserializeTx.deserializeTransaction(
         type,
         rawDataHex,
       );
       const txID = sha256(`0x${rawDataHex}`).slice(2);
       const transaction = {
-        visible,
+        visible: false,
         txID,
         // eslint-disable-next-line @typescript-eslint/naming-convention
         raw_data: rawData,
