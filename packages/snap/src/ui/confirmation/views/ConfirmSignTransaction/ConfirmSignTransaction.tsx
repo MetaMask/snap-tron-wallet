@@ -17,6 +17,7 @@ import { ConfirmSignTransactionFormNames } from './events';
 import type { ConfirmSignTransactionContext } from './types';
 import { Networks } from '../../../../constants';
 import { TRX_IMAGE_SVG } from '../../../../static/tron-logo';
+import { formatOrigin } from '../../../../utils/formatOrigin';
 import { i18n } from '../../../../utils/i18n';
 import { EstimatedChanges } from '../../components/EstimatedChanges/EstimatedChanges';
 import { TransactionAlert } from '../../components/TransactionAlert/TransactionAlert';
@@ -80,7 +81,7 @@ export const ConfirmSignTransaction = ({
           {/* Request from */}
           {origin ? (
             <Box alignment="space-between" direction="horizontal">
-              <Box alignment="space-between" direction="horizontal" center>
+              <Box direction="horizontal" alignment="start">
                 <SnapText fontWeight="medium" color="alternative">
                   {translate('confirmation.origin')}
                 </SnapText>
@@ -88,10 +89,9 @@ export const ConfirmSignTransaction = ({
                   <Icon name="question" color="muted" />
                 </Tooltip>
               </Box>
-              <SnapText>{origin}</SnapText>
+              <SnapText>{formatOrigin(origin)}</SnapText>
             </Box>
           ) : null}
-          <Box>{null}</Box>
 
           {/* Account */}
           <Box alignment="space-between" direction="horizontal">
@@ -111,20 +111,17 @@ export const ConfirmSignTransaction = ({
               />
             ) : null}
           </Box>
-          <Box>{null}</Box>
 
           {/* Network */}
           <Box alignment="space-between" direction="horizontal">
             <SnapText fontWeight="medium" color="alternative">
               {translate('confirmation.network')}
             </SnapText>
-            <Box direction="horizontal" alignment="center">
-              <Box alignment="center" center>
-                <Image
-                  borderRadius="medium"
-                  src={networkImage ?? TRX_IMAGE_SVG}
-                />
-              </Box>
+            <Box direction="horizontal" alignment="end">
+              <Image
+                borderRadius="medium"
+                src={networkImage ?? TRX_IMAGE_SVG}
+              />
               <SnapText>{Networks[scope].name}</SnapText>
             </Box>
           </Box>

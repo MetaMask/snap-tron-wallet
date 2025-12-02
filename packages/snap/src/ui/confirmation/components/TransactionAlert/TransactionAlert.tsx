@@ -2,7 +2,6 @@ import type { ComponentOrElement } from '@metamask/snaps-sdk';
 import {
   Box,
   Banner,
-  Icon,
   Text as SnapText,
   Skeleton,
 } from '@metamask/snaps-sdk/jsx';
@@ -49,12 +48,9 @@ export const TransactionAlert = ({
         title={translate('confirmation.securityAlert.error')}
         severity="warning"
       >
-        <Box direction="horizontal" center>
-          <Icon name="warning" color="muted" />
-          <SnapText>
-            {translate('confirmation.securityAlert.unavailable')}
-          </SnapText>
-        </Box>
+        <SnapText>
+          {translate('confirmation.securityAlert.unavailable')}
+        </SnapText>
       </Banner>
     );
   }

@@ -49,12 +49,10 @@ export class ConfirmationHandler {
     // Handle different request types
     switch (method as TronMultichainMethod) {
       case TronMultichainMethod.SignMessage: {
-        const result = await renderConfirmSignMessage(request, account);
-        return result === true;
+        return this.#handleSignMessageRequest(request, account);
       }
       case TronMultichainMethod.SignTransaction: {
-        const result = await renderConfirmSignTransaction(request, account);
-        return result === true;
+        return this.#handleSignTransactionRequest(request, account);
       }
       default:
         this.#logger.warn('Unhandled keyring request method', { method });
@@ -62,6 +60,22 @@ export class ConfirmationHandler {
     }
 
     return false;
+  }
+
+  async #handleSignMessageRequest(
+    request: TronWalletKeyringRequest,
+    account: TronKeyringAccount,
+  ): Promise<boolean> {
+    const result = await renderConfirmSignMessage(request, account);
+    return result === true;
+  }
+
+  async #handleSignTransactionRequest(
+    request: TronWalletKeyringRequest,
+    account: TronKeyringAccount,
+  ): Promise<boolean> {
+    const result = await renderConfirmSignTransaction(request, account);
+    return result === true;
   }
 
   async confirmTransactionRequest({

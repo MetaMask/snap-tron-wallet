@@ -32,7 +32,7 @@ const EstimatedChangesSkeleton = ({
 
   return (
     <Section direction="vertical">
-      <Box direction="horizontal" center>
+      <Box direction="horizontal" alignment="start">
         <SnapText fontWeight="medium">
           {translate('confirmation.estimatedChanges.title')}
         </SnapText>
@@ -56,7 +56,7 @@ const EstimatedChangesHeader = ({
   const translate = i18n(preferences.locale);
 
   return (
-    <Box direction="horizontal" center>
+    <Box direction="horizontal" alignment="start">
       <SnapText fontWeight="medium">
         {translate('confirmation.estimatedChanges.title')}
       </SnapText>
@@ -81,7 +81,7 @@ const AssetChange = ({
   const isOut = asset.type === 'out';
 
   return (
-    <Box direction="horizontal" alignment="end" center>
+    <Box direction="horizontal" alignment="end">
       {asset.imageSvg ? (
         <Image src={asset.imageSvg} borderRadius="full" />
       ) : null}
@@ -145,26 +145,21 @@ export const EstimatedChanges = ({
             {translate('confirmation.estimatedChanges.send')}
           </SnapText>
           <Box>
-            <Box>
-              {send?.map((asset) => (
-                <AssetChange asset={asset} preferences={preferences} />
-              ))}
-            </Box>
+            {send?.map((asset) => (
+              <AssetChange asset={asset} preferences={preferences} />
+            ))}
           </Box>
         </Box>
       ) : null}
-      <Box>{null}</Box>
       {receive?.length > 0 ? (
         <Box alignment="space-between" direction="horizontal">
           <SnapText fontWeight="medium" color="alternative">
             {translate('confirmation.estimatedChanges.receive')}
           </SnapText>
           <Box>
-            <Box>
-              {receive?.map((asset) => (
-                <AssetChange asset={asset} preferences={preferences} />
-              ))}
-            </Box>
+            {receive?.map((asset) => (
+              <AssetChange asset={asset} preferences={preferences} />
+            ))}
           </Box>
         </Box>
       ) : null}

@@ -53,7 +53,7 @@ export async function render(
     {},
   );
 
-  const dialogPromise = await snapContext.snapClient.showDialog(id);
+  const dialogPromise = snapContext.snapClient.showDialog(id);
 
   return dialogPromise;
 }
