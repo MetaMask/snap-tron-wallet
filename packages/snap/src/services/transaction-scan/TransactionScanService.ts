@@ -8,7 +8,7 @@ import type { ILogger } from '../../utils/logger';
 const ICON_SIZE = 16;
 
 const METAMASK_ORIGIN = 'metamask';
-const METAMASK_ORIGIN_URL = 'https://portfolio.metamask.io';
+const METAMASK_ORIGIN_URL = 'https://metamask.io';
 
 export class TransactionScanService {
   readonly #securityAlertsApiClient: SecurityAlertsApiClient;

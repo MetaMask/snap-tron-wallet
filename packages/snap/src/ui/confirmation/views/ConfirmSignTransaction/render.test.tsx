@@ -125,7 +125,10 @@ describe('ConfirmSignTransaction render', () => {
         method: TronMultichainMethod.SignTransaction,
         params: {
           address: mockAccount.address,
-          transaction: testTransaction,
+          transaction: {
+            rawDataHex: testTransaction,
+            type: 'TransferContract',
+          },
         },
       },
     };
@@ -160,7 +163,10 @@ describe('ConfirmSignTransaction render', () => {
         method: TronMultichainMethod.SignTransaction,
         params: {
           address: mockAccount.address,
-          transaction: toBase64('transaction'),
+          transaction: {
+            rawDataHex: toBase64('transaction'),
+            type: 'TransferContract',
+          },
         },
       },
     };
@@ -193,7 +199,10 @@ describe('ConfirmSignTransaction render', () => {
         method: TronMultichainMethod.SignTransaction,
         params: {
           address: mockAccount.address,
-          transaction: toBase64('transaction'),
+          transaction: {
+            rawDataHex: toBase64('transaction'),
+            type: 'TransferContract',
+          },
         },
       },
     };
@@ -221,7 +230,10 @@ describe('ConfirmSignTransaction render', () => {
         method: TronMultichainMethod.SignTransaction,
         params: {
           address: mockAccount.address,
-          transaction: toBase64('transaction'),
+          transaction: {
+            rawDataHex: toBase64('transaction'),
+            type: 'TransferContract',
+          },
         },
       },
     };
@@ -246,7 +258,10 @@ describe('ConfirmSignTransaction render', () => {
         method: TronMultichainMethod.SignTransaction,
         params: {
           address: mockAccount.address,
-          transaction: toBase64('transaction'),
+          transaction: {
+            rawDataHex: toBase64('transaction'),
+            type: 'TransferContract',
+          },
         },
       },
     };
@@ -265,7 +280,10 @@ describe('ConfirmSignTransaction render', () => {
         method: TronMultichainMethod.SignTransaction,
         params: {
           address: mockAccount.address,
-          transaction: toBase64('transaction'),
+          transaction: {
+            rawDataHex: toBase64('transaction'),
+            type: 'TransferContract',
+          },
         },
       },
     };
@@ -289,7 +307,10 @@ describe('ConfirmSignTransaction render', () => {
         method: TronMultichainMethod.SignTransaction,
         params: {
           address: mockAccount.address,
-          transaction: toBase64('transaction'),
+          transaction: {
+            rawDataHex: toBase64('transaction'),
+            type: 'TransferContract',
+          },
         },
       },
     };
