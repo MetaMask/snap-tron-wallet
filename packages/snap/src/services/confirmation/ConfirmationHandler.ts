@@ -4,6 +4,7 @@ import type { TronKeyringAccount } from '../../entities';
 import type { AssetEntity } from '../../entities/assets';
 import { TronMultichainMethod } from '../../handlers/keyring-types';
 import { render as renderConfirmSignMessage } from '../../ui/confirmation/views/ConfirmSignMessage/render';
+import { render as renderConfirmSignTransaction } from '../../ui/confirmation/views/ConfirmSignTransaction/render';
 import { render as renderConfirmTransactionRequest } from '../../ui/confirmation/views/ConfirmTransactionRequest/render';
 import { formatOrigin } from '../../utils/formatOrigin';
 import type { ILogger } from '../../utils/logger';
@@ -46,24 +47,21 @@ export class ConfirmationHandler {
     const { method } = request.request;
 
     // Handle different request types
-    switch (method) {
+    switch (method as TronMultichainMethod) {
       case TronMultichainMethod.SignMessage: {
-        const result = await renderConfirmSignMessage(
-          this.#snapClient,
-          request,
-          account,
-        );
+        const result = await renderConfirmSignMessage(request, account);
         return result === true;
       }
       case TronMultichainMethod.SignTransaction: {
-        // SignTransaction requests are handled separately via confirmTransactionRequest
-        // This is called from the keyring handler before actually signing
-        return true;
+        const result = await renderConfirmSignTransaction(request, account);
+        return result === true;
       }
       default:
         this.#logger.warn('Unhandled keyring request method', { method });
-        return true;
+        throw new Error(`Unhandled keyring request method: ${method}`);
     }
+
+    return false;
   }
 
   async confirmTransactionRequest({
