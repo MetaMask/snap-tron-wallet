@@ -9,7 +9,6 @@ import { AssetsHandler } from './handlers/assets';
 import { ClientRequestHandler } from './handlers/clientRequest/clientRequest';
 import { CronHandler } from './handlers/cronjob';
 import { KeyringHandler } from './handlers/keyring';
-import { LifecycleHandler } from './handlers/lifecycle';
 import { RpcHandler } from './handlers/rpc';
 import { UserInputHandler } from './handlers/userInput';
 import { AccountsRepository } from './services/accounts/AccountsRepository';
@@ -25,6 +24,7 @@ import type { UnencryptedStateValue } from './services/state/State';
 import { State } from './services/state/State';
 import { TransactionsRepository } from './services/transactions/TransactionsRepository';
 import { TransactionsService } from './services/transactions/TransactionsService';
+import { WalletService } from './services/wallet/WalletService';
 import logger, { noOpLogger } from './utils/logger';
 
 /**
@@ -122,6 +122,12 @@ const stakingService = new StakingService({
   tronWebFactory,
 });
 
+const walletService = new WalletService({
+  logger,
+  accountsService,
+  tronWebFactory,
+});
+
 const confirmationHandler = new ConfirmationHandler({
   snapClient,
   state,
@@ -154,16 +160,14 @@ const cronHandler = new CronHandler({
   priceApiClient,
   tronHttpClient,
 });
-const lifecycleHandler = new LifecycleHandler({
-  logger,
-  snapClient,
-});
 const keyringHandler = new KeyringHandler({
   logger,
   snapClient,
   accountsService,
   assetsService,
   transactionsService,
+  walletService,
+  confirmationHandler,
 });
 const rpcHandler = new RpcHandler({
   logger,
@@ -189,6 +193,7 @@ export type SnapExecutionContext = {
   accountsService: AccountsService;
   transactionsService: TransactionsService;
   sendService: SendService;
+  walletService: WalletService;
   tronHttpClient: TronHttpClient;
   tronWebFactory: TronWebFactory;
   confirmationHandler: ConfirmationHandler;
@@ -198,7 +203,6 @@ export type SnapExecutionContext = {
   assetsHandler: AssetsHandler;
   cronHandler: CronHandler;
   clientRequestHandler: ClientRequestHandler;
-  lifecycleHandler: LifecycleHandler;
   keyringHandler: KeyringHandler;
   rpcHandler: RpcHandler;
   userInputHandler: UserInputHandler;
@@ -219,6 +223,7 @@ const snapContext: SnapExecutionContext = {
   accountsService,
   transactionsService,
   sendService,
+  walletService,
   tronHttpClient,
   tronWebFactory,
   confirmationHandler,
@@ -228,7 +233,6 @@ const snapContext: SnapExecutionContext = {
   assetsHandler,
   clientRequestHandler,
   cronHandler,
-  lifecycleHandler,
   keyringHandler,
   rpcHandler,
   userInputHandler,
@@ -242,7 +246,6 @@ export {
   clientRequestHandler,
   cronHandler,
   keyringHandler,
-  lifecycleHandler,
   rpcHandler,
   userInputHandler,
 };

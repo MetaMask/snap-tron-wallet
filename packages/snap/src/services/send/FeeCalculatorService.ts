@@ -1,63 +1,28 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { FeeType } from '@metamask/keyring-api';
 import { BigNumber } from 'bignumber.js';
 import type { SignedTransaction, Transaction } from 'tronweb/lib/esm/types';
 
 import type { ComputeFeeResult } from './types';
 import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
-// import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
 import type { Network } from '../../constants';
-import { Networks } from '../../constants';
+import { ACCOUNT_ACTIVATION_FEE_TRX, Networks, ZERO } from '../../constants';
 import type { ILogger } from '../../utils/logger';
 import { createPrefixedLogger } from '../../utils/logger';
 
-/**
- * Common TRC-20 function selectors (first 4 bytes of keccak256 hash of function signature)
- * Used for decoding and better logging
- */
-const FUNCTION_SELECTORS: Record<string, string> = {
-  // TRC-20 Standard
-  a9059cbb: 'transfer(address,uint256)',
-  '23b872dd': 'transferFrom(address,address,uint256)',
-  '095ea7b3': 'approve(address,uint256)',
-  '70a08231': 'balanceOf(address)',
-  dd62ed3e: 'allowance(address,address)',
-  '18160ddd': 'totalSupply()',
-  '06fdde03': 'name()',
-  '95d89b41': 'symbol()',
-  '313ce567': 'decimals()',
-
-  // Common DeFi functions
-  '38ed1739':
-    'swapExactTokensForTokens(uint256,uint256,address[],address,uint256)',
-  '7ff36ab5': 'swapExactETHForTokens(uint256,address[],address,uint256)',
-  '02751cec':
-    'removeLiquidity(address,address,uint256,uint256,uint256,address,uint256)',
-  e8e33700:
-    'addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)',
-  '2e1a7d4d': 'withdraw(uint256)',
-  d0e30db0: 'deposit()',
-  '441a3e70': 'mint(uint256)',
-  '42966c68': 'burn(uint256)',
-};
-
 export class FeeCalculatorService {
   readonly #logger: ILogger;
-
-  // readonly #tronWebFactory: TronWebFactory;
 
   readonly #trongridApiClient: TrongridApiClient;
 
   constructor({
     logger,
-    // tronWebFactory,
     trongridApiClient,
   }: {
     logger: ILogger;
-    // tronWebFactory: TronWebFactory;
     trongridApiClient: TrongridApiClient;
   }) {
     this.#logger = createPrefixedLogger(logger, '[💸 FeeCalculatorService]');
-    // this.#tronWebFactory = tronWebFactory;
     this.#trongridApiClient = trongridApiClient;
   }
 
@@ -99,10 +64,10 @@ export class FeeCalculatorService {
       this.#logger.log(
         'No contracts found in transaction, assuming zero energy usage',
       );
-      return BigNumber(0);
+      return ZERO;
     }
 
-    let totalEnergy = BigNumber(0);
+    let totalEnergy = ZERO;
 
     for (const contract of contracts) {
       const contractType = contract.type as string;
@@ -116,7 +81,7 @@ export class FeeCalculatorService {
          */
         case 'TransferContract':
         case 'TransferAssetContract':
-          currentContractEnergy = BigNumber(0);
+          currentContractEnergy = ZERO;
           break;
         /**
          * TRC20
@@ -147,18 +112,28 @@ export class FeeCalculatorService {
   }
 
   /**
-   * Decode a function selector to its human-readable signature
+   * Check if an account is activated (exists on the network).
+   * An account is considered not activated if it has never received any assets.
    *
-   * @param selector - The 8-character hex function selector
-   * @returns The function signature if known, otherwise the selector itself
+   * @param scope - The network scope to check
+   * @param address - The TRON address to check
+   * @returns Promise<boolean> - True if the account is activated, false otherwise
    */
-  #decodeFunctionSelector(selector: string): string {
-    return FUNCTION_SELECTORS[selector] ?? `transfer(address,uint256)`;
+  async #isAccountActivated(scope: Network, address: string): Promise<boolean> {
+    try {
+      await this.#trongridApiClient.getAccountInfoByAddress(scope, address);
+      return true;
+    } catch {
+      // If the account is not found, it means it's not activated
+      this.#logger.log(`Account ${address} is not activated on ${scope}`);
+      return false;
+    }
   }
 
   /**
    * Estimate energy consumption for contract calls of type TriggerSmartContract.
    * Uses direct TronGrid API call for accurate energy estimation.
+   * Based on TIP-544: https://github.com/tronprotocol/tips/blob/master/tip-544.md
    *
    * @param scope - The network scope for the contract
    * @param contract - The contract object from the transaction
@@ -173,6 +148,10 @@ export class FeeCalculatorService {
         data,
         owner_address: ownerAddress,
         contract_address: contractAddress,
+        call_value: callValue,
+        token_id: tokenId,
+        call_token_id: callTokenId,
+        call_token_value: callTokenValue,
       } = contract.parameter.value;
 
       if (!data) {
@@ -180,21 +159,16 @@ export class FeeCalculatorService {
         return 130000;
       }
 
-      // Extract function selector (first 8 hex chars) and parameters (rest)
-      // The data field contains: functionSelector (4 bytes = 8 hex) + encodedParameters
-      const functionSelector = data.slice(0, 8);
-      const parameter = data.slice(8);
-      const decodedFunction = this.#decodeFunctionSelector(functionSelector);
-
       this.#logger.log(
         {
           contractAddress,
           ownerAddress,
-          functionSelector,
-          decodedFunction,
-          parameterLength: parameter.length,
+          callValue,
+          tokenId,
+          callTokenId,
+          callTokenValue,
         },
-        `Estimating energy for ${decodedFunction}`,
+        `Estimating energy`,
       );
 
       const result = await this.#trongridApiClient.triggerConstantContract(
@@ -204,24 +178,24 @@ export class FeeCalculatorService {
            * These addresses are in hex format. If they weren't we would need to
            * pass `visible: true` to the request.
            */
-          // eslint-disable-next-line @typescript-eslint/naming-convention
           owner_address: ownerAddress,
-          // eslint-disable-next-line @typescript-eslint/naming-convention
           contract_address: contractAddress,
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          function_selector: decodedFunction,
-          parameter,
+          data,
+          call_value: callValue,
+          token_id: tokenId,
+          call_token_id: callTokenId,
+          call_token_value: callTokenValue,
         },
       );
 
       if (result.energy_used) {
         this.#logger.log(
           {
-            function: decodedFunction,
+            data: data.slice(0, 8),
             energyUsed: result.energy_used,
             energyPenalty: result.energy_penalty,
           },
-          `Energy estimate for ${decodedFunction}: ${result.energy_used} units`,
+          `Energy estimate for ${data.slice(0, 8)}: ${result.energy_used} units`,
         );
         return result.energy_used;
       }
@@ -235,6 +209,72 @@ export class FeeCalculatorService {
       );
       return 130000;
     }
+  }
+
+  /**
+   * Calculate account activation fees for the transaction.
+   * This happens when sending native TRX to addresses that haven't been activated yet.
+   *
+   * @param options - The options object
+   * @param options.scope - The network scope to check
+   * @param options.transaction - The transaction to check for activation fee requirement
+   * @returns Promise<BigNumber> - The total activation fees in TRX
+   */
+  async #accountActivationFees({
+    scope,
+    transaction,
+  }: {
+    scope: Network;
+    transaction: SignedTransaction & Transaction;
+  }): Promise<BigNumber> {
+    const contracts = transaction.raw_data.contract;
+
+    if (!contracts || contracts.length === 0) {
+      return ZERO;
+    }
+
+    // Collect all recipient addresses from TransferContract operations
+    const recipientAddresses: string[] = [];
+
+    for (const contract of contracts) {
+      if ((contract.type as string) === 'TransferContract') {
+        const { amount, to_address: toAddress } = contract.parameter.value as {
+          amount: number;
+          to_address: string;
+        };
+
+        if (amount > 0 && toAddress) {
+          recipientAddresses.push(toAddress);
+        }
+      }
+    }
+
+    if (recipientAddresses.length === 0) {
+      return ZERO;
+    }
+
+    // Check all addresses in parallel
+    const activationResults = await Promise.all(
+      recipientAddresses.map(async (address) => {
+        const isActivated = await this.#isAccountActivated(scope, address);
+        return { address, isActivated };
+      }),
+    );
+
+    // Count unactivated accounts and calculate total fees
+    const unactivatedCount = activationResults.filter(
+      ({ address, isActivated }) => {
+        if (!isActivated) {
+          this.#logger.log(
+            `Account ${address} is not activated, activation fee required`,
+          );
+          return true;
+        }
+        return false;
+      },
+    ).length;
+
+    return ACCOUNT_ACTIVATION_FEE_TRX.multipliedBy(unactivatedCount);
   }
 
   /**
@@ -267,27 +307,27 @@ export class FeeCalculatorService {
     const bandwidthNeeded = this.#calculateBandwidth(transaction);
     const energyNeeded = await this.#calculateEnergy(scope, transaction);
 
-    // Calculate consumption and overages:
-    // - Bandwidth: If we don't have enough, we pay for ALL of it in TRX (no partial consumption)
-    // - Energy: We consume what we have available, and pay TRX only for the overage
+    /**
+     * Calculate consumption and overages:
+     * - Bandwidth: If we don't have enough, we pay for ALL of it in TRX (no partial consumption)
+     * - Energy: We consume what we have available, and pay TRX only for the overage
+     */
     const hasEnoughBandwidth =
       availableBandwidth.isGreaterThanOrEqualTo(bandwidthNeeded);
-    const bandwidthConsumed = hasEnoughBandwidth
-      ? bandwidthNeeded
-      : BigNumber(0);
-    const bandwidthToPayInTRX = hasEnoughBandwidth
-      ? BigNumber(0)
-      : bandwidthNeeded;
+    const bandwidthConsumed = hasEnoughBandwidth ? bandwidthNeeded : ZERO;
+    const bandwidthToPayInTRX = hasEnoughBandwidth ? ZERO : bandwidthNeeded;
 
     const energyConsumed = BigNumber.min(energyNeeded, availableEnergy);
     const energyToPayInTRX = BigNumber.max(
       energyNeeded.minus(availableEnergy),
-      0,
+      ZERO,
     );
 
     const result: ComputeFeeResult = [];
 
-    // Add energy consumption fee if we're consuming any energy
+    /**
+     * Add energy consumption fee if we're consuming any energy
+     */
     if (energyConsumed.isGreaterThan(0)) {
       result.push({
         type: FeeType.Base,
@@ -300,7 +340,9 @@ export class FeeCalculatorService {
       });
     }
 
-    // Add bandwidth consumption fee if we're consuming any bandwidth
+    /**
+     * Add bandwidth consumption fee if we're consuming any bandwidth
+     */
     if (bandwidthConsumed.isGreaterThan(0)) {
       result.push({
         type: FeeType.Base,
@@ -313,7 +355,14 @@ export class FeeCalculatorService {
       });
     }
 
-    // Add TRX fee if we need to pay for bandwidth or energy overages
+    /**
+     * Now calculate the total TRX cost from all sources...
+     */
+    let totalTrxCost = ZERO;
+
+    /**
+     * First, overages in bandwidth and energy
+     */
     if (
       bandwidthToPayInTRX.isGreaterThan(0) ||
       energyToPayInTRX.isGreaterThan(0)
@@ -335,14 +384,32 @@ export class FeeCalculatorService {
       const energyCostTRX = energyToPayInTRX
         .multipliedBy(energyCost)
         .div(1_000_000); // Convert SUN to TRX
-      const totalCostTRX = bandwidthCostTRX.plus(energyCostTRX);
 
+      totalTrxCost = totalTrxCost.plus(bandwidthCostTRX).plus(energyCostTRX);
+    }
+
+    /**
+     * Second, account activation fees
+     */
+    const accountActivationFees = await this.#accountActivationFees({
+      scope,
+      transaction,
+    });
+
+    if (accountActivationFees.isGreaterThan(0)) {
+      totalTrxCost = totalTrxCost.plus(accountActivationFees);
+    }
+
+    /**
+     * Finally, add the TRX cost to the result
+     */
+    if (totalTrxCost.isGreaterThan(0)) {
       result.push({
         type: FeeType.Base,
         asset: {
           unit: Networks[scope].nativeToken.symbol,
           type: Networks[scope].nativeToken.id,
-          amount: Number(totalCostTRX.toFixed(6)).toString(),
+          amount: Number(totalTrxCost.toFixed(6)).toString(),
           fungible: true as const,
         },
       });

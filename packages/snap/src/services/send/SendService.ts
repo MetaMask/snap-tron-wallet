@@ -1,4 +1,5 @@
 import { parseCaipAssetType } from '@metamask/utils';
+import { BigNumber } from 'bignumber.js';
 import type {
   BroadcastReturn,
   SignedTransaction,
@@ -191,7 +192,11 @@ export class SendService {
     const tronWeb = this.#tronWebFactory.createClient(scope, privateKeyHex);
 
     const functionSelector = 'transfer(address,uint256)';
-    const decimalsAdjustedAmount = amount * 10 ** decimals;
+    // Convert amount to the smallest unit using BigNumber to avoid precision loss
+    // This is necessary for tokens with 18 decimals where numbers exceed JavaScript's safe integer range
+    const decimalsAdjustedAmount = BigNumber(amount)
+      .multipliedBy(BigNumber(10).pow(decimals))
+      .toFixed(0);
     const parameter = [
       { type: 'address', value: toAddress },
       { type: 'uint256', value: decimalsAdjustedAmount },
@@ -240,27 +245,26 @@ export class SendService {
      */
     const result = await tronWeb.trx.sendRawTransaction(transaction);
 
-    // Track Transaction Submitted event if broadcast was successful
-    if (result.result) {
-      await this.#snapClient.trackTransactionSubmitted({
-        origin,
-        accountType: account.type,
-        chainIdCaip: scope,
-      });
-
-      // Schedule transaction tracking to monitor confirmation status
-      // The tracking job will fetch full details and update the transaction
-      await this.#snapClient.scheduleBackgroundEvent({
-        method: BackgroundEventMethod.TrackTransaction,
-        params: {
-          txId: result.txid,
-          scope,
-          accountIds: [fromAccountId],
-          attempt: 0,
-        },
-        duration: 'PT1S', // Start tracking after 1 second
-      });
+    if (!result.result) {
+      throw new Error(`Failed to send transaction: ${result.message}`);
     }
+
+    await this.#snapClient.trackTransactionSubmitted({
+      origin,
+      accountType: account.type,
+      chainIdCaip: scope,
+    });
+
+    await this.#snapClient.scheduleBackgroundEvent({
+      method: BackgroundEventMethod.TrackTransaction,
+      params: {
+        txId: result.txid,
+        scope,
+        accountIds: [fromAccountId],
+        attempt: 0,
+      },
+      duration: 'PT1S',
+    });
 
     return result;
   }

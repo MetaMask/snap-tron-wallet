@@ -1,10 +1,15 @@
-import { CaipAssetTypeStruct, SolMethod } from '@metamask/keyring-api';
-import type { Struct } from '@metamask/superstruct';
+import {
+  CaipAssetTypeStruct,
+  KeyringRequestStruct,
+  SolMethod,
+} from '@metamask/keyring-api';
+import type { Infer, Struct } from '@metamask/superstruct';
 import {
   array,
   define,
   enums,
   integer,
+  literal,
   nullable,
   object,
   optional,
@@ -12,11 +17,14 @@ import {
   record,
   refine,
   string,
+  type,
   union,
+  unknown,
 } from '@metamask/superstruct';
 import { TronWeb } from 'tronweb';
 
 import { Network } from '../constants';
+import { TronMultichainMethod } from '../handlers/keyring-types';
 import {
   MaximumResourceCaipAssetTypeStruct,
   NativeCaipAssetTypeStruct,
@@ -347,3 +355,74 @@ export const TronCaipAssetTypeStruct = union([
   ResourceCaipAssetTypeStruct,
   MaximumResourceCaipAssetTypeStruct,
 ]) as Struct<string, null>;
+
+/**
+ * Multichain API - signMessage validation (params only)
+ */
+export const SignMessageRequestStruct = object({
+  address: TronAddressStruct,
+  message: Base64Struct,
+});
+
+export const SignMessageResponseStruct = object({
+  signature: string(),
+});
+
+/**
+ * Multichain API - signTransaction validation (params only)
+ */
+export const SignTransactionRequestStruct = object({
+  address: TronAddressStruct,
+  transaction: object({
+    rawDataHex: string(),
+    type: string(),
+  }),
+});
+
+/**
+ * Full signMessage request object (method + params)
+ */
+export const SignMessageRequestObjectStruct = object({
+  method: literal(TronMultichainMethod.SignMessage),
+  params: SignMessageRequestStruct,
+});
+
+/**
+ * Full signTransaction request object (method + params)
+ */
+export const SignTransactionRequestObjectStruct = object({
+  method: literal(TronMultichainMethod.SignTransaction),
+  params: SignTransactionRequestStruct,
+});
+
+/**
+ * Keyring Request validation for submitRequest
+ */
+export const TronKeyringRequestStruct = object({
+  ...KeyringRequestStruct.schema, // Re-use default schema as a base.
+  scope: ScopeStringStruct,
+  request: union([
+    SignMessageRequestObjectStruct,
+    SignTransactionRequestObjectStruct,
+  ]),
+});
+
+export type TronWalletKeyringRequest = Infer<typeof TronKeyringRequestStruct>;
+
+/**
+ * Validation struct for resolveAccountAddress request
+ * Only validates the presence of method and params
+ * (other fields like jsonrpc, id, and extra params are allowed)
+ */
+export const ResolveAccountAddressRequestStruct = type({
+  method: enums(Object.values(TronMultichainMethod)),
+  params: record(string(), unknown()),
+});
+
+/**
+ * Validation struct for resolveAccountAddress response
+ */
+export const ResolveAccountAddressResponseStruct = pattern(
+  string(),
+  /^[a-zA-Z0-9]+:[a-zA-Z0-9]+:[a-zA-Z0-9]+$/u,
+);

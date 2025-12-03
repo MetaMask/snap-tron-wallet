@@ -1,5 +1,5 @@
 {
-  "version": "1.11.0",
+  "version": "1.14.0",
   "description": "Manage Tron using MetaMask",
   "proposedName": "Tron",
   "repository": {
@@ -7,7 +7,7 @@
     "url": "https://github.com/MetaMask/snap-tron-wallet.git"
   },
   "source": {
-    "shasum": "bcmOewWgo3rRHkz6ALG3p4ZG2gZUdK/JQ833DHKyY7M=",
+    "shasum": "8t/FotzDfUETFeXoqCJqT/8ES+i/pOHUyjEA5XKa3us=",
     "location": {
       "npm": {
         "filePath": "dist/bundle.js",
@@ -40,7 +40,16 @@
     "snap_manageState": {},
     "snap_dialog": {},
     "snap_getPreferences": {},
-    "endowment:cronjob": {},
+    "endowment:cronjob": {
+      "jobs": [
+        {
+          "duration": "PT30S",
+          "request": {
+            "method": "onSynchronizeSelectedAccountsCronjob"
+          }
+        }
+      ]
+    },
     "endowment:assets": {
       "scopes": ["tron:728126428"]
     }
