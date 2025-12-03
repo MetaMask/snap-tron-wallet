@@ -23,7 +23,7 @@
       "message": "Ζητήθηκε από"
     },
     "confirmation.origin.tooltip": {
-      "message": "This is the site asking for your confirmation."
+      "message": "Αυτός είναι ο ιστότοπος που ζητά την επιβεβαίωσή σας."
     },
     "confirmation.from": {
       "message": "Από"
@@ -42,6 +42,15 @@
     },
     "confirmation.cancelButton": {
       "message": "Άκυρο"
+    },
+    "confirmation.signMessage.title": {
+      "message": "Υπογραφή μηνύματος"
+    },
+    "confirmation.signMessage.message": {
+      "message": "Μήνυμα"
+    },
+    "confirmation.account": {
+      "message": "Λογαριασμός"
     }
   }
 }

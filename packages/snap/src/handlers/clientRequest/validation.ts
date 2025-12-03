@@ -6,7 +6,9 @@ import {
   boolean,
   enums,
   is,
+  number,
   object,
+  optional,
   refine,
   string,
 } from '@metamask/superstruct';
@@ -114,24 +116,9 @@ export const ComputeFeeRequestParamsStruct = object({
   options: object({
     visible: boolean(),
     type: string(),
+    feeLimit: optional(number()),
   }),
 });
-
-export const ComputeFeeRequestStruct = object({
-  jsonrpc: JsonRpcVersionStruct,
-  id: JsonRpcIdStruct,
-  method: literal(ClientRequestMethod.ComputeFee),
-  params: ComputeFeeRequestParamsStruct,
-});
-
-export const ComputeFeeResponseStruct = array(
-  object({
-    type: enums(Object.values(FeeType)),
-    asset: AssetStruct,
-  }),
-);
-
-export type ComputeFeeResponse = Infer<typeof ComputeFeeResponseStruct>;
 
 export const OnStakeAmountInputRequestParamsStruct = object({
   accountId: UuidStruct,
@@ -160,6 +147,40 @@ export const OnConfirmStakeRequestStruct = object({
   id: JsonRpcIdStruct,
   method: literal(ClientRequestMethod.ConfirmStake),
   params: OnConfirmStakeRequestParamsStruct,
+});
+
+export const ComputeFeeRequestStruct = object({
+  jsonrpc: JsonRpcVersionStruct,
+  id: JsonRpcIdStruct,
+  method: literal(ClientRequestMethod.ComputeFee),
+  params: ComputeFeeRequestParamsStruct,
+});
+
+export const ComputeFeeResponseStruct = array(
+  object({
+    type: enums(Object.values(FeeType)),
+    asset: AssetStruct,
+  }),
+);
+
+export type ComputeFeeResponse = Infer<typeof ComputeFeeResponseStruct>;
+
+/**
+ * computeStakeFee request validation.
+ */
+export const ComputeStakeFeeRequestParamsStruct = object({
+  fromAccountId: UuidStruct,
+  value: PositiveNumberStringStruct,
+  options: object({
+    purpose: enums(['ENERGY', 'BANDWIDTH']),
+  }),
+});
+
+export const ComputeStakeFeeRequestStruct = object({
+  jsonrpc: JsonRpcVersionStruct,
+  id: JsonRpcIdStruct,
+  method: literal(ClientRequestMethod.ComputeStakeFee),
+  params: ComputeStakeFeeRequestParamsStruct,
 });
 
 export const OnUnstakeAmountInputRequestParamsStruct = object({

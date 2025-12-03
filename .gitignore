@@ -78,3 +78,4 @@ node_modules/
 
 # custom ignore pattern
 **/__BAK__/
+**/*proxy*/
