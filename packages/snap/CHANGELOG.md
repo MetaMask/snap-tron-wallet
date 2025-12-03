@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0]
+
+### Uncategorized
+
+- feat: add feeLimit option for energy calculation in FeeCalculatorService ([#132](https://github.com/MetaMask/snap-tron-wallet/pull/132))
+- feat: `signTransaction` confirmation ([#131](https://github.com/MetaMask/snap-tron-wallet/pull/131))
+- chore: Add compute staking fee ([#112](https://github.com/MetaMask/snap-tron-wallet/pull/112))
+- feat: allocate Tron power to Consensys' SR node ([#129](https://github.com/MetaMask/snap-tron-wallet/pull/129))
+- feat: `signMessage` confirmation ([#130](https://github.com/MetaMask/snap-tron-wallet/pull/130))
+- fix: `signTransaction` not rebuilding Tron transactions correctly after receiving them as input ([#128](https://github.com/MetaMask/snap-tron-wallet/pull/128))
+- fix: `computeFee` does not consider account activations ([#127](https://github.com/MetaMask/snap-tron-wallet/pull/127))
+- fix: remove validation key from WalletService ([#126](https://github.com/MetaMask/snap-tron-wallet/pull/126))
+
 ## [1.14.0]
 
 ### Added
@@ -263,7 +276,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release of Tron wallet snap
 - Support for TRX and token assets balances ([#12](https://github.com/MetaMask/snap-tron-wallet/pull/12))
 
-[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.14.0...HEAD
+[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.15.0...HEAD
+[1.15.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.12.1...v1.13.0
 [1.12.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.12.0...v1.12.1
