@@ -9,15 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.15.0]
 
-### Uncategorized
+### Added
 
-- feat: `signTransaction` confirmation ([#131](https://github.com/MetaMask/snap-tron-wallet/pull/131))
-- chore: Add compute staking fee ([#112](https://github.com/MetaMask/snap-tron-wallet/pull/112))
-- feat: allocate Tron power to Consensys' SR node ([#129](https://github.com/MetaMask/snap-tron-wallet/pull/129))
-- feat: `signMessage` confirmation ([#130](https://github.com/MetaMask/snap-tron-wallet/pull/130))
-- fix: `signTransaction` not rebuilding Tron transactions correctly after receiving them as input ([#128](https://github.com/MetaMask/snap-tron-wallet/pull/128))
-- fix: `computeFee` does not consider account activations ([#127](https://github.com/MetaMask/snap-tron-wallet/pull/127))
-- fix: remove validation key from WalletService ([#126](https://github.com/MetaMask/snap-tron-wallet/pull/126))
+- Added `signTransaction` confirmation ([#131](https://github.com/MetaMask/snap-tron-wallet/pull/131))
+- Added `signMessage` confirmation ([#130](https://github.com/MetaMask/snap-tron-wallet/pull/130))
+- Allocate Tron power to Consensys' SR node ([#129](https://github.com/MetaMask/snap-tron-wallet/pull/129))
+- Added compute staking fee ([#112](https://github.com/MetaMask/snap-tron-wallet/pull/112))
+
+### Fixed
+
+- `signTransaction` not rebuilding Tron transactions correctly after receiving them as input ([#128](https://github.com/MetaMask/snap-tron-wallet/pull/128))
+- `computeFee` does not consider account activations ([#127](https://github.com/MetaMask/snap-tron-wallet/pull/127))
+- Remove validation key from WalletService ([#126](https://github.com/MetaMask/snap-tron-wallet/pull/126))
 
 ## [1.14.0]
 
