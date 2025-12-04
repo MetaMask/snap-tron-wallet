@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.15.1]
 
-### Uncategorized
+### Changed
 
-- chore: bump `keyring-api` to version 21.3.0 ([#136](https://github.com/MetaMask/snap-tron-wallet/pull/136))
+- Bump `keyring-api` to version 21.3.0 ([#136](https://github.com/MetaMask/snap-tron-wallet/pull/136))
 
 ## [1.8.1]
 
