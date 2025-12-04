@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.1]
+
+### Changed
+
+- Bump `keyring-api` to version 21.3.0 ([#136](https://github.com/MetaMask/snap-tron-wallet/pull/136))
+
 ## [1.8.1]
 
 ### Added
@@ -49,9 +55,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release of Tron wallet site
 
-[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.8.1...HEAD
-[1.8.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.7.4...v1.8.1
-[1.7.4]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.7.1...v1.7.4
+[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.15.1...HEAD
+[1.15.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.8.1...v1.15.1
+[1.8.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.7.1...v1.8.1
 [1.7.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.3.0...v1.7.1
 [1.3.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.1.0...v1.3.0
 [1.1.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.0.2...v1.1.0
