@@ -9,12 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.16.0]
 
-### Uncategorized
+### Added
 
-- fix: enhance FeeCalculatorService with fallback energy estimation to … ([#142](https://github.com/MetaMask/snap-tron-wallet/pull/142))
-- fix: audit fixes ([#140](https://github.com/MetaMask/snap-tron-wallet/pull/140))
-- feat: blockaid integration ([#139](https://github.com/MetaMask/snap-tron-wallet/pull/139))
-- chore: stop signing transactions before user confirmation ([#138](https://github.com/MetaMask/snap-tron-wallet/pull/138))
+- Integrate Blockaid transaction simulation ([#139](https://github.com/MetaMask/snap-tron-wallet/pull/139))
+
+### Fixed
+
+- Enhance FeeCalculatorService with fallback energy estimation to `feeLimit` ([#142](https://github.com/MetaMask/snap-tron-wallet/pull/142))
+- Audit fixes ([#140](https://github.com/MetaMask/snap-tron-wallet/pull/140))
+- Stop signing transactions before user confirmation ([#138](https://github.com/MetaMask/snap-tron-wallet/pull/138))
 
 ## [1.15.1]
 
