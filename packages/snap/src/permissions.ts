@@ -1,6 +1,5 @@
 import { KeyringRpcMethod } from '@metamask/keyring-api';
 
-import { ClientRequestMethod } from './handlers/clientRequest/types';
 import { TestDappRpcRequestMethod } from './handlers/rpc/types';
 
 // eslint-disable-next-line no-restricted-globals
@@ -40,8 +39,6 @@ const metamaskPermissions = new Set([
   KeyringRpcMethod.ListAccountAssets,
   KeyringRpcMethod.ResolveAccountAddress,
   KeyringRpcMethod.SetSelectedAccounts,
-  // Client methods
-  ClientRequestMethod.SignAndSendTransaction,
 ]);
 
 const metamask = 'metamask';

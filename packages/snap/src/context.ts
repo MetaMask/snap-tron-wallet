@@ -265,7 +265,7 @@ export {
   cronHandler,
   keyringHandler,
   rpcHandler,
-  userInputHandler
+  userInputHandler,
 };
 
 export default snapContext;

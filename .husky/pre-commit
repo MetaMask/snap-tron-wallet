@@ -1,4 +1,14 @@
 #!/bin/sh
 
-# Run lint-staged
-yarn lint-staged
+# Check if snap manifest is staged
+if git diff --cached --name-only | grep -q "packages/snap/snap.manifest.json"; then
+  echo "🔧 Snap manifest is being committed, ensuring production settings..."
+  cd packages/snap && ENVIRONMENT=production node scripts/update-manifest-local.js && cd ../..
+  git add packages/snap/snap.manifest.json
+fi
+
+# Run lint:fix on the entire codebase
+yarn lint:fix
+
+# Re-add any files that were modified by linting
+git diff --name-only | xargs -r git add

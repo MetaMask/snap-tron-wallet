@@ -7,11 +7,7 @@ import { validateOrigin } from '../../validation/validators';
 export class RpcHandler {
   readonly #logger: ILogger;
 
-  constructor({
-    logger,
-  }: {
-    logger: ILogger;
-  }) {
+  constructor({ logger }: { logger: ILogger }) {
     this.#logger = createPrefixedLogger(logger, '[👋 RpcHandler]');
   }
 

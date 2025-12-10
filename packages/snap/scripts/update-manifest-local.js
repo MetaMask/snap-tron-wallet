@@ -13,9 +13,21 @@ if (environment === 'local' || environment === 'test') {
       manifest.initialPermissions['endowment:keyring'].allowedOrigins.push('http://localhost:3000');
     }
   }
-  console.log('Added localhost entries to snap.manifest.json for local development');
+
+  // Add endowment:rpc permission for local/dev mode
+  manifest.initialPermissions['endowment:rpc'] = {
+    dapps: true,
+    snaps: false
+  };
+
+  console.log('Added localhost entries and endowment:rpc to snap.manifest.json for local development');
+} else {
+  // Production mode - remove endowment:rpc if it exists
+  if (manifest.initialPermissions?.['endowment:rpc']) {
+    delete manifest.initialPermissions['endowment:rpc'];
+    console.log('Removed endowment:rpc from snap.manifest.json for production');
+  }
 }
-// No else branch - production mode doesn't modify anything
 
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
 
