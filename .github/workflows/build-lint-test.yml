@@ -52,6 +52,24 @@ jobs:
       - name: Install Yarn dependencies
         run: yarn --immutable
 
+  validate-manifest:
+    name: Validate Manifest
+    runs-on: ubuntu-latest
+    needs:
+      - prepare
+    steps:
+      - name: Checkout and setup environment
+        uses: MetaMask/action-checkout-and-setup@v1
+        with:
+          is-high-risk-environment: false
+      - name: Check manifest has no localhost entries
+        run: |
+          if grep -q "localhost" packages/snap/snap.manifest.json; then
+            echo "Error: snap.manifest.json contains localhost entries."
+            echo "Run 'yarn workspace @metamask/tron-wallet-snap manifest:reset' to fix."
+            exit 1
+          fi
+
   build:
     name: Build
     runs-on: ubuntu-latest

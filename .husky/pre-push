@@ -1,0 +1,15 @@
+#!/bin/sh
+
+echo "🔨 Building production bundle..."
+ENVIRONMENT=production yarn workspace @metamask/tron-wallet-snap build
+
+# Check if manifest or dist changed
+if ! git diff --exit-code packages/snap/snap.manifest.json packages/snap/dist/ > /dev/null 2>&1; then
+  echo "🔧 Manifest/dist differs from production build. Auto-fixing..."
+  git add packages/snap/snap.manifest.json packages/snap/dist/
+  git commit --amend --no-edit
+  echo "✅ Commit amended with production manifest"
+fi
+
+echo "🧪 Running tests..."
+yarn test

@@ -16,6 +16,7 @@
     "packages/*"
   ],
   "scripts": {
+    "prepare": "husky",
     "build": "yarn workspaces foreach --all --parallel --verbose --topological run build",
     "build:dapp": "yarn workspace @metamask/tron-wallet-test-dapp build",
     "build:snap": "yarn workspace @metamask/tron-wallet-snap build",
@@ -31,6 +32,10 @@
     "test:integration": "yarn workspace @metamask/tron-wallet-snap run test:integration"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.2.0",
+    "@commitlint/config-conventional": "^20.2.0",
+    "husky": "^9.1.6",
+    "lint-staged": "^16.2.7",
     "@lavamoat/allow-scripts": "^3.3.3",
     "@lavamoat/preinstall-always-fail": "^2.1.0",
     "@metamask/eslint-config": "^14.0.0",
@@ -57,6 +62,12 @@
   "packageManager": "yarn@4.9.1",
   "engines": {
     "node": ">= 20"
+  },
+  "lint-staged": {
+    "*": [
+      "prettier --write --ignore-unknown",
+      "eslint --fix"
+    ]
   },
   "lavamoat": {
     "allowScripts": {
