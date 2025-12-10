@@ -85,7 +85,7 @@ jobs:
       - run: yarn --immutable --immutable-cache || yarn install
       - run: |
           npm rebuild --verbose sharp
-          yarn workspace @metamask/tron-wallet-snap build:prod
+          yarn workspace @metamask/tron-wallet-snap build
 
   lint:
     name: Lint
@@ -139,7 +139,7 @@ jobs:
           is-high-risk-environment: false
       - run: yarn install --immutable
       - name: Build for tests
-        run: yarn workspace @metamask/tron-wallet-snap build:dev
+        run: yarn workspace @metamask/tron-wallet-snap build
       - name: Run tests
         run: yarn test
       - name: Upload test artifacts

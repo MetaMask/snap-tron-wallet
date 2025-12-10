@@ -112,7 +112,6 @@ const accountsService = new AccountsService({
 
 const feeCalculatorService = new FeeCalculatorService({
   logger,
-  // tronWebFactory,
   trongridApiClient,
 });
 

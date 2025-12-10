@@ -22,10 +22,33 @@ if (environment === 'local' || environment === 'test') {
 
   console.log('Added localhost entries and endowment:rpc to snap.manifest.json for local development');
 } else {
-  // Production mode - remove endowment:rpc if it exists
+  // Production mode - remove local-only settings
+  let changed = false;
+
+  // Remove localhost from initialConnections
+  if (manifest.initialConnections?.['http://localhost:3000']) {
+    delete manifest.initialConnections['http://localhost:3000'];
+    changed = true;
+  }
+
+  // Remove localhost from keyring allowedOrigins
+  if (manifest.initialPermissions?.['endowment:keyring']?.allowedOrigins) {
+    const origins = manifest.initialPermissions['endowment:keyring'].allowedOrigins;
+    const index = origins.indexOf('http://localhost:3000');
+    if (index > -1) {
+      origins.splice(index, 1);
+      changed = true;
+    }
+  }
+
+  // Remove endowment:rpc permission
   if (manifest.initialPermissions?.['endowment:rpc']) {
     delete manifest.initialPermissions['endowment:rpc'];
-    console.log('Removed endowment:rpc from snap.manifest.json for production');
+    changed = true;
+  }
+
+  if (changed) {
+    console.log('Removed local-only settings from snap.manifest.json for production');
   }
 }
 

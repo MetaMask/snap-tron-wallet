@@ -60,7 +60,7 @@ jobs:
       - name: Build
         run: |
           yarn install
-          yarn workspace @metamask/tron-wallet-snap build:prod
+          yarn workspace @metamask/tron-wallet-snap build
         env:
           ENVIRONMENT: production
           RPC_URL_LIST_MAINNET: ${{ secrets.RPC_URL_LIST_MAINNET }}

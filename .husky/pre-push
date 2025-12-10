@@ -3,7 +3,4 @@
 echo "🧪 Running tests..."
 yarn test
 
-echo "🔨 Building production bundle to verify..."
-yarn workspace @metamask/tron-wallet-snap build:prod
-
 echo "✅ Pre-push checks passed!"

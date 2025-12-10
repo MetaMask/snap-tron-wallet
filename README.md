@@ -45,3 +45,23 @@ yarn start
 # Running Snap via watch mode
 yarn workspace @metamask/tron-wallet-snap start
 ```
+
+## Git Hooks & Manifest Handling
+
+The `snap.manifest.json` contains a `shasum` that differs between local and production builds. Git hooks ensure the repository always contains production-ready builds:
+
+### On Commit (with snap changes)
+
+1. Detects if any `packages/snap/` files are staged
+2. Runs `build:prod` → updates manifest with production settings and shasum
+3. Stages the updated `snap.manifest.json`
+4. Runs `lint:fix` on all files
+
+### On Push
+
+1. Runs the test suite
+2. Push proceeds if tests pass
+
+### Local Development
+
+`yarn start` builds with local settings (adds `localhost` origins and dev permissions). These are automatically converted to production settings when you commit.

@@ -34,8 +34,6 @@
     "prepublishOnly": "mm-snap manifest",
     "serve": "mm-snap serve",
     "start": "node scripts/update-manifest-local.js && concurrently \"mm-snap watch\" \"yarn build:locale:watch\"",
-    "manifest:reset": "git checkout snap.manifest.json",
-    "manifest:prod": "ENVIRONMENT=production node scripts/update-manifest-local.js",
     "test": "jest --passWithNoTests",
     "test:integration": "./integration-test/run-integration.sh"
   },

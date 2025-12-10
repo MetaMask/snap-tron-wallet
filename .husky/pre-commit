@@ -1,9 +1,9 @@
 #!/bin/sh
 
-# Check if snap manifest is staged
-if git diff --cached --name-only | grep -q "packages/snap/snap.manifest.json"; then
-  echo "🔧 Snap manifest is being committed, ensuring production settings..."
-  cd packages/snap && ENVIRONMENT=production node scripts/update-manifest-local.js && cd ../..
+# Check if any snap package files are staged
+if git diff --cached --name-only | grep -q "^packages/snap/"; then
+  echo "🔨 Snap files staged - building with production settings..."
+  yarn workspace @metamask/tron-wallet-snap build:prod
   git add packages/snap/snap.manifest.json
 fi
 
