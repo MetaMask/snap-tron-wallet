@@ -363,18 +363,14 @@ export class CronHandler {
     // Determine what needs to be refreshed
     const shouldRefreshScan =
       preferences.simulateOnChainActions || preferences.useSecurityAlerts;
-    const shouldRefreshPrices = preferences.useExternalPricingData;
 
     try {
-      // Update UI to show fetching state for both scan and prices
+      // Update UI to show fetching state for scan
       const fetchingContext: ConfirmSignTransactionContext = {
         ...interfaceContext,
         scanFetchStatus: shouldRefreshScan
           ? 'fetching'
           : interfaceContext.scanFetchStatus,
-        tokenPricesFetchStatus: shouldRefreshPrices
-          ? 'fetching'
-          : interfaceContext.tokenPricesFetchStatus,
       };
 
       await this.#snapClient.updateInterface(
@@ -418,41 +414,6 @@ export class CronHandler {
         }
       }
 
-      // Fetch prices if enabled
-      let { tokenPrices, tokenPricesFetchStatus } = interfaceContext;
-
-      if (shouldRefreshPrices) {
-        try {
-          // Start with the network token (TRX)
-          const assetCaipIds: string[] = [`${scope}/slip44:195`];
-
-          // If scan has estimated changes with assets, include their prices
-          if (scan?.estimatedChanges?.assets) {
-            const scanAssetTypes = scan.estimatedChanges.assets
-              .map((asset) => asset.assetType)
-              .filter((assetType) => assetType && assetType !== 'TRX');
-
-            assetCaipIds.push(...scanAssetTypes);
-          }
-
-          // Remove duplicates
-          const uniqueAssetCaipIds = [...new Set(assetCaipIds)];
-
-          this.#logger.info(
-            `Fetching fresh prices for ${uniqueAssetCaipIds.length} assets`,
-          );
-          tokenPrices = await this.#priceApiClient.getMultipleSpotPrices(
-            uniqueAssetCaipIds as any,
-            preferences.currency,
-          );
-          tokenPricesFetchStatus = 'fetched';
-          this.#logger.info('Successfully refreshed signTransaction prices');
-        } catch (error) {
-          this.#logger.error('Error refreshing signTransaction prices:', error);
-          tokenPricesFetchStatus = 'error';
-        }
-      }
-
       // Get the latest context (might have changed during async operations)
       const latestContext =
         await this.#snapClient.getInterfaceContext<ConfirmSignTransactionContext>(
@@ -464,13 +425,11 @@ export class CronHandler {
         return;
       }
 
-      // Update with all results
+      // Update with scan results
       const updatedContext: ConfirmSignTransactionContext = {
         ...latestContext,
         scan,
         scanFetchStatus,
-        tokenPrices,
-        tokenPricesFetchStatus,
       };
 
       await this.#snapClient.updateInterface(
@@ -505,9 +464,6 @@ export class CronHandler {
           scanFetchStatus: shouldRefreshScan
             ? 'error'
             : currentContext.scanFetchStatus,
-          tokenPricesFetchStatus: shouldRefreshPrices
-            ? 'error'
-            : currentContext.tokenPricesFetchStatus,
         };
 
         await this.#snapClient.updateInterface(
