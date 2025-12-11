@@ -129,13 +129,13 @@ export async function render(
       const fromHex = contractParam?.owner_address ?? '';
       const toHex =
         contractParam?.contract_address ?? contractParam?.to_address ?? '';
-      const value = contractParam?.call_value ?? 0;
+      const value = contractParam?.amount ?? null;
+      const dataHex = contractParam?.data ?? null;
 
       // Convert hex addresses to base58 format
       const from = fromHex ? TronWeb.address.fromHex(fromHex) : '';
       const to = toHex ? TronWeb.address.fromHex(toHex) : '';
-
-      const data = `0x${transaction.rawDataHex}`;
+      const data = dataHex ? `0x${dataHex}` : null;
 
       context.scanParameters = {
         from,
@@ -146,14 +146,15 @@ export async function render(
 
       const scan = await transactionScanService.scanTransaction({
         accountAddress: account.address,
-        from,
-        to,
-        data,
-        value,
+        parameters: {
+          from: from ?? undefined,
+          to: to ?? undefined,
+          data: data ?? undefined,
+          value: value ?? undefined,
+        },
         origin,
         scope: scope as Network,
         options,
-        account,
       });
 
       context.scan = scan;

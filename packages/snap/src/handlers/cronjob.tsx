@@ -399,10 +399,12 @@ export class CronHandler {
         try {
           scan = await this.#transactionScanService.scanTransaction({
             accountAddress: account.address,
-            from: scanParameters?.from as string,
-            to: scanParameters?.to as string,
-            data: scanParameters?.data as string,
-            value: scanParameters?.value as number,
+            parameters: {
+              from: scanParameters?.from ?? undefined,
+              to: scanParameters?.to ?? undefined,
+              data: scanParameters?.data ?? undefined,
+              value: scanParameters?.value ?? undefined,
+            },
             origin,
             scope,
             options,
