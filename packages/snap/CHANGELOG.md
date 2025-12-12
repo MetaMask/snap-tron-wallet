@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.16.1]
 
-### Uncategorized
+### Fixed
 
-- Fix/dapp connectivity confirmations ([#146](https://github.com/MetaMask/snap-tron-wallet/pull/146))
+- Dapp connectivity confirmations ([#146](https://github.com/MetaMask/snap-tron-wallet/pull/146))
 
 ## [1.16.0]
 
