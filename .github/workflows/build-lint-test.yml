@@ -85,7 +85,7 @@ jobs:
       - run: yarn --immutable --immutable-cache || yarn install
       - run: |
           npm rebuild --verbose sharp
-          yarn build
+          yarn workspace @metamask/tron-wallet-snap build
 
   lint:
     name: Lint

@@ -101,6 +101,13 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
 
 Dapps call these methods using `wallet_invokeSnap` or `wallet_snap`.
 
+## Git Hooks
+
+- **pre-commit**: When snap files are staged, automatically runs `build:prod` and stages the production manifest. Always runs `lint:fix`.
+- **pre-push**: Runs tests only.
+
+The manifest (`snap.manifest.json`) should always be in production state in commits. Local development uses `yarn start` which applies local settings.
+
 ## Linting + Formatting
 
 **After each code generation**, run the linter to fix formatting and style issues:
