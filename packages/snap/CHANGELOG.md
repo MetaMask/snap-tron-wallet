@@ -9,12 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.17.0]
 
-### Uncategorized
+### Added
 
-- chore: address all `minor` level audit findings ([#149](https://github.com/MetaMask/snap-tron-wallet/pull/149))
-- chore: address all `major` level audit findings ([#148](https://github.com/MetaMask/snap-tron-wallet/pull/148))
+- Map TRC10 transaction history with metadata fetched onchain ([#141](https://github.com/MetaMask/snap-tron-wallet/pull/141))
+
+### Fixed
+
+- Address all `minor` level audit findings ([#149](https://github.com/MetaMask/snap-tron-wallet/pull/149))
+- Address all `major` level audit findings ([#148](https://github.com/MetaMask/snap-tron-wallet/pull/148))
 - Exclude permissive origins and permissions ([#145](https://github.com/MetaMask/snap-tron-wallet/pull/145))
-- feat: map TRC10 transaction history with proper metadata ([#141](https://github.com/MetaMask/snap-tron-wallet/pull/141))
 
 ## [1.16.1]
 
