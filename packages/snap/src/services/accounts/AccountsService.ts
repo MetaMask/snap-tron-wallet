@@ -110,8 +110,7 @@ export class AccountsService {
       const publicKeyBytes = hexToBytes(node.publicKey);
       const privateKeyHex = node.privateKey.slice(2);
 
-      // Derive address from public key (cheaper than from private key, which would
-      // redundantly re-derive the public key via expensive EC point multiplication)
+      // Derive address from public key (cheaper than from private key)
       const ethAddress = computeAddress(node.publicKey);
       const address = TronWeb.address.fromHex(ethAddress);
 
