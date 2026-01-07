@@ -9,10 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.18.0]
 
-### Uncategorized
+### Added
 
-- feat: implement token filtering by minimum USD value in AssetsService ([#152](https://github.com/MetaMask/snap-tron-wallet/pull/152))
-- chore: use sha256 from MM utils and remove pkey usage ([#151](https://github.com/MetaMask/snap-tron-wallet/pull/151))
+- Implement token filtering by checking price data in AssetsService ([#152](https://github.com/MetaMask/snap-tron-wallet/pull/152))
+
+### Changed
+
+- Use `sha256` from MM utils and remove private key usage ([#151](https://github.com/MetaMask/snap-tron-wallet/pull/151))
 
 ## [1.17.0]
 
