@@ -9,11 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.19.0]
 
-### Uncategorized
+### Fixed
 
-- fix: always include TRX fee as first result on `computeFee` ([#159](https://github.com/MetaMask/snap-tron-wallet/pull/159))
-- fix: ignore `visible` in `handleComputeFee` field ([#158](https://github.com/MetaMask/snap-tron-wallet/pull/158))
-- fix: unsubmitable swaps from Bridgers ([#157](https://github.com/MetaMask/snap-tron-wallet/pull/157))
+- Always include TRX fee as first result on `computeFee` ([#159](https://github.com/MetaMask/snap-tron-wallet/pull/159))
+- Ignore `visible` in `handleComputeFee` field ([#158](https://github.com/MetaMask/snap-tron-wallet/pull/158))
+- Address unsubmitable swaps from Bridgers ([#157](https://github.com/MetaMask/snap-tron-wallet/pull/157))
 
 ## [1.18.0]
 
