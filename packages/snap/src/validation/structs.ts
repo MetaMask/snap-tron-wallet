@@ -235,6 +235,7 @@ export const GetAccounBalancesResponseStruct = record(
   object({
     amount: PositiveNumberStringStruct,
     unit: string(),
+    rawAmount: string(),
   }),
 );
 

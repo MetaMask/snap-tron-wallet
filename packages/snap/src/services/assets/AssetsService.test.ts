@@ -829,10 +829,12 @@ describe('AssetsService', () => {
                 [KnownCaip19Id.TrxMainnet]: {
                   unit: 'TRX',
                   amount: '1',
+                  rawAmount: '1000000',
                 },
                 [KnownCaip19Id.EnergyMainnet]: {
                   unit: 'ENERGY',
                   amount: '35000',
+                  rawAmount: '35000',
                 },
               },
             },
@@ -924,10 +926,12 @@ describe('AssetsService', () => {
                 [KnownCaip19Id.TrxMainnet]: {
                   unit: 'TRX',
                   amount: '1',
+                  rawAmount: '1000000',
                 },
                 [KnownCaip19Id.BandwidthMainnet]: {
                   unit: 'BANDWIDTH',
                   amount: '4700',
+                  rawAmount: '4700',
                 },
               },
             },
@@ -1190,14 +1194,17 @@ describe('AssetsService', () => {
                 [KnownCaip19Id.TrxMainnet]: {
                   unit: 'TRX',
                   amount: '2',
+                  rawAmount: '2000000',
                 },
                 [KnownCaip19Id.EnergyMainnet]: {
                   unit: 'ENERGY',
                   amount: '45000',
+                  rawAmount: '45000',
                 },
                 [KnownCaip19Id.BandwidthMainnet]: {
                   unit: 'BANDWIDTH',
                   amount: '1235',
+                  rawAmount: '1235',
                 },
               },
             },

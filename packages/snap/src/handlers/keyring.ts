@@ -340,6 +340,7 @@ export class KeyringHandler implements Keyring {
           acc[asset.assetType] = {
             unit: asset.symbol,
             amount: asset.uiAmount,
+            rawAmount: asset.rawAmount,
           };
           return acc;
         },
