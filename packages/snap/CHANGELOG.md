@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Finalised word transformed to us-en ([#164](https://github.com/MetaMask/snap-tron-wallet/pull/164))
-- Signing messages of  characters or less ([#161](https://github.com/MetaMask/snap-tron-wallet/pull/161))
+- Signing messages of 3 characters or less ([#161](https://github.com/MetaMask/snap-tron-wallet/pull/161))
 
 ### Changed
 
