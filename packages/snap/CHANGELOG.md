@@ -9,11 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.19.1]
 
-### Uncategorized
+### Fixed
 
-- chore: finalised vs finalized wording ([#164](https://github.com/MetaMask/snap-tron-wallet/pull/164))
-- chore: remove convertion layer for images displayed in Snaps UI ([#162](https://github.com/MetaMask/snap-tron-wallet/pull/162))
-- fix: signing messages of 3 characters or less ([#161](https://github.com/MetaMask/snap-tron-wallet/pull/161))
+- Finalised word transformed to us-en ([#164](https://github.com/MetaMask/snap-tron-wallet/pull/164))
+- Signing messages of  characters or less ([#161](https://github.com/MetaMask/snap-tron-wallet/pull/161))
+
+### Changed
+
+- Remove convertion layer for images displayed in Snaps UI ([#162](https://github.com/MetaMask/snap-tron-wallet/pull/162))
 
 ## [1.19.0]
 
