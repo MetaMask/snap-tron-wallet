@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.19.2]
 
-### Uncategorized
+### Added
 
-- chore: display error message coming from the simulation API ([#166](https://github.com/MetaMask/snap-tron-wallet/pull/166))
+- Display error message coming from transaction simulations ([#166](https://github.com/MetaMask/snap-tron-wallet/pull/166))
 
 ## [1.19.1]
 
