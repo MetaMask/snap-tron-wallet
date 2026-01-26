@@ -73,7 +73,8 @@ const AssetChange = ({
   preferences,
 }: AssetChangeProps): ComponentOrElement => {
   const { locale } = preferences;
-  const formattedValue = asset.value?.toLocaleString(locale) ?? '0';
+  const formattedValue =
+    asset.value?.toLocaleString(locale.replace('_', '-')) ?? '0';
   const isOut = asset.type === 'out';
 
   return (
