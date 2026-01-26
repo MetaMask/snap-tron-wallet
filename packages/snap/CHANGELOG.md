@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Normalize locale string when showing simulation estimated changes ([#000](https://github.com/MetaMask/snap-tron-wallet/pull/000))
+- Normalize locale string when showing simulation estimated changes ([#169](https://github.com/MetaMask/snap-tron-wallet/pull/169))
 
 ## [1.19.2]
 
