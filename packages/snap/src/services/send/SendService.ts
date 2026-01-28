@@ -11,6 +11,7 @@ import type {
 
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
+import { DEFAULT_FEE_LIMIT_SUN } from '../../constants';
 import type { Network } from '../../constants';
 import type { AssetEntity } from '../../entities/assets';
 import { BackgroundEventMethod } from '../../handlers/cronjob';
@@ -48,11 +49,17 @@ export class SendService {
     toAddress,
     asset,
     amount,
+    feeLimit,
   }: {
     fromAccountId: string;
     toAddress: string;
     asset: AssetEntity;
     amount: number;
+    /**
+     * Maximum TRX (in SUN) to spend on energy for smart contract transactions.
+     * Only applies to TRC20 transfers. Defaults to DEFAULT_FEE_LIMIT_SUN (500 TRX).
+     */
+    feeLimit?: number;
   }): Promise<
     | Transaction<TransferContract>
     | Transaction<TransferAssetContract>
@@ -92,6 +99,7 @@ export class SendService {
             contractAddress: assetReference,
             amount,
             decimals: asset.decimals,
+            feeLimit,
           });
 
         default:
@@ -160,6 +168,7 @@ export class SendService {
     contractAddress,
     amount,
     decimals,
+    feeLimit = DEFAULT_FEE_LIMIT_SUN,
   }: {
     scope: Network;
     fromAccountId: string;
@@ -167,6 +176,13 @@ export class SendService {
     contractAddress: string;
     amount: number;
     decimals: number;
+    /**
+     * Maximum TRX (in SUN) to spend on energy for this transaction.
+     * Defaults to DEFAULT_FEE_LIMIT_SUN (500 TRX).
+     * If the transaction requires more energy than this limit allows,
+     * it will fail but still consume the fee_limit.
+     */
+    feeLimit?: number;
   }): Promise<Transaction<TriggerSmartContract>> {
     const account = await this.#accountsService.findByIdOrThrow(fromAccountId);
 
@@ -187,7 +203,7 @@ export class SendService {
       await tronWeb.transactionBuilder.triggerSmartContract(
         contractAddress,
         functionSelector,
-        {},
+        { feeLimit },
         parameter,
         account.address,
       );

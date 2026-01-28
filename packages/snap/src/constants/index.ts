@@ -5,6 +5,21 @@ export const ZERO = BigNumber(0);
 export const ACCOUNT_ACTIVATION_FEE_TRX = BigNumber(1);
 export const SUN_IN_TRX = 1_000_000;
 
+/**
+ * Default fee limit in SUN for smart contract transactions (e.g., TRC20 transfers).
+ *
+ * The fee_limit caps the maximum TRX that can be consumed for energy when executing
+ * smart contracts. If the actual energy cost exceeds this limit, the transaction fails
+ * but the fee_limit is still charged.
+ *
+ * TronWeb's default is 150 TRX (150_000_000 SUN), which may be insufficient for
+ * complex transactions with many internal calls. We use 500 TRX as a safer default
+ * to accommodate most use cases while still providing protection against runaway costs.
+ *
+ * 500 TRX = 500_000_000 SUN
+ */
+export const DEFAULT_FEE_LIMIT_SUN = 500_000_000;
+
 export const NULL_ADDRESS = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 export const CONSENSYS_SR_NODE_ADDRESS = 'TVMwGfdDz58VvM7yTzGMWWSHsmofSxa9jH';
 
