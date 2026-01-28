@@ -247,8 +247,37 @@ export class TrongridApiClient {
   }
 
   /**
+   * Default maintenance time interval in milliseconds (6 hours).
+   * Used as fallback if getMaintenanceTimeInterval is not found in chain parameters.
+   */
+  static readonly #defaultMaintenanceInterval = 6 * 60 * 60 * 1000;
+
+  /**
+   * Calculates the next maintenance time based on the current time and interval.
+   *
+   * TRON maintenance periods occur at regular intervals aligned to UTC boundaries
+   * (e.g., 00:00, 06:00, 12:00, 18:00 UTC for a 6-hour interval).
+   * This method calculates the next maintenance time by finding the next interval
+   * boundary strictly after the current time.
+   *
+   * @param now - Current timestamp in milliseconds
+   * @param maintenanceInterval - Interval between maintenance periods in milliseconds
+   * @returns Next maintenance time as Unix timestamp in milliseconds
+   */
+  static #calculateNextMaintenanceTime(
+    now: number,
+    maintenanceInterval: number,
+  ): number {
+    // Calculate next maintenance time aligned to interval boundaries
+    // For a 6-hour interval, this gives us times like 00:00, 06:00, 12:00, 18:00 UTC
+    // We use floor + 1 to ensure we always get the NEXT boundary, even if we're exactly on one
+    return (Math.floor(now / maintenanceInterval) + 1) * maintenanceInterval;
+  }
+
+  /**
    * Internal method to fetch chain parameters with expiry timestamp.
-   * Fetches both chain parameters and next maintenance time in parallel.
+   * Uses the getMaintenanceTimeInterval from the response to calculate the next
+   * maintenance time, eliminating the need for a separate getNextMaintenanceTime API call.
    *
    * @param scope - The network to query
    * @returns Promise with result and expiresAt for caching
@@ -256,16 +285,24 @@ export class TrongridApiClient {
   async #fetchChainParametersWithExpiry(
     scope: Network,
   ): Promise<ResultWithExpiry<ChainParameter[]>> {
-    // Fetch both in parallel for efficiency
-    // Delegates to TronHttpClient for the actual API calls
-    const [parameters, nextMaintenanceTime] = await Promise.all([
-      this.#tronHttpClient.getChainParameters(scope),
-      this.#tronHttpClient.getNextMaintenanceTime(scope),
-    ]);
+    const parameters = await this.#tronHttpClient.getChainParameters(scope);
+
+    // Extract maintenance interval from chain parameters
+    // This tells us how often maintenance periods occur (typically 6 hours)
+    const maintenanceInterval =
+      parameters.find((param) => param.key === 'getMaintenanceTimeInterval')
+        ?.value ?? TrongridApiClient.#defaultMaintenanceInterval;
+
+    // Calculate the next maintenance time based on the interval
+    // This aligns to UTC boundaries (e.g., 00:00, 06:00, 12:00, 18:00 for 6-hour intervals)
+    const expiresAt = TrongridApiClient.#calculateNextMaintenanceTime(
+      Date.now(),
+      maintenanceInterval,
+    );
 
     return {
       result: parameters,
-      expiresAt: nextMaintenanceTime, // Exact maintenance time, no buffer needed
+      expiresAt,
     };
   }
 }
