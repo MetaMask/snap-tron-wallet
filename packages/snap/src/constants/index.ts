@@ -6,19 +6,31 @@ export const ACCOUNT_ACTIVATION_FEE_TRX = BigNumber(1);
 export const SUN_IN_TRX = 1_000_000;
 
 /**
- * Default fee limit in SUN for smart contract transactions (e.g., TRC20 transfers).
+ * Safety multiplier for fee_limit calculation.
+ * Applied to the estimated energy cost to provide a buffer for:
+ * - Estimation variance
+ * - Network congestion
+ * - Minor state changes between estimation and execution
  *
- * The fee_limit caps the maximum TRX that can be consumed for energy when executing
- * smart contracts. If the actual energy cost exceeds this limit, the transaction fails
- * but the fee_limit is still charged.
- *
- * TronWeb's default is 150 TRX (150_000_000 SUN), which may be insufficient for
- * complex transactions with many internal calls. We use 500 TRX as a safer default
- * to accommodate most use cases while still providing protection against runaway costs.
- *
- * 500 TRX = 500_000_000 SUN
+ * 1.3 = 30% buffer, which is a reasonable safety margin without overpaying.
  */
-export const DEFAULT_FEE_LIMIT_SUN = 500_000_000;
+export const FEE_LIMIT_SAFETY_MULTIPLIER = 1.3;
+
+/**
+ * Minimum fee limit in SUN for smart contract transactions.
+ * This ensures we don't set a fee_limit that's too low for basic operations.
+ *
+ * 10 TRX = 10_000_000 SUN - sufficient for most simple TRC20 transfers
+ */
+export const MIN_FEE_LIMIT_SUN = 10_000_000;
+
+/**
+ * Fallback fee limit in SUN when energy estimation fails.
+ * Used only as a last resort when we can't estimate energy.
+ *
+ * 50 TRX = 50_000_000 SUN - conservative fallback for typical TRC20 transfers
+ */
+export const FALLBACK_FEE_LIMIT_SUN = 50_000_000;
 
 export const NULL_ADDRESS = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 export const CONSENSYS_SR_NODE_ADDRESS = 'TVMwGfdDz58VvM7yTzGMWWSHsmofSxa9jH';

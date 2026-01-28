@@ -314,7 +314,8 @@ export class ClientRequestHandler {
       /**
        * Check if we have enough of the asset we want to send...
        */
-      const { chainId } = parseCaipAssetType(assetId);
+      const { chainId, assetNamespace, assetReference } =
+        parseCaipAssetType(assetId);
       const scope = chainId as Network;
 
       const [asset, nativeTokenAsset, bandwidthAsset, energyAsset] =
@@ -345,6 +346,26 @@ export class ClientRequestHandler {
       }
 
       /**
+       * For TRC20 transfers, estimate the appropriate fee_limit based on
+       * energy simulation to avoid overpaying or underpaying.
+       */
+      let feeLimit: number | undefined;
+      if (assetNamespace === 'trc20') {
+        const decimalsAdjustedAmount = valueBN
+          .multipliedBy(new BigNumber(10).pow(asset.decimals))
+          .toFixed(0);
+
+        feeLimit =
+          await this.#feeCalculatorService.estimateFeeLimitForTrc20Transfer({
+            scope,
+            contractAddress: assetReference,
+            ownerAddress: account.address,
+            toAddress: NULL_ADDRESS,
+            amount: decimalsAdjustedAmount,
+          });
+      }
+
+      /**
        * Estimate the fees
        */
       const sendTransaction = await this.#sendService.buildTransaction({
@@ -352,6 +373,7 @@ export class ClientRequestHandler {
         toAddress: NULL_ADDRESS,
         asset,
         amount: valueBN.toNumber(),
+        feeLimit,
       });
       const fees = await this.#feeCalculatorService.computeFee({
         scope,
@@ -434,10 +456,31 @@ export class ClientRequestHandler {
       };
     }
 
-    const { chainId } = parseCaipAssetType(assetId);
+    const { chainId, assetNamespace, assetReference } =
+      parseCaipAssetType(assetId);
     const scope = chainId as Network;
 
     const amountBN = new BigNumber(amount);
+
+    /**
+     * For TRC20 transfers, estimate the appropriate fee_limit based on
+     * energy simulation to avoid overpaying or underpaying.
+     */
+    let feeLimit: number | undefined;
+    if (assetNamespace === 'trc20') {
+      const decimalsAdjustedAmount = amountBN
+        .multipliedBy(new BigNumber(10).pow(asset.decimals))
+        .toFixed(0);
+
+      feeLimit =
+        await this.#feeCalculatorService.estimateFeeLimitForTrc20Transfer({
+          scope,
+          contractAddress: assetReference,
+          ownerAddress: account.address,
+          toAddress,
+          amount: decimalsAdjustedAmount,
+        });
+    }
 
     const [[bandwidthAsset, energyAsset], transaction] = await Promise.all([
       /**
@@ -457,6 +500,7 @@ export class ClientRequestHandler {
         toAddress,
         asset,
         amount: amountBN.toNumber(),
+        feeLimit,
       }),
     ]);
 

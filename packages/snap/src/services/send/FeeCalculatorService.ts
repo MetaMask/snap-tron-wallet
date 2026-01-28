@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { FeeType } from '@metamask/keyring-api';
 import { BigNumber } from 'bignumber.js';
+import { TronWeb } from 'tronweb';
 import type { Transaction } from 'tronweb/lib/esm/types';
 
 import type { ComputeFeeResult } from './types';
@@ -9,6 +10,9 @@ import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient
 import type { Network } from '../../constants';
 import {
   ACCOUNT_ACTIVATION_FEE_TRX,
+  FALLBACK_FEE_LIMIT_SUN,
+  FEE_LIMIT_SAFETY_MULTIPLIER,
+  MIN_FEE_LIMIT_SUN,
   Networks,
   SUN_IN_TRX,
   ZERO,
@@ -617,5 +621,122 @@ export class FeeCalculatorService {
     }
 
     return result;
+  }
+
+  /**
+   * Estimate the appropriate fee_limit for a TRC20 token transfer.
+   *
+   * This method simulates the transfer to estimate energy consumption,
+   * then calculates a fee_limit based on the energy price with a safety margin.
+   *
+   * @param params - The parameters for fee limit estimation
+   * @param params.scope - The network scope
+   * @param params.contractAddress - The TRC20 contract address
+   * @param params.ownerAddress - The sender's address
+   * @param params.toAddress - The recipient's address
+   * @param params.amount - The amount to transfer (in smallest units, already decimal-adjusted)
+   * @returns Promise<number> - The estimated fee_limit in SUN
+   */
+  async estimateFeeLimitForTrc20Transfer({
+    scope,
+    contractAddress,
+    ownerAddress,
+    toAddress,
+    amount,
+  }: {
+    scope: Network;
+    contractAddress: string;
+    ownerAddress: string;
+    toAddress: string;
+    amount: string;
+  }): Promise<number> {
+    try {
+      // Build the transfer function call data
+      // transfer(address,uint256) selector = a9059cbb
+      const functionSelector = 'a9059cbb';
+
+      // Convert addresses to hex format (remove '41' prefix - Tron's hex address prefix)
+      const toAddressHex = TronWeb.address.toHex(toAddress).replace(/^41/u, '');
+      const paddedToAddress = toAddressHex.padStart(64, '0');
+
+      // Convert amount to hex and pad to 32 bytes
+      const amountHex = BigNumber(amount).toString(16);
+      const paddedAmount = amountHex.padStart(64, '0');
+
+      const data = functionSelector + paddedToAddress + paddedAmount;
+
+      // Convert owner and contract addresses to hex for the API call
+      const ownerAddressHex = TronWeb.address.toHex(ownerAddress);
+      const contractAddressHex = TronWeb.address.toHex(contractAddress);
+
+      this.#logger.log(
+        {
+          scope,
+          contractAddress,
+          ownerAddress,
+          toAddress,
+          amount,
+        },
+        'Estimating fee limit for TRC20 transfer',
+      );
+
+      // Simulate the contract call to get energy estimate
+      const result = await this.#tronHttpClient.triggerConstantContract(scope, {
+        owner_address: ownerAddressHex,
+        contract_address: contractAddressHex,
+        data,
+      });
+
+      // Check if simulation failed
+      if (result.transaction.ret[0]?.ret === 'FAILED') {
+        this.#logger.warn(
+          'TRC20 transfer simulation failed, using fallback fee limit',
+        );
+        return FALLBACK_FEE_LIMIT_SUN;
+      }
+
+      const energyUsed = result.energy_used;
+
+      if (!energyUsed || energyUsed <= 0) {
+        this.#logger.warn(
+          'No energy_used in simulation result, using fallback fee limit',
+        );
+        return FALLBACK_FEE_LIMIT_SUN;
+      }
+
+      // Get energy price from chain parameters
+      const chainParameters =
+        await this.#trongridApiClient.getChainParameters(scope);
+      const energyPrice =
+        chainParameters.find((param) => param.key === 'getEnergyFee')?.value ??
+        420; // Fallback to 420 SUN per energy unit
+
+      // Calculate fee_limit with safety multiplier
+      const calculatedFeeLimit = Math.ceil(
+        energyUsed * energyPrice * FEE_LIMIT_SAFETY_MULTIPLIER,
+      );
+
+      // Apply minimum threshold
+      const feeLimit = Math.max(calculatedFeeLimit, MIN_FEE_LIMIT_SUN);
+
+      this.#logger.log(
+        {
+          energyUsed,
+          energyPrice,
+          safetyMultiplier: FEE_LIMIT_SAFETY_MULTIPLIER,
+          calculatedFeeLimit,
+          feeLimit,
+        },
+        'Calculated fee limit for TRC20 transfer',
+      );
+
+      return feeLimit;
+    } catch (error) {
+      this.#logger.error(
+        { error },
+        'Failed to estimate fee limit, using fallback',
+      );
+      return FALLBACK_FEE_LIMIT_SUN;
+    }
   }
 }

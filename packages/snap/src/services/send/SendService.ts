@@ -11,7 +11,7 @@ import type {
 
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
-import { DEFAULT_FEE_LIMIT_SUN } from '../../constants';
+import { FALLBACK_FEE_LIMIT_SUN } from '../../constants';
 import type { Network } from '../../constants';
 import type { AssetEntity } from '../../entities/assets';
 import { BackgroundEventMethod } from '../../handlers/cronjob';
@@ -57,7 +57,11 @@ export class SendService {
     amount: number;
     /**
      * Maximum TRX (in SUN) to spend on energy for smart contract transactions.
-     * Only applies to TRC20 transfers. Defaults to DEFAULT_FEE_LIMIT_SUN (500 TRX).
+     * Only applies to TRC20 transfers.
+     *
+     * IMPORTANT: For TRC20 transfers, callers should use
+     * FeeCalculatorService.estimateFeeLimitForTrc20Transfer() to calculate
+     * an appropriate fee limit based on energy simulation.
      */
     feeLimit?: number;
   }): Promise<
@@ -168,7 +172,7 @@ export class SendService {
     contractAddress,
     amount,
     decimals,
-    feeLimit = DEFAULT_FEE_LIMIT_SUN,
+    feeLimit = FALLBACK_FEE_LIMIT_SUN,
   }: {
     scope: Network;
     fromAccountId: string;
@@ -178,9 +182,13 @@ export class SendService {
     decimals: number;
     /**
      * Maximum TRX (in SUN) to spend on energy for this transaction.
-     * Defaults to DEFAULT_FEE_LIMIT_SUN (500 TRX).
-     * If the transaction requires more energy than this limit allows,
-     * it will fail but still consume the fee_limit.
+     *
+     * IMPORTANT: Callers should use FeeCalculatorService.estimateFeeLimitForTrc20Transfer()
+     * to calculate an appropriate fee limit based on energy simulation.
+     *
+     * Falls back to FALLBACK_FEE_LIMIT_SUN (50 TRX) if not provided, which should
+     * be sufficient for most simple TRC20 transfers but may be insufficient for
+     * complex contract interactions.
      */
     feeLimit?: number;
   }): Promise<Transaction<TriggerSmartContract>> {
