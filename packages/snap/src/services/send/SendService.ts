@@ -11,7 +11,6 @@ import type {
 
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
-import { FALLBACK_FEE_LIMIT_SUN } from '../../constants';
 import type { Network } from '../../constants';
 import type { AssetEntity } from '../../entities/assets';
 import { BackgroundEventMethod } from '../../handlers/cronjob';
@@ -59,9 +58,11 @@ export class SendService {
      * Maximum TRX (in SUN) to spend on energy for smart contract transactions.
      * Only applies to TRC20 transfers.
      *
-     * IMPORTANT: For TRC20 transfers, callers should use
+     * For TRC20 transfers, callers should use
      * FeeCalculatorService.estimateFeeLimitForTrc20Transfer() to calculate
      * an appropriate fee limit based on energy simulation.
+     *
+     * If not provided, TronWeb uses its internal default (150 TRX).
      */
     feeLimit?: number;
   }): Promise<
@@ -172,7 +173,7 @@ export class SendService {
     contractAddress,
     amount,
     decimals,
-    feeLimit = FALLBACK_FEE_LIMIT_SUN,
+    feeLimit,
   }: {
     scope: Network;
     fromAccountId: string;
@@ -183,12 +184,10 @@ export class SendService {
     /**
      * Maximum TRX (in SUN) to spend on energy for this transaction.
      *
-     * IMPORTANT: Callers should use FeeCalculatorService.estimateFeeLimitForTrc20Transfer()
+     * Callers should use FeeCalculatorService.estimateFeeLimitForTrc20Transfer()
      * to calculate an appropriate fee limit based on energy simulation.
      *
-     * Falls back to FALLBACK_FEE_LIMIT_SUN (50 TRX) if not provided, which should
-     * be sufficient for most simple TRC20 transfers but may be insufficient for
-     * complex contract interactions.
+     * If not provided, TronWeb uses its internal default (150 TRX).
      */
     feeLimit?: number;
   }): Promise<Transaction<TriggerSmartContract>> {
@@ -207,11 +206,14 @@ export class SendService {
       { type: 'uint256', value: decimalsAdjustedAmount },
     ];
 
+    // Only pass feeLimit if provided, otherwise let TronWeb use its default
+    const options = feeLimit === undefined ? {} : { feeLimit };
+
     const contractResult =
       await tronWeb.transactionBuilder.triggerSmartContract(
         contractAddress,
         functionSelector,
-        { feeLimit },
+        options,
         parameter,
         account.address,
       );

@@ -7,30 +7,12 @@ export const SUN_IN_TRX = 1_000_000;
 
 /**
  * Safety multiplier for fee_limit calculation.
- * Applied to the estimated energy cost to provide a buffer for:
- * - Estimation variance
- * - Network congestion
- * - Minor state changes between estimation and execution
+ * Applied to the estimated energy cost to provide a small buffer for
+ * minor variance between estimation and execution.
  *
- * 1.3 = 30% buffer, which is a reasonable safety margin without overpaying.
+ * 1.1 = 10% buffer
  */
-export const FEE_LIMIT_SAFETY_MULTIPLIER = 1.3;
-
-/**
- * Minimum fee limit in SUN for smart contract transactions.
- * This ensures we don't set a fee_limit that's too low for basic operations.
- *
- * 10 TRX = 10_000_000 SUN - sufficient for most simple TRC20 transfers
- */
-export const MIN_FEE_LIMIT_SUN = 10_000_000;
-
-/**
- * Fallback fee limit in SUN when energy estimation fails.
- * Used only as a last resort when we can't estimate energy.
- *
- * 50 TRX = 50_000_000 SUN - conservative fallback for typical TRC20 transfers
- */
-export const FALLBACK_FEE_LIMIT_SUN = 50_000_000;
+export const FEE_LIMIT_SAFETY_MULTIPLIER = 1.1;
 
 export const NULL_ADDRESS = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 export const CONSENSYS_SR_NODE_ADDRESS = 'TVMwGfdDz58VvM7yTzGMWWSHsmofSxa9jH';

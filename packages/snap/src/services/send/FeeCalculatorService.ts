@@ -10,9 +10,7 @@ import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient
 import type { Network } from '../../constants';
 import {
   ACCOUNT_ACTIVATION_FEE_TRX,
-  FALLBACK_FEE_LIMIT_SUN,
   FEE_LIMIT_SAFETY_MULTIPLIER,
-  MIN_FEE_LIMIT_SUN,
   Networks,
   SUN_IN_TRX,
   ZERO,
@@ -627,7 +625,9 @@ export class FeeCalculatorService {
    * Estimate the appropriate fee_limit for a TRC20 token transfer.
    *
    * This method simulates the transfer to estimate energy consumption,
-   * then calculates a fee_limit based on the energy price with a safety margin.
+   * then calculates a fee_limit based on the energy price with a 10% safety margin.
+   *
+   * If estimation fails, returns undefined to let TronWeb use its internal default.
    *
    * @param params - The parameters for fee limit estimation
    * @param params.scope - The network scope
@@ -635,7 +635,7 @@ export class FeeCalculatorService {
    * @param params.ownerAddress - The sender's address
    * @param params.toAddress - The recipient's address
    * @param params.amount - The amount to transfer (in smallest units, already decimal-adjusted)
-   * @returns Promise<number> - The estimated fee_limit in SUN
+   * @returns Promise<number | undefined> - The estimated fee_limit in SUN, or undefined if estimation fails
    */
   async estimateFeeLimitForTrc20Transfer({
     scope,
@@ -649,7 +649,7 @@ export class FeeCalculatorService {
     ownerAddress: string;
     toAddress: string;
     amount: string;
-  }): Promise<number> {
+  }): Promise<number | undefined> {
     try {
       // Build the transfer function call data
       // transfer(address,uint256) selector = a9059cbb
@@ -687,21 +687,21 @@ export class FeeCalculatorService {
         data,
       });
 
-      // Check if simulation failed
+      // Check if simulation failed - let TronWeb use its default
       if (result.transaction.ret[0]?.ret === 'FAILED') {
         this.#logger.warn(
-          'TRC20 transfer simulation failed, using fallback fee limit',
+          'TRC20 transfer simulation failed, letting TronWeb use default fee limit',
         );
-        return FALLBACK_FEE_LIMIT_SUN;
+        return undefined;
       }
 
       const energyUsed = result.energy_used;
 
       if (!energyUsed || energyUsed <= 0) {
         this.#logger.warn(
-          'No energy_used in simulation result, using fallback fee limit',
+          'No energy_used in simulation result, letting TronWeb use default fee limit',
         );
-        return FALLBACK_FEE_LIMIT_SUN;
+        return undefined;
       }
 
       // Get energy price from chain parameters
@@ -711,20 +711,16 @@ export class FeeCalculatorService {
         chainParameters.find((param) => param.key === 'getEnergyFee')?.value ??
         420; // Fallback to 420 SUN per energy unit
 
-      // Calculate fee_limit with safety multiplier
-      const calculatedFeeLimit = Math.ceil(
+      // Calculate fee_limit with 10% safety margin
+      const feeLimit = Math.ceil(
         energyUsed * energyPrice * FEE_LIMIT_SAFETY_MULTIPLIER,
       );
-
-      // Apply minimum threshold
-      const feeLimit = Math.max(calculatedFeeLimit, MIN_FEE_LIMIT_SUN);
 
       this.#logger.log(
         {
           energyUsed,
           energyPrice,
           safetyMultiplier: FEE_LIMIT_SAFETY_MULTIPLIER,
-          calculatedFeeLimit,
           feeLimit,
         },
         'Calculated fee limit for TRC20 transfer',
@@ -734,9 +730,9 @@ export class FeeCalculatorService {
     } catch (error) {
       this.#logger.error(
         { error },
-        'Failed to estimate fee limit, using fallback',
+        'Failed to estimate fee limit, letting TronWeb use default',
       );
-      return FALLBACK_FEE_LIMIT_SUN;
+      return undefined;
     }
   }
 }
