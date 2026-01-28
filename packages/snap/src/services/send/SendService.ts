@@ -59,8 +59,8 @@ export class SendService {
      * Only applies to TRC20 transfers.
      *
      * For TRC20 transfers, callers should use
-     * FeeCalculatorService.estimateFeeLimitForTrc20Transfer() to calculate
-     * an appropriate fee limit based on energy simulation.
+     * FeeCalculatorService.computeFeeLimitFromTransaction() to calculate
+     * an appropriate fee limit based on the built transaction.
      *
      * If not provided, TronWeb uses its internal default (150 TRX).
      */
@@ -184,8 +184,8 @@ export class SendService {
     /**
      * Maximum TRX (in SUN) to spend on energy for this transaction.
      *
-     * Callers should use FeeCalculatorService.estimateFeeLimitForTrc20Transfer()
-     * to calculate an appropriate fee limit based on energy simulation.
+     * Callers should use FeeCalculatorService.computeFeeLimitFromTransaction()
+     * to calculate an appropriate fee limit based on the built transaction.
      *
      * If not provided, TronWeb uses its internal default (150 TRX).
      */
