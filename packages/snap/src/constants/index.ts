@@ -11,6 +11,10 @@ export const SUN_IN_TRX = 1_000_000;
  * minor variance between estimation and execution.
  *
  * 1.1 = 10% buffer
+ *
+ * This mirrors the logic used by the `wallet/estimateenergy` RPC method,
+ * which also applies a 10% safety margin. We can't use that RPC directly
+ * because Infura/DIN nodes don't expose this method.
  */
 export const FEE_LIMIT_SAFETY_MULTIPLIER = 1.1;
 
