@@ -314,8 +314,7 @@ export class ClientRequestHandler {
       /**
        * Check if we have enough of the asset we want to send...
        */
-      const { chainId, assetNamespace, assetReference } =
-        parseCaipAssetType(assetId);
+      const { chainId, assetNamespace } = parseCaipAssetType(assetId);
       const scope = chainId as Network;
 
       const [asset, nativeTokenAsset, bandwidthAsset, energyAsset] =
@@ -346,35 +345,37 @@ export class ClientRequestHandler {
       }
 
       /**
-       * For TRC20 transfers, estimate the appropriate fee_limit based on
-       * energy simulation to avoid overpaying or underpaying.
+       * For smart contract transactions (TRC20), we need to:
+       * 1. Build a draft transaction first to estimate fees accurately
+       * 2. Compute the recommended fee_limit from that transaction
+       * 3. Rebuild with the correct fee_limit
        */
-      let feeLimit: number | undefined;
-      if (assetNamespace === 'trc20') {
-        const decimalsAdjustedAmount = valueBN
-          .multipliedBy(new BigNumber(10).pow(asset.decimals))
-          .toFixed(0);
-
-        feeLimit =
-          await this.#feeCalculatorService.estimateFeeLimitForTrc20Transfer({
-            scope,
-            contractAddress: assetReference,
-            ownerAddress: account.address,
-            toAddress: NULL_ADDRESS,
-            amount: decimalsAdjustedAmount,
-          });
-      }
-
-      /**
-       * Estimate the fees
-       */
-      const sendTransaction = await this.#sendService.buildTransaction({
+      let sendTransaction = await this.#sendService.buildTransaction({
         fromAccountId: accountId,
         toAddress: NULL_ADDRESS,
         asset,
         amount: valueBN.toNumber(),
-        feeLimit,
       });
+
+      // For smart contract transactions, compute and apply the proper fee_limit
+      if (assetNamespace === 'trc20') {
+        const feeLimit =
+          await this.#feeCalculatorService.computeFeeLimitFromTransaction({
+            scope,
+            transaction: sendTransaction,
+          });
+
+        // Rebuild transaction with the computed fee_limit
+        if (feeLimit !== undefined) {
+          sendTransaction = await this.#sendService.buildTransaction({
+            fromAccountId: accountId,
+            toAddress: NULL_ADDRESS,
+            asset,
+            amount: valueBN.toNumber(),
+            feeLimit,
+          });
+        }
+      }
       const fees = await this.#feeCalculatorService.computeFee({
         scope,
         transaction: sendTransaction,
@@ -456,53 +457,52 @@ export class ClientRequestHandler {
       };
     }
 
-    const { chainId, assetNamespace, assetReference } =
-      parseCaipAssetType(assetId);
+    const { chainId, assetNamespace } = parseCaipAssetType(assetId);
     const scope = chainId as Network;
 
     const amountBN = new BigNumber(amount);
 
     /**
-     * For TRC20 transfers, estimate the appropriate fee_limit based on
-     * energy simulation to avoid overpaying or underpaying.
+     * Get available Energy and Bandwidth from account assets.
      */
-    let feeLimit: number | undefined;
-    if (assetNamespace === 'trc20') {
-      const decimalsAdjustedAmount = amountBN
-        .multipliedBy(new BigNumber(10).pow(asset.decimals))
-        .toFixed(0);
-
-      feeLimit =
-        await this.#feeCalculatorService.estimateFeeLimitForTrc20Transfer({
-          scope,
-          contractAddress: assetReference,
-          ownerAddress: account.address,
-          toAddress,
-          amount: decimalsAdjustedAmount,
-        });
-    }
-
-    const [[bandwidthAsset, energyAsset], transaction] = await Promise.all([
-      /**
-       * Get available Energy and Bandwidth from account assets.
-       */
-      this.#assetsService.getAssetsByAccountId(fromAccountId, [
+    const [bandwidthAsset, energyAsset] =
+      await this.#assetsService.getAssetsByAccountId(fromAccountId, [
         Networks[scope].bandwidth.id,
         Networks[scope].energy.id,
-      ]),
-      /**
-       * Build the unsigned transaction.
-       * Fee estimation uses a constant overhead for the signature (134 bytes).
-       * Signing happens after user confirmation in sendTransaction().
-       */
-      this.#sendService.buildTransaction({
-        fromAccountId,
-        toAddress,
-        asset,
-        amount: amountBN.toNumber(),
-        feeLimit,
-      }),
-    ]);
+      ]);
+
+    /**
+     * For smart contract transactions (TRC20), we need to:
+     * 1. Build a draft transaction first to estimate fees accurately
+     * 2. Compute the recommended fee_limit from that transaction
+     * 3. Rebuild with the correct fee_limit
+     */
+    let transaction = await this.#sendService.buildTransaction({
+      fromAccountId,
+      toAddress,
+      asset,
+      amount: amountBN.toNumber(),
+    });
+
+    // For smart contract transactions, compute and apply the proper fee_limit
+    if (assetNamespace === 'trc20') {
+      const feeLimit =
+        await this.#feeCalculatorService.computeFeeLimitFromTransaction({
+          scope,
+          transaction,
+        });
+
+      // Rebuild transaction with the computed fee_limit
+      if (feeLimit !== undefined) {
+        transaction = await this.#sendService.buildTransaction({
+          fromAccountId,
+          toAddress,
+          asset,
+          amount: amountBN.toNumber(),
+          feeLimit,
+        });
+      }
+    }
 
     const availableEnergy = energyAsset
       ? new BigNumber(energyAsset.rawAmount)

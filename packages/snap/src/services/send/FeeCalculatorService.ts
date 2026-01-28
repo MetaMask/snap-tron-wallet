@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { FeeType } from '@metamask/keyring-api';
 import { BigNumber } from 'bignumber.js';
-import { TronWeb } from 'tronweb';
 import type { Transaction } from 'tronweb/lib/esm/types';
 
 import type { ComputeFeeResult } from './types';
@@ -622,115 +621,88 @@ export class FeeCalculatorService {
   }
 
   /**
-   * Estimate the appropriate fee_limit for a TRC20 token transfer.
+   * Compute the recommended fee_limit for a smart contract transaction.
    *
-   * This method simulates the transfer to estimate energy consumption,
-   * then calculates a fee_limit based on the energy price with a 10% safety margin.
+   * This method uses the existing fee estimation logic (bandwidth + energy)
+   * to calculate an appropriate fee_limit. The fee_limit is set to cover
+   * the worst-case scenario where the user has no free bandwidth or energy.
+   *
+   * The calculation:
+   * - Bandwidth: calculated from actual transaction size
+   * - Energy: estimated from contract simulation
+   * - Total = (bandwidth * bandwidth_price + energy * energy_price) * safety_margin
    *
    * If estimation fails, returns undefined to let TronWeb use its internal default.
    *
-   * @param params - The parameters for fee limit estimation
+   * @param params - The parameters for fee limit computation
    * @param params.scope - The network scope
-   * @param params.contractAddress - The TRC20 contract address
-   * @param params.ownerAddress - The sender's address
-   * @param params.toAddress - The recipient's address
-   * @param params.amount - The amount to transfer (in smallest units, already decimal-adjusted)
-   * @returns Promise<number | undefined> - The estimated fee_limit in SUN, or undefined if estimation fails
+   * @param params.transaction - The transaction to compute fee_limit for
+   * @returns Promise<number | undefined> - The recommended fee_limit in SUN, or undefined if estimation fails
    */
-  async estimateFeeLimitForTrc20Transfer({
+  async computeFeeLimitFromTransaction({
     scope,
-    contractAddress,
-    ownerAddress,
-    toAddress,
-    amount,
+    transaction,
   }: {
     scope: Network;
-    contractAddress: string;
-    ownerAddress: string;
-    toAddress: string;
-    amount: string;
+    transaction: Transaction;
   }): Promise<number | undefined> {
     try {
-      // Build the transfer function call data
-      // transfer(address,uint256) selector = a9059cbb
-      const functionSelector = 'a9059cbb';
+      this.#logger.log('Computing fee limit from transaction');
 
-      // Convert addresses to hex format (remove '41' prefix - Tron's hex address prefix)
-      const toAddressHex = TronWeb.address.toHex(toAddress).replace(/^41/u, '');
-      const paddedToAddress = toAddressHex.padStart(64, '0');
+      // Use existing methods to calculate bandwidth and energy
+      const bandwidthNeeded = this.#calculateBandwidth(transaction);
+      const energyNeeded = await this.#calculateEnergy(scope, transaction);
 
-      // Convert amount to hex and pad to 32 bytes
-      const amountHex = BigNumber(amount).toString(16);
-      const paddedAmount = amountHex.padStart(64, '0');
-
-      const data = functionSelector + paddedToAddress + paddedAmount;
-
-      // Convert owner and contract addresses to hex for the API call
-      const ownerAddressHex = TronWeb.address.toHex(ownerAddress);
-      const contractAddressHex = TronWeb.address.toHex(contractAddress);
-
-      this.#logger.log(
-        {
-          scope,
-          contractAddress,
-          ownerAddress,
-          toAddress,
-          amount,
-        },
-        'Estimating fee limit for TRC20 transfer',
-      );
-
-      // Simulate the contract call to get energy estimate
-      const result = await this.#tronHttpClient.triggerConstantContract(scope, {
-        owner_address: ownerAddressHex,
-        contract_address: contractAddressHex,
-        data,
-      });
-
-      // Check if simulation failed - let TronWeb use its default
-      if (result.transaction.ret[0]?.ret === 'FAILED') {
-        this.#logger.warn(
-          'TRC20 transfer simulation failed, letting TronWeb use default fee limit',
+      // If no energy needed (not a smart contract), no fee_limit needed
+      if (energyNeeded.isZero()) {
+        this.#logger.log(
+          'Transaction does not require energy, no fee_limit needed',
         );
         return undefined;
       }
 
-      const energyUsed = result.energy_used;
-
-      if (!energyUsed || energyUsed <= 0) {
-        this.#logger.warn(
-          'No energy_used in simulation result, letting TronWeb use default fee limit',
-        );
-        return undefined;
-      }
-
-      // Get energy price from chain parameters
+      // Get chain parameters for pricing
       const chainParameters =
         await this.#trongridApiClient.getChainParameters(scope);
+
       const energyPrice =
         chainParameters.find((param) => param.key === 'getEnergyFee')?.value ??
         420; // Fallback to 420 SUN per energy unit
 
-      // Calculate fee_limit with 10% safety margin
+      const bandwidthPrice =
+        chainParameters.find((param) => param.key === 'getTransactionFee')
+          ?.value ?? 1000; // Fallback to 1000 SUN per bandwidth unit
+
+      // Calculate costs in SUN (worst case: pay TRX for all resources)
+      const energyCostSun = energyNeeded.multipliedBy(energyPrice);
+      const bandwidthCostSun = bandwidthNeeded.multipliedBy(bandwidthPrice);
+
+      // Total fee_limit = (energy + bandwidth) * safety margin
+      const totalCostSun = energyCostSun.plus(bandwidthCostSun);
       const feeLimit = Math.ceil(
-        energyUsed * energyPrice * FEE_LIMIT_SAFETY_MULTIPLIER,
+        totalCostSun.multipliedBy(FEE_LIMIT_SAFETY_MULTIPLIER).toNumber(),
       );
 
       this.#logger.log(
         {
-          energyUsed,
+          bandwidthNeeded: bandwidthNeeded.toString(),
+          energyNeeded: energyNeeded.toString(),
           energyPrice,
+          bandwidthPrice,
+          energyCostSun: energyCostSun.toString(),
+          bandwidthCostSun: bandwidthCostSun.toString(),
+          totalCostSun: totalCostSun.toString(),
           safetyMultiplier: FEE_LIMIT_SAFETY_MULTIPLIER,
           feeLimit,
         },
-        'Calculated fee limit for TRC20 transfer',
+        'Computed fee limit from transaction',
       );
 
       return feeLimit;
     } catch (error) {
       this.#logger.error(
         { error },
-        'Failed to estimate fee limit, letting TronWeb use default',
+        'Failed to compute fee limit, letting TronWeb use default',
       );
       return undefined;
     }
