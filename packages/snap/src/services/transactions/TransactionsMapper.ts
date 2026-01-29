@@ -15,6 +15,9 @@ import type { Network } from '../../constants';
 import { Networks, SUN_IN_TRX } from '../../constants';
 import type { TronKeyringAccount } from '../../entities';
 
+// TRC20 transaction types from TronGrid API
+const TRC20_APPROVAL_TYPE = 'Approval';
+
 export class TransactionMapper {
   /**
    * Creates a minimal pending transaction immediately after broadcast.
@@ -521,11 +524,14 @@ export class TransactionMapper {
     const amount = (parseFloat(value) / divisor).toString();
 
     // Determine transaction type
-    const type = this.#computeTransactionType({
-      accountAddress: account.address,
-      from,
-      to,
-    });
+    const type =
+      trc20Transfer.type === TRC20_APPROVAL_TYPE
+        ? TransactionType.Unknown
+        : this.#computeTransactionType({
+            accountAddress: account.address,
+            from,
+            to,
+          });
 
     // TRC20-only transactions are always confirmed (they have a block timestamp)
     const status = TransactionStatus.Confirmed;
@@ -1006,11 +1012,14 @@ export class TransactionMapper {
     ).toString();
 
     // Determine transaction type
-    const type = this.#computeTransactionType({
-      accountAddress: account.address,
-      from,
-      to,
-    });
+    const type =
+      trc20AssistanceData.type === TRC20_APPROVAL_TYPE
+        ? TransactionType.Unknown
+        : this.#computeTransactionType({
+            accountAddress: account.address,
+            from,
+            to,
+          });
 
     // Calculate comprehensive fees including Energy and Bandwidth from raw transaction data
     const fees = TransactionMapper.#calculateTronFees(
