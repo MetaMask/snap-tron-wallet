@@ -26,6 +26,7 @@ import type {
 import type { ConfirmationHandler } from '../../services/confirmation/ConfirmationHandler';
 import type { FeeCalculatorService } from '../../services/send/FeeCalculatorService';
 import type { SendService } from '../../services/send/SendService';
+import { SendValidationErrorCode } from '../../services/send/types';
 import type { StakingService } from '../../services/staking/StakingService';
 import { TransactionMapper } from '../../services/transactions/TransactionsMapper';
 import type { TransactionsService } from '../../services/transactions/TransactionsService';
@@ -438,6 +439,32 @@ export class ClientRequestHandler {
     const scope = chainId as Network;
 
     const amountBN = new BigNumber(amount);
+
+    /**
+     * Validate that the user has enough funds to cover both the amount
+     * and all associated fees (including account activation if applicable).
+     * This prevents users from confirming sends that we know will fail.
+     */
+    const validation = await this.#sendService.validateSend({
+      scope,
+      fromAccountId,
+      toAddress,
+      asset,
+      amount: amountBN,
+    });
+
+    if (!validation.valid) {
+      const errorCode =
+        validation.errorCode ===
+        SendValidationErrorCode.InsufficientBalanceToCoverFee
+          ? SendErrorCodes.InsufficientBalanceToCoverFee
+          : SendErrorCodes.InsufficientBalance;
+
+      return {
+        valid: false,
+        errors: [{ code: errorCode }],
+      };
+    }
 
     const [[bandwidthAsset, energyAsset], transaction] = await Promise.all([
       /**

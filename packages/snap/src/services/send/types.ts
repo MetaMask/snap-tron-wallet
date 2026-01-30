@@ -23,3 +23,13 @@ export type ComputeFeeResult = {
   type: FeeType;
   asset: FeeAsset;
 }[];
+
+export enum SendValidationErrorCode {
+  InsufficientBalance = 'InsufficientBalance',
+  InsufficientBalanceToCoverFee = 'InsufficientBalanceToCoverFee',
+}
+
+export type SendValidationResult = {
+  valid: boolean;
+  errorCode?: SendValidationErrorCode;
+};
