@@ -158,8 +158,7 @@ export async function render(
   }
 
   // Extract scan parameters early (before interface creation)
-  const scanParameters = extractScanParametersFromTransactionData(rawData);
-  context.scanParameters = scanParameters;
+  context.scanParameters = extractScanParametersFromTransactionData(rawData);
 
   // Create initial interface with loading state
   const id = await snapClient.createInterface(
@@ -191,10 +190,10 @@ export async function render(
       const scan = await transactionScanService.scanTransaction({
         accountAddress: account.address,
         parameters: {
-          from: scanParameters?.from ?? undefined,
-          to: scanParameters?.to ?? undefined,
-          data: scanParameters?.data ?? undefined,
-          value: scanParameters?.value ?? undefined,
+          from: context.scanParameters?.from ?? undefined,
+          to: context.scanParameters?.to ?? undefined,
+          data: context.scanParameters?.data ?? undefined,
+          value: context.scanParameters?.value ?? undefined,
         },
         origin,
         scope: scope as Network,
