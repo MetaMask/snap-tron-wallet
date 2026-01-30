@@ -1,7 +1,6 @@
 import type { ResolvedAccountAddress } from '@metamask/keyring-api';
 import { SnapError } from '@metamask/snaps-sdk';
 import type { Json, JsonRpcRequest } from '@metamask/snaps-sdk';
-import { bytesToHex, hexToBytes, sha256 } from '@metamask/utils';
 
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
 import type { Network } from '../../constants';
@@ -20,6 +19,7 @@ import {
 } from '../../validation/structs';
 import { validateRequest, validateResponse } from '../../validation/validators';
 import type { AccountsService } from '../accounts/AccountsService';
+import type { TransactionBuilderService } from '../send/TransactionBuilderService';
 /**
  * Service responsible for handling wallet operations like signing messages and transactions.
  */
@@ -30,18 +30,23 @@ export class WalletService {
 
   readonly #tronWebFactory: TronWebFactory;
 
+  readonly #transactionBuilderService: TransactionBuilderService;
+
   constructor({
     logger,
     accountsService,
     tronWebFactory,
+    transactionBuilderService,
   }: {
     logger: ILogger;
     accountsService: AccountsService;
     tronWebFactory: TronWebFactory;
+    transactionBuilderService: TransactionBuilderService;
   }) {
     this.#logger = createPrefixedLogger(logger, '[💼 WalletService]');
     this.#accountsService = accountsService;
     this.#tronWebFactory = tronWebFactory;
+    this.#transactionBuilderService = transactionBuilderService;
   }
 
   /**
@@ -200,6 +205,10 @@ export class WalletService {
         transaction: { rawDataHex, type },
       } = params;
 
+      // Deserialize the transaction from hex
+      const deserializedTransaction =
+        await this.#transactionBuilderService.fromHex(rawDataHex, type, scope);
+
       // Derive the private key for signing
       const { privateKeyHex } = await this.#accountsService.deriveTronKeypair({
         entropySource: account.entropySource,
@@ -209,23 +218,11 @@ export class WalletService {
       // Create a TronWeb instance for transaction signing
       const tronWeb = this.#tronWebFactory.createClient(scope, privateKeyHex);
 
-      // Rebuild the transaction from hex (same logic as clientRequest handler)
-      const rawData = tronWeb.utils.deserializeTx.deserializeTransaction(
-        type,
-        rawDataHex,
+      // Sign the deserialized transaction
+      const signedTx = await tronWeb.trx.sign(
+        deserializedTransaction,
+        privateKeyHex,
       );
-      const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);
-      const transaction = {
-        visible: false,
-        txID,
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        raw_data: rawData,
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        raw_data_hex: rawDataHex,
-      };
-
-      // Sign the rebuilt transaction
-      const signedTx = await tronWeb.trx.sign(transaction, privateKeyHex);
 
       // Extract the signature from the signed transaction
       // signedTx.signature is an array of hex strings

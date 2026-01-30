@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import type { KeyringRequest } from '@metamask/keyring-api';
 import { bytesToBase64, stringToBytes } from '@metamask/utils';
+import type { Transaction } from 'tronweb/lib/esm/types';
 
 import { render } from './render';
 import type { SnapClient } from '../../../../clients/snap/SnapClient';
@@ -12,7 +14,7 @@ import type { Preferences } from '../../../../types/snap';
 
 // Mock the context module
 jest.mock('../../../../context', () => ({
-  __esModule: true, // eslint-disable-line @typescript-eslint/naming-convention
+  __esModule: true,
   default: {
     snapClient: null,
     transactionScanService: null,
@@ -28,6 +30,30 @@ jest.mock('../../../../context', () => ({
  */
 function toBase64(str: string): string {
   return bytesToBase64(stringToBytes(str));
+}
+
+/**
+ * Creates a mock Transaction object for testing.
+ *
+ * @param rawDataOverrides - Optional overrides for raw_data fields.
+ * @returns A mock Transaction object.
+ */
+function createMockTransaction(
+  rawDataOverrides: Partial<Transaction['raw_data']> = {},
+): Transaction {
+  return {
+    visible: false,
+    txID: 'mock-tx-id-1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+    raw_data: {
+      contract: [],
+      ref_block_bytes: '0000',
+      ref_block_hash: '0000000000000000',
+      expiration: 0,
+      timestamp: 0,
+      ...rawDataOverrides,
+    },
+    raw_data_hex: 'mock-raw-data-hex',
+  };
 }
 
 describe('ConfirmSignTransaction render', () => {
@@ -98,35 +124,32 @@ describe('ConfirmSignTransaction render', () => {
       getSecurityAlertDescription: jest.fn().mockReturnValue('description'),
     } as any;
 
-    const mockState = {
-      setKey: jest.fn().mockResolvedValue(undefined),
-      getKey: jest.fn().mockResolvedValue({}),
-    } as any;
-
     const mockAssetsService = {
       getAssetsByAccountId: jest.fn().mockResolvedValue([
-        { rawAmount: '1000000' }, // bandwidth
-        { rawAmount: '50000' }, // energy
+        { rawAmount: '1000' }, // bandwidth
+        { rawAmount: '500' }, // energy
       ]),
-    } as any;
+    };
 
     const mockFeeCalculatorService = {
       computeFee: jest.fn().mockResolvedValue([]),
-    } as any;
+    };
+
+    const mockPriceApiClient = {
+      getMultipleSpotPrices: jest.fn().mockResolvedValue({}),
+    };
 
     const mockTronWebFactory = {
-      createClient: jest.fn().mockReturnValue({
-        utils: {
-          crypto: {
-            getTransactionID: jest.fn().mockReturnValue('mock-tx-id'),
-          },
-        },
-      }),
-    } as any;
+      createClient: jest.fn(),
+    };
 
-    // Update mocked context with our mocks
-    // eslint-disable-next-line @typescript-eslint/no-require-imports, no-restricted-globals
+    const mockState = {
+      setKey: jest.fn().mockResolvedValue(undefined),
+    };
+
+    // eslint-disable-next-line no-restricted-globals, @typescript-eslint/no-require-imports
     const snapContext = require('../../../../context').default;
+    snapContext.priceApiClient = mockPriceApiClient;
     snapContext.snapClient = mockSnapClient;
     snapContext.transactionScanService = mockTransactionScanService;
     snapContext.state = mockState;
@@ -156,25 +179,24 @@ describe('ConfirmSignTransaction render', () => {
       },
     };
 
-    // Mock raw data with contract information
-    const mockRawData = {
+    // Create mock transaction with contract information
+    const mockTransaction = createMockTransaction({
       contract: [
         {
+          type: 'TransferContract' as any,
           parameter: {
+            type_url: 'type.googleapis.com/protocol.TransferContract',
             value: {
-              // eslint-disable-next-line @typescript-eslint/naming-convention
               owner_address: '41A2155E688B2BAEBDFDACD073BA79F5B22946AACF',
-              // eslint-disable-next-line @typescript-eslint/naming-convention
               to_address: '4132F9C0C487F21716B7A8F12906B752889902655',
-              // eslint-disable-next-line @typescript-eslint/naming-convention
               call_value: 100000,
             },
           },
         },
       ],
-    };
+    });
 
-    await render(request, mockAccount, mockRawData as any);
+    await render(request, mockAccount, mockTransaction);
 
     // Verify createInterface was called
     expect(mockSnapClient.createInterface).toHaveBeenCalledTimes(1);
@@ -218,16 +240,14 @@ describe('ConfirmSignTransaction render', () => {
       },
     };
 
-    const mockRawData = {
-      contract: [],
-    };
+    const mockTransaction = createMockTransaction();
 
     // Set transactionScanService to null for this test
     // eslint-disable-next-line no-restricted-globals, @typescript-eslint/no-require-imports
     const snapContext = require('../../../../context').default;
     snapContext.transactionScanService = null;
 
-    await render(request, mockAccount, mockRawData as any);
+    await render(request, mockAccount, mockTransaction);
 
     // Should still create interface
     expect(mockSnapClient.createInterface).toHaveBeenCalledTimes(1);
@@ -258,11 +278,9 @@ describe('ConfirmSignTransaction render', () => {
       },
     };
 
-    const mockRawData = {
-      contract: [],
-    };
+    const mockTransaction = createMockTransaction();
 
-    await render(request, mockAccount, mockRawData as any);
+    await render(request, mockAccount, mockTransaction);
 
     // Should still render with error state
     expect(mockSnapClient.createInterface).toHaveBeenCalledTimes(1);
@@ -293,11 +311,9 @@ describe('ConfirmSignTransaction render', () => {
       },
     };
 
-    const mockRawData = {
-      contract: [],
-    };
+    const mockTransaction = createMockTransaction();
 
-    await render(request, mockAccount, mockRawData as any);
+    await render(request, mockAccount, mockTransaction);
 
     // Security scan should not be called
     expect(mockTransactionScanService.scanTransaction).not.toHaveBeenCalled();
@@ -325,12 +341,10 @@ describe('ConfirmSignTransaction render', () => {
       },
     };
 
-    const mockRawData = {
-      contract: [],
-    };
+    const mockTransaction = createMockTransaction();
 
     // Should not throw, even with failed preferences
-    expect(await render(request, mockAccount, mockRawData as any)).toBe(true);
+    expect(await render(request, mockAccount, mockTransaction)).toBe(true);
   });
 
   it('handles missing origin gracefully', async () => {
@@ -351,11 +365,9 @@ describe('ConfirmSignTransaction render', () => {
       },
     };
 
-    const mockRawData = {
-      contract: [],
-    };
+    const mockTransaction = createMockTransaction();
 
-    await render(request, mockAccount, mockRawData as any);
+    await render(request, mockAccount, mockTransaction);
 
     // Should still work
     expect(mockSnapClient.createInterface).toHaveBeenCalledTimes(1);
@@ -382,11 +394,9 @@ describe('ConfirmSignTransaction render', () => {
       },
     };
 
-    const mockRawData = {
-      contract: [],
-    };
+    const mockTransaction = createMockTransaction();
 
-    const result = await render(request, mockAccount, mockRawData as any);
+    const result = await render(request, mockAccount, mockTransaction);
 
     expect(result).toBe(expectedResult);
   });

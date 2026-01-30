@@ -11,6 +11,7 @@ import {
 } from '../../handlers/keyring-types';
 import { mockLogger } from '../../utils/mockLogger';
 import type { AccountsService } from '../accounts/AccountsService';
+import type { TransactionBuilderService } from '../send/TransactionBuilderService';
 
 /**
  * Helper function to convert string to base64.
@@ -55,6 +56,7 @@ describe('WalletService', () => {
   let walletService: WalletService;
   let mockAccountsService: jest.Mocked<AccountsService>;
   let mockTronWebFactory: jest.Mocked<TronWebFactory>;
+  let mockTransactionBuilderService: jest.Mocked<TransactionBuilderService>;
   let mockTronWeb: any;
 
   beforeEach(() => {
@@ -81,10 +83,29 @@ describe('WalletService', () => {
       createClient: jest.fn().mockReturnValue(mockTronWeb),
     } as any;
 
+    mockTransactionBuilderService = {
+      fromHex: jest.fn().mockResolvedValue({
+        transaction: {
+          visible: false,
+          txID: 'mock-tx-id',
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          raw_data: { contract: [] },
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          raw_data_hex: 'deadbeef',
+        },
+        txID: 'mock-tx-id',
+        rawDataHex: 'deadbeef',
+        rawData: { contract: [] },
+        contractType: 'TransferContract',
+        ownerAddress: '',
+      }),
+    } as unknown as jest.Mocked<TransactionBuilderService>;
+
     walletService = new WalletService({
       logger: mockLogger,
       accountsService: mockAccountsService,
       tronWebFactory: mockTronWebFactory,
+      transactionBuilderService: mockTransactionBuilderService,
     });
   });
 
@@ -257,7 +278,7 @@ describe('WalletService', () => {
       );
     });
 
-    it('deserializes transaction from hex', async () => {
+    it('uses TransactionBuilderService to deserialize transaction from hex', async () => {
       const params = {
         address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
         transaction: {
@@ -272,17 +293,18 @@ describe('WalletService', () => {
         params,
       });
 
-      expect(
-        mockTronWeb.utils.deserializeTx.deserializeTransaction,
-      ).toHaveBeenCalled();
+      // TransactionBuilderService is now used instead of direct TronWeb calls
+      expect(mockTransactionBuilderService.fromHex).toHaveBeenCalledWith(
+        params.transaction.rawDataHex,
+        params.transaction.type,
+        Network.Mainnet,
+      );
       expect(mockTronWeb.trx.sign).toHaveBeenCalled();
     });
 
-    it('handles transaction format errors', async () => {
-      mockTronWeb.utils.deserializeTx.deserializeTransaction.mockImplementation(
-        () => {
-          throw new Error('Failed to deserialize transaction');
-        },
+    it('handles transaction format errors from TransactionBuilderService', async () => {
+      mockTransactionBuilderService.fromHex.mockRejectedValue(
+        new Error('Failed to deserialize transaction'),
       );
 
       await expect(
@@ -297,7 +319,7 @@ describe('WalletService', () => {
             },
           },
         }),
-      ).rejects.toThrow('Failed to deserialize transaction');
+      ).rejects.toThrow('Invalid transaction format');
     });
 
     it('throws error for invalid params', async () => {

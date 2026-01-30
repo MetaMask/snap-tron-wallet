@@ -6,33 +6,9 @@ import {
   UserRejectedRequestError,
 } from '@metamask/snaps-sdk';
 import { assert } from '@metamask/superstruct';
-import {
-  bytesToHex,
-  hexToBytes,
-  parseCaipAssetType,
-  sha256,
-} from '@metamask/utils';
+import { parseCaipAssetType } from '@metamask/utils';
 import { BigNumber } from 'bignumber.js';
 
-import type { SnapClient } from '../../clients/snap/SnapClient';
-import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
-import { Network, Networks, NULL_ADDRESS, ZERO } from '../../constants';
-import type { AccountsService } from '../../services/accounts/AccountsService';
-import type { AssetsService } from '../../services/assets/AssetsService';
-import type {
-  NativeCaipAssetType,
-  StakedCaipAssetType,
-} from '../../services/assets/types';
-import type { ConfirmationHandler } from '../../services/confirmation/ConfirmationHandler';
-import type { FeeCalculatorService } from '../../services/send/FeeCalculatorService';
-import type { SendService } from '../../services/send/SendService';
-import type { StakingService } from '../../services/staking/StakingService';
-import { TransactionMapper } from '../../services/transactions/TransactionsMapper';
-import type { TransactionsService } from '../../services/transactions/TransactionsService';
-import { assertOrThrow } from '../../utils/assertOrThrow';
-import type { ILogger } from '../../utils/logger';
-import { createPrefixedLogger } from '../../utils/logger';
-import { BackgroundEventMethod } from '../cronjob';
 import { ClientRequestMethod, SendErrorCodes } from './types';
 import {
   ComputeFeeRequestStruct,
@@ -49,6 +25,26 @@ import {
   SignAndSendTransactionRequestStruct,
   SignRewardsMessageRequestStruct,
 } from './validation';
+import type { SnapClient } from '../../clients/snap/SnapClient';
+import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
+import { Network, Networks, NULL_ADDRESS, ZERO } from '../../constants';
+import type { AccountsService } from '../../services/accounts/AccountsService';
+import type { AssetsService } from '../../services/assets/AssetsService';
+import type {
+  NativeCaipAssetType,
+  StakedCaipAssetType,
+} from '../../services/assets/types';
+import type { ConfirmationHandler } from '../../services/confirmation/ConfirmationHandler';
+import type { FeeCalculatorService } from '../../services/send/FeeCalculatorService';
+import type { SendService } from '../../services/send/SendService';
+import type { TransactionBuilderService } from '../../services/send/TransactionBuilderService';
+import type { StakingService } from '../../services/staking/StakingService';
+import type { TransactionHistoryService } from '../../services/transactions/TransactionHistoryService';
+import { TransactionMapper } from '../../services/transactions/TransactionsMapper';
+import { assertOrThrow } from '../../utils/assertOrThrow';
+import type { ILogger } from '../../utils/logger';
+import { createPrefixedLogger } from '../../utils/logger';
+import { BackgroundEventMethod } from '../cronjob';
 
 export class ClientRequestHandler {
   readonly #logger: ILogger;
@@ -63,13 +59,15 @@ export class ClientRequestHandler {
 
   readonly #feeCalculatorService: FeeCalculatorService;
 
+  readonly #transactionBuilderService: TransactionBuilderService;
+
   readonly #snapClient: SnapClient;
 
   readonly #stakingService: StakingService;
 
   readonly #confirmationHandler: ConfirmationHandler;
 
-  readonly #transactionsService: TransactionsService;
+  readonly #transactionHistoryService: TransactionHistoryService;
 
   constructor({
     logger,
@@ -77,33 +75,36 @@ export class ClientRequestHandler {
     assetsService,
     sendService,
     feeCalculatorService,
+    transactionBuilderService,
     tronWebFactory,
     snapClient,
     stakingService,
     confirmationHandler,
-    transactionsService,
+    transactionHistoryService,
   }: {
     logger: ILogger;
     accountsService: AccountsService;
     assetsService: AssetsService;
     sendService: SendService;
     feeCalculatorService: FeeCalculatorService;
+    transactionBuilderService: TransactionBuilderService;
     tronWebFactory: TronWebFactory;
     snapClient: SnapClient;
     stakingService: StakingService;
     confirmationHandler: ConfirmationHandler;
-    transactionsService: TransactionsService;
+    transactionHistoryService: TransactionHistoryService;
   }) {
     this.#logger = createPrefixedLogger(logger, '[👋 ClientRequestHandler]');
     this.#accountsService = accountsService;
     this.#assetsService = assetsService;
     this.#sendService = sendService;
     this.#feeCalculatorService = feeCalculatorService;
+    this.#transactionBuilderService = transactionBuilderService;
     this.#tronWebFactory = tronWebFactory;
     this.#snapClient = snapClient;
     this.#stakingService = stakingService;
     this.#confirmationHandler = confirmationHandler;
-    this.#transactionsService = transactionsService;
+    this.#transactionHistoryService = transactionHistoryService;
   }
 
   /**
@@ -199,34 +200,21 @@ export class ClientRequestHandler {
 
     const account = await this.#accountsService.findByIdOrThrow(accountId);
 
+    // Deserialize the transaction from base64
+    const deserializedTransaction =
+      await this.#transactionBuilderService.fromBase64(
+        transactionBase64,
+        type,
+        scope,
+      );
+
     const { privateKeyHex } = await this.#accountsService.deriveTronKeypair({
       entropySource: account.entropySource,
       derivationPath: account.derivationPath,
     });
     const tronWeb = this.#tronWebFactory.createClient(scope, privateKeyHex);
 
-    /**
-     * We need to rebuild the transaction due to some extra fields
-     */
-    // eslint-disable-next-line no-restricted-globals
-    const rawDataHex = Buffer.from(transactionBase64, 'base64').toString('hex');
-    const rawData = tronWeb.utils.deserializeTx.deserializeTransaction(
-      type,
-      rawDataHex,
-    );
-    const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);
-    const transaction = {
-      /**
-       * Deserialized transaction always hexadecimal addresses
-       */
-      visible: false,
-      txID,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      raw_data: rawData,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      raw_data_hex: rawDataHex,
-    };
-    const signedTx = await tronWeb.trx.sign(transaction);
+    const signedTx = await tronWeb.trx.sign(deserializedTransaction);
     const result = await tronWeb.trx.sendRawTransaction(signedTx);
 
     if (!result.result) {
@@ -241,7 +229,7 @@ export class ClientRequestHandler {
       scope,
     });
 
-    await this.#transactionsService.save(pendingTransaction);
+    await this.#transactionHistoryService.save(pendingTransaction);
 
     /**
      * Track transaction after a transaction
@@ -345,42 +333,31 @@ export class ClientRequestHandler {
       }
 
       /**
-       * For smart contract transactions (TRC20), we need to:
-       * 1. Build a draft transaction first to estimate fees accurately
-       * 2. Compute the recommended fee_limit from that transaction
-       * 3. Rebuild with the correct fee_limit
+       * Build a transaction to estimate fees. For TRC20, we also compute the
+       * recommended feeLimit and pass it to computeFee for accurate estimation.
        */
-      let sendTransaction = await this.#sendService.buildTransaction({
+      const sendTransaction = await this.#sendService.buildTransaction({
         fromAccountId: accountId,
         toAddress: NULL_ADDRESS,
         asset,
         amount: valueBN.toNumber(),
       });
 
-      // For smart contract transactions, compute and apply the proper fee_limit
-      if (assetNamespace === 'trc20') {
-        const feeLimit =
-          await this.#feeCalculatorService.computeFeeLimitFromTransaction({
-            scope,
-            transaction: sendTransaction,
-          });
+      // For TRC20, compute the recommended feeLimit for accurate fee estimation
+      const feeLimit =
+        assetNamespace === 'trc20'
+          ? await this.#feeCalculatorService.computeFeeLimitFromTransaction({
+              scope,
+              transaction: sendTransaction,
+            })
+          : undefined;
 
-        // Rebuild transaction with the computed fee_limit
-        if (feeLimit !== undefined) {
-          sendTransaction = await this.#sendService.buildTransaction({
-            fromAccountId: accountId,
-            toAddress: NULL_ADDRESS,
-            asset,
-            amount: valueBN.toNumber(),
-            feeLimit,
-          });
-        }
-      }
       const fees = await this.#feeCalculatorService.computeFee({
         scope,
         transaction: sendTransaction,
         availableEnergy: energyBalance,
         availableBandwidth: bandwidthBalance,
+        feeLimit,
       });
 
       /**
@@ -472,10 +449,8 @@ export class ClientRequestHandler {
       ]);
 
     /**
-     * For smart contract transactions (TRC20), we need to:
-     * 1. Build a draft transaction first to estimate fees accurately
-     * 2. Compute the recommended fee_limit from that transaction
-     * 3. Rebuild with the correct fee_limit
+     * Build the transaction. For TRC20, we compute the recommended feeLimit
+     * and rebuild with it since this transaction will actually be sent.
      */
     let transaction = await this.#sendService.buildTransaction({
       fromAccountId,
@@ -484,15 +459,15 @@ export class ClientRequestHandler {
       amount: amountBN.toNumber(),
     });
 
-    // For smart contract transactions, compute and apply the proper fee_limit
+    // For TRC20, compute feeLimit and rebuild since this tx will be sent
+    let feeLimit: number | undefined;
     if (assetNamespace === 'trc20') {
-      const feeLimit =
+      feeLimit =
         await this.#feeCalculatorService.computeFeeLimitFromTransaction({
           scope,
           transaction,
         });
 
-      // Rebuild transaction with the computed fee_limit
       if (feeLimit !== undefined) {
         transaction = await this.#sendService.buildTransaction({
           fromAccountId,
@@ -516,6 +491,7 @@ export class ClientRequestHandler {
       transaction,
       availableEnergy,
       availableBandwidth,
+      feeLimit,
     });
 
     /**
@@ -560,7 +536,7 @@ export class ClientRequestHandler {
       assetSymbol: asset.symbol,
     });
 
-    await this.#transactionsService.save(pendingTransaction);
+    await this.#transactionHistoryService.save(pendingTransaction);
 
     this.#logger.log(
       `Created pending Send transaction ${result.txid} for account ${account.id}`,
@@ -588,7 +564,7 @@ export class ClientRequestHandler {
         scope,
         transaction: transactionBase64,
         accountId,
-        options: { type, feeLimit },
+        options: { type, feeLimit: requestFeeLimit },
       },
     } = request;
 
@@ -598,23 +574,13 @@ export class ClientRequestHandler {
      */
     await this.#accountsService.findByIdOrThrow(accountId);
 
-    const tronWeb = this.#tronWebFactory.createClient(scope);
-
-    // eslint-disable-next-line no-restricted-globals
-    const rawDataHex = Buffer.from(transactionBase64, 'base64').toString('hex');
-    const rawData = tronWeb.utils.deserializeTx.deserializeTransaction(
-      type,
-      rawDataHex,
-    );
-    const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);
-    const transaction = {
-      visible: false,
-      txID,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      raw_data: rawData,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      raw_data_hex: rawDataHex,
-    };
+    // Deserialize the transaction from base64
+    const deserializedTransaction =
+      await this.#transactionBuilderService.fromBase64(
+        transactionBase64,
+        type,
+        scope,
+      );
 
     /**
      * Get available Energy and Bandwidth from account assets.
@@ -635,13 +601,16 @@ export class ClientRequestHandler {
     /**
      * Calculate complete fee breakdown using the service.
      * Uses constant overhead (134 bytes) for unsigned transactions.
+     * feeLimit from the request takes precedence, otherwise use the one from the transaction.
      */
     const result = await this.#feeCalculatorService.computeFee({
       scope,
-      transaction,
+      transaction: deserializedTransaction,
       availableEnergy,
       availableBandwidth,
-      feeLimit,
+      feeLimit:
+        requestFeeLimit ??
+        (deserializedTransaction.raw_data.fee_limit as number | undefined),
     });
 
     assert(result, ComputeFeeResponseStruct);

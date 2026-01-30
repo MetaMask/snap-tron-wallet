@@ -1,7 +1,6 @@
 import { assert } from '@metamask/superstruct';
 
 import type { SnapClient } from '../../clients/snap/SnapClient';
-import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
 import type { Network } from '../../constants';
 import type { TronKeyringAccount } from '../../entities';
 import type { AssetEntity } from '../../entities/assets';
@@ -16,6 +15,7 @@ import {
   SignTransactionRequestStruct,
   type TronWalletKeyringRequest,
 } from '../../validation/structs';
+import type { TransactionBuilderService } from '../send/TransactionBuilderService';
 import type { ComputeFeeResult } from '../send/types';
 import type { State, UnencryptedStateValue } from '../state/State';
 
@@ -26,21 +26,21 @@ export class ConfirmationHandler {
 
   readonly #state: State<UnencryptedStateValue>;
 
-  readonly #tronWebFactory: TronWebFactory;
+  readonly #transactionBuilderService: TransactionBuilderService;
 
   constructor({
     snapClient,
     state,
-    tronWebFactory,
+    transactionBuilderService,
   }: {
     snapClient: SnapClient;
     state: State<UnencryptedStateValue>;
-    tronWebFactory: TronWebFactory;
+    transactionBuilderService: TransactionBuilderService;
   }) {
     this.#logger = createPrefixedLogger(logger, '[🔑 ConfirmationHandler]');
     this.#snapClient = snapClient;
     this.#state = state;
-    this.#tronWebFactory = tronWebFactory;
+    this.#transactionBuilderService = transactionBuilderService;
   }
 
   async handleKeyringRequest({
@@ -96,19 +96,14 @@ export class ConfirmationHandler {
       },
     } = request;
 
-    // Create a TronWeb instance for transaction deserialization
-    const tronWeb = this.#tronWebFactory.createClient(scope);
-
-    // Rebuild the transaction from hex (same logic as clientRequest handler)
-    const rawData = tronWeb.utils.deserializeTx.deserializeTransaction(
-      type,
-      rawDataHex,
-    );
+    // Deserialize the transaction from hex
+    const deserializedTransaction =
+      await this.#transactionBuilderService.fromHex(rawDataHex, type, scope);
 
     const result = await renderConfirmSignTransaction(
       request,
       account,
-      rawData,
+      deserializedTransaction,
     );
     return result === true;
   }
