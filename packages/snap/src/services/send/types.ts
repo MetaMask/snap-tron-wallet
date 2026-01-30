@@ -1,5 +1,6 @@
 import type { FeeType } from '@metamask/keyring-api';
 
+import type { SendErrorCodes } from '../../handlers/clientRequest/types';
 import type {
   NativeCaipAssetType,
   ResourceCaipAssetType,
@@ -24,10 +25,9 @@ export type ComputeFeeResult = {
   asset: FeeAsset;
 }[];
 
-export enum SendValidationErrorCode {
-  InsufficientBalance = 'InsufficientBalance',
-  InsufficientBalanceToCoverFee = 'InsufficientBalanceToCoverFee',
-}
+export type SendValidationErrorCode =
+  | SendErrorCodes.InsufficientBalance
+  | SendErrorCodes.InsufficientBalanceToCoverFee;
 
 export type SendValidationResult = {
   valid: boolean;

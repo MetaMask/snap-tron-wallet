@@ -10,12 +10,13 @@ import type {
 } from 'tronweb/lib/esm/types';
 
 import type { FeeCalculatorService } from './FeeCalculatorService';
-import { SendValidationErrorCode, type SendValidationResult } from './types';
+import type { SendValidationResult } from './types';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
 import type { Network } from '../../constants';
 import { Networks, ZERO } from '../../constants';
 import type { AssetEntity } from '../../entities/assets';
+import { SendErrorCodes } from '../../handlers/clientRequest/types';
 import { BackgroundEventMethod } from '../../handlers/cronjob';
 import { createPrefixedLogger, type ILogger } from '../../utils/logger';
 import type { AccountsService } from '../accounts/AccountsService';
@@ -128,7 +129,7 @@ export class SendService {
       });
       return {
         valid: false,
-        errorCode: SendValidationErrorCode.InsufficientBalance,
+        errorCode: SendErrorCodes.InsufficientBalance,
       };
     }
 
@@ -190,7 +191,7 @@ export class SendService {
       });
       return {
         valid: false,
-        errorCode: SendValidationErrorCode.InsufficientBalanceToCoverFee,
+        errorCode: SendErrorCodes.InsufficientBalanceToCoverFee,
       };
     }
 

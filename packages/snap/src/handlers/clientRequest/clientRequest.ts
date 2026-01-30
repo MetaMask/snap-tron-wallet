@@ -26,7 +26,6 @@ import type {
 import type { ConfirmationHandler } from '../../services/confirmation/ConfirmationHandler';
 import type { FeeCalculatorService } from '../../services/send/FeeCalculatorService';
 import type { SendService } from '../../services/send/SendService';
-import { SendValidationErrorCode } from '../../services/send/types';
 import type { StakingService } from '../../services/staking/StakingService';
 import { TransactionMapper } from '../../services/transactions/TransactionsMapper';
 import type { TransactionsService } from '../../services/transactions/TransactionsService';
@@ -454,15 +453,11 @@ export class ClientRequestHandler {
     });
 
     if (!validation.valid) {
-      const errorCode =
-        validation.errorCode ===
-        SendValidationErrorCode.InsufficientBalanceToCoverFee
-          ? SendErrorCodes.InsufficientBalanceToCoverFee
-          : SendErrorCodes.InsufficientBalance;
-
       return {
         valid: false,
-        errors: [{ code: errorCode }],
+        errors: [
+          { code: validation.errorCode ?? SendErrorCodes.InsufficientBalance },
+        ],
       };
     }
 

@@ -3,9 +3,9 @@ import { FeeType } from '@metamask/keyring-api';
 import { BigNumber } from 'bignumber.js';
 
 import { SendService } from './SendService';
-import { SendValidationErrorCode } from './types';
 import { Network, Networks } from '../../constants';
 import type { AssetEntity } from '../../entities/assets';
+import { SendErrorCodes } from '../../handlers/clientRequest/types';
 import { mockLogger } from '../../utils/mockLogger';
 
 describe('SendService', () => {
@@ -188,7 +188,7 @@ describe('SendService', () => {
 
         expect(result).toStrictEqual({
           valid: false,
-          errorCode: SendValidationErrorCode.InsufficientBalance,
+          errorCode: SendErrorCodes.InsufficientBalance,
         });
         // Should not call feeCalculatorService since we fail early
         expect(mockFeeCalculatorService.computeFee).not.toHaveBeenCalled();
@@ -230,7 +230,7 @@ describe('SendService', () => {
 
         expect(result).toStrictEqual({
           valid: false,
-          errorCode: SendValidationErrorCode.InsufficientBalanceToCoverFee,
+          errorCode: SendErrorCodes.InsufficientBalanceToCoverFee,
         });
       });
 
@@ -349,7 +349,7 @@ describe('SendService', () => {
 
         expect(result).toStrictEqual({
           valid: false,
-          errorCode: SendValidationErrorCode.InsufficientBalance,
+          errorCode: SendErrorCodes.InsufficientBalance,
         });
         expect(mockFeeCalculatorService.computeFee).not.toHaveBeenCalled();
       });
@@ -389,7 +389,7 @@ describe('SendService', () => {
 
         expect(result).toStrictEqual({
           valid: false,
-          errorCode: SendValidationErrorCode.InsufficientBalanceToCoverFee,
+          errorCode: SendErrorCodes.InsufficientBalanceToCoverFee,
         });
       });
 
@@ -454,7 +454,7 @@ describe('SendService', () => {
         // Should fail because user has 0 balance
         expect(result).toStrictEqual({
           valid: false,
-          errorCode: SendValidationErrorCode.InsufficientBalance,
+          errorCode: SendErrorCodes.InsufficientBalance,
         });
       });
 
@@ -637,7 +637,7 @@ describe('SendService', () => {
         // Total needed: 1.5 (amount) + 1 (activation) = 2.5 TRX, user only has 2
         expect(result).toStrictEqual({
           valid: false,
-          errorCode: SendValidationErrorCode.InsufficientBalanceToCoverFee,
+          errorCode: SendErrorCodes.InsufficientBalanceToCoverFee,
         });
       });
     });
