@@ -945,7 +945,7 @@ export class TransactionMapper {
     // This happens when there's a TRC20 transfer and TRX movement in internal_transactions
     // Note: TronGrid's /v1/accounts/{address}/transactions endpoint often returns
     // internal_transactions as empty array. Full transaction details with internal_transactions
-    // are fetched by TransactionsService.#enrichPotentialSwaps() if needed.
+    // are fetched by TransactionHistoryService.#enrichPotentialSwaps() if needed.
     const hasTrxMovement = this.#hasTrxMovementInTransaction(
       trongridTransaction,
       account.address,

@@ -9,6 +9,7 @@ import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient
 import type { Network } from '../../constants';
 import {
   ACCOUNT_ACTIVATION_FEE_TRX,
+  FEE_LIMIT_SAFETY_MULTIPLIER,
   Networks,
   SUN_IN_TRX,
   ZERO,
@@ -617,5 +618,93 @@ export class FeeCalculatorService {
     }
 
     return result;
+  }
+
+  /**
+   * Compute the recommended fee_limit for a smart contract transaction.
+   *
+   * This method uses the existing fee estimation logic (bandwidth + energy)
+   * to calculate an appropriate fee_limit. The fee_limit is set to cover
+   * the worst-case scenario where the user has no free bandwidth or energy.
+   *
+   * The calculation:
+   * - Bandwidth: calculated from actual transaction size
+   * - Energy: estimated from contract simulation
+   * - Total = (bandwidth * bandwidth_price + energy * energy_price) * safety_margin
+   *
+   * If estimation fails, returns undefined to let TronWeb use its internal default.
+   *
+   * @param params - The parameters for fee limit computation
+   * @param params.scope - The network scope
+   * @param params.transaction - The transaction to compute fee_limit for
+   * @returns Promise<number | undefined> - The recommended fee_limit in SUN, or undefined if estimation fails
+   */
+  async computeFeeLimitFromTransaction({
+    scope,
+    transaction,
+  }: {
+    scope: Network;
+    transaction: Transaction;
+  }): Promise<number | undefined> {
+    try {
+      this.#logger.log('Computing fee limit from transaction');
+
+      // Use existing methods to calculate bandwidth and energy
+      const bandwidthNeeded = this.#calculateBandwidth(transaction);
+      const energyNeeded = await this.#calculateEnergy(scope, transaction);
+
+      // If no energy needed (not a smart contract), no fee_limit needed
+      if (energyNeeded.isZero()) {
+        this.#logger.log(
+          'Transaction does not require energy, no fee_limit needed',
+        );
+        return undefined;
+      }
+
+      // Get chain parameters for pricing
+      const chainParameters =
+        await this.#trongridApiClient.getChainParameters(scope);
+
+      const energyPrice =
+        chainParameters.find((param) => param.key === 'getEnergyFee')?.value ??
+        420; // Fallback to 420 SUN per energy unit
+
+      const bandwidthPrice =
+        chainParameters.find((param) => param.key === 'getTransactionFee')
+          ?.value ?? 1000; // Fallback to 1000 SUN per bandwidth unit
+
+      // Calculate costs in SUN (worst case: pay TRX for all resources)
+      const energyCostSun = energyNeeded.multipliedBy(energyPrice);
+      const bandwidthCostSun = bandwidthNeeded.multipliedBy(bandwidthPrice);
+
+      // Total fee_limit = (energy + bandwidth) * safety margin
+      const totalCostSun = energyCostSun.plus(bandwidthCostSun);
+      const feeLimit = Math.ceil(
+        totalCostSun.multipliedBy(FEE_LIMIT_SAFETY_MULTIPLIER).toNumber(),
+      );
+
+      this.#logger.log(
+        {
+          bandwidthNeeded: bandwidthNeeded.toString(),
+          energyNeeded: energyNeeded.toString(),
+          energyPrice,
+          bandwidthPrice,
+          energyCostSun: energyCostSun.toString(),
+          bandwidthCostSun: bandwidthCostSun.toString(),
+          totalCostSun: totalCostSun.toString(),
+          safetyMultiplier: FEE_LIMIT_SAFETY_MULTIPLIER,
+          feeLimit,
+        },
+        'Computed fee limit from transaction',
+      );
+
+      return feeLimit;
+    } catch (error) {
+      this.#logger.error(
+        { error },
+        'Failed to compute fee limit, letting TronWeb use default',
+      );
+      return undefined;
+    }
   }
 }

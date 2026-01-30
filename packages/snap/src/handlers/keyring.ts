@@ -36,7 +36,7 @@ import type { AccountsService } from '../services/accounts/AccountsService';
 import type { CreateAccountOptions } from '../services/accounts/types';
 import type { AssetsService } from '../services/assets/AssetsService';
 import type { ConfirmationHandler } from '../services/confirmation/ConfirmationHandler';
-import type { TransactionsService } from '../services/transactions/TransactionsService';
+import type { TransactionHistoryService } from '../services/transactions/TransactionHistoryService';
 import type { WalletService } from '../services/wallet/WalletService';
 import { withCatchAndThrowSnapError } from '../utils/errors';
 import { createPrefixedLogger, type ILogger } from '../utils/logger';
@@ -67,7 +67,7 @@ export class KeyringHandler implements Keyring {
 
   readonly #assetsService: AssetsService;
 
-  readonly #transactionsService: TransactionsService;
+  readonly #transactionHistoryService: TransactionHistoryService;
 
   readonly #walletService: WalletService;
 
@@ -78,7 +78,7 @@ export class KeyringHandler implements Keyring {
     snapClient,
     accountsService,
     assetsService,
-    transactionsService,
+    transactionHistoryService,
     walletService,
     confirmationHandler,
   }: {
@@ -86,7 +86,7 @@ export class KeyringHandler implements Keyring {
     snapClient: SnapClient;
     accountsService: AccountsService;
     assetsService: AssetsService;
-    transactionsService: TransactionsService;
+    transactionHistoryService: TransactionHistoryService;
     walletService: WalletService;
     confirmationHandler: ConfirmationHandler;
   }) {
@@ -94,7 +94,7 @@ export class KeyringHandler implements Keyring {
     this.#snapClient = snapClient;
     this.#accountsService = accountsService;
     this.#assetsService = assetsService;
-    this.#transactionsService = transactionsService;
+    this.#transactionHistoryService = transactionHistoryService;
     this.#walletService = walletService;
     this.#confirmationHandler = confirmationHandler;
   }
@@ -230,9 +230,9 @@ export class KeyringHandler implements Keyring {
         throw new Error('Account not found');
       }
 
-      const transactions = await this.#transactionsService.findByAccounts([
-        keyringAccount,
-      ]);
+      const transactions = await this.#transactionHistoryService.findByAccounts(
+        [keyringAccount],
+      );
 
       // Find the starting index based on the 'next' signature
       const startIndex = next
@@ -281,7 +281,7 @@ export class KeyringHandler implements Keyring {
 
       for (const scope of scopes) {
         activityChecksPromises.push(
-          this.#transactionsService.fetchNewTransactionsForAccount(
+          this.#transactionHistoryService.fetchNewTransactionsForAccount(
             scope as Network,
             account,
           ),

@@ -11,8 +11,9 @@ import type { AssetsService } from '../../services/assets/AssetsService';
 import type { ConfirmationHandler } from '../../services/confirmation/ConfirmationHandler';
 import type { FeeCalculatorService } from '../../services/send/FeeCalculatorService';
 import type { SendService } from '../../services/send/SendService';
+import type { TransactionBuilderService } from '../../services/send/TransactionBuilderService';
 import type { StakingService } from '../../services/staking/StakingService';
-import type { TransactionsService } from '../../services/transactions/TransactionsService';
+import type { TransactionHistoryService } from '../../services/transactions/TransactionHistoryService';
 import { mockLogger } from '../../utils/mockLogger';
 
 describe('ClientRequestHandler', () => {
@@ -27,7 +28,8 @@ describe('ClientRequestHandler', () => {
     let mockStakingService: jest.Mocked<StakingService>;
     let mockConfirmationHandler: jest.Mocked<ConfirmationHandler>;
     let mockTronWeb: any;
-    let mockTransactionsService: jest.Mocked<TransactionsService>;
+    let mockTransactionHistoryService: jest.Mocked<TransactionHistoryService>;
+    let mockTransactionBuilderService: jest.Mocked<TransactionBuilderService>;
 
     const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
     const TEST_TRANSACTION_BASE64 =
@@ -68,20 +70,39 @@ describe('ClientRequestHandler', () => {
       mockStakingService = {} as unknown as jest.Mocked<StakingService>;
       mockConfirmationHandler =
         {} as unknown as jest.Mocked<ConfirmationHandler>;
-      mockTransactionsService = {
+      mockTransactionHistoryService = {
         save: jest.fn(),
-      } as unknown as jest.Mocked<TransactionsService>;
+      } as unknown as jest.Mocked<TransactionHistoryService>;
+      /* eslint-disable @typescript-eslint/naming-convention */
+      mockTransactionBuilderService = {
+        fromBase64: jest.fn().mockResolvedValue({
+          visible: false,
+          txID: 'mock-tx-id',
+          raw_data: {
+            contract: [],
+            ref_block_bytes: '0000',
+            ref_block_hash: '0000000000000000',
+            expiration: 0,
+            timestamp: 0,
+            fee_limit: 150000000,
+          },
+          raw_data_hex: 'mock-raw-data-hex',
+        }),
+        fromHex: jest.fn(),
+      } as unknown as jest.Mocked<TransactionBuilderService>;
+      /* eslint-enable @typescript-eslint/naming-convention */
       clientRequestHandler = new ClientRequestHandler({
         logger: mockLogger,
         accountsService: mockAccountsService,
         assetsService: mockAssetsService,
         sendService: mockSendService,
         feeCalculatorService: mockFeeCalculatorService,
+        transactionBuilderService: mockTransactionBuilderService,
         tronWebFactory: mockTronWebFactory,
         snapClient: mockSnapClient,
         stakingService: mockStakingService,
         confirmationHandler: mockConfirmationHandler,
-        transactionsService: mockTransactionsService,
+        transactionHistoryService: mockTransactionHistoryService,
       });
     });
 
@@ -200,30 +221,28 @@ describe('ClientRequestHandler', () => {
         );
         // deriveTronKeypair is NOT called - no private key needed for fee computation
         expect(mockAccountsService.deriveTronKeypair).not.toHaveBeenCalled();
-        expect(mockTronWebFactory.createClient).toHaveBeenCalledWith(scope);
-        expect(
-          mockTronWeb.utils.deserializeTx.deserializeTransaction,
-        ).toHaveBeenCalledWith('TriggerSmartContract', expect.any(String));
+        // TransactionBuilderService is now used instead of direct TronWeb calls
+        expect(mockTransactionBuilderService.fromBase64).toHaveBeenCalledWith(
+          TEST_TRANSACTION_BASE64,
+          'TriggerSmartContract',
+          scope,
+        );
         // trx.sign is NOT called - fee computation uses unsigned transactions
         expect(mockTronWeb.trx.sign).not.toHaveBeenCalled();
         expect(mockAssetsService.getAssetsByAccountId).toHaveBeenCalledWith(
           TEST_ACCOUNT_ID,
           [Networks[scope].bandwidth.id, Networks[scope].energy.id],
         );
-        // computeFee receives unsigned transaction (no signature field)
+        // computeFee receives the transaction from TransactionBuilderService
         expect(mockFeeCalculatorService.computeFee).toHaveBeenCalledWith({
           scope,
           transaction: expect.objectContaining({
             txID: expect.any(String),
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            raw_data: expect.any(Object),
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            raw_data_hex: expect.any(String),
             visible: false,
           }),
           availableEnergy: BigNumber('100000'),
           availableBandwidth: BigNumber('5000'),
-          feeLimit: undefined,
+          feeLimit: 150000000, // from mock transaction's raw_data.fee_limit
         });
         expect(result).toStrictEqual(feeResult);
       });
@@ -333,7 +352,7 @@ describe('ClientRequestHandler', () => {
           }),
           availableEnergy: BigNumber('0'),
           availableBandwidth: BigNumber('1000'),
-          feeLimit: undefined,
+          feeLimit: 150000000, // from mock transaction's raw_data.fee_limit
         });
       });
 
@@ -405,6 +424,7 @@ describe('ClientRequestHandler', () => {
           transaction: expect.any(Object),
           availableEnergy: BigNumber('0'),
           availableBandwidth: BigNumber('0'),
+          feeLimit: 150000000, // from mock transaction's raw_data.fee_limit
         });
       });
     });
@@ -489,7 +509,8 @@ describe('ClientRequestHandler', () => {
     let mockStakingService: jest.Mocked<StakingService>;
     let mockConfirmationHandler: jest.Mocked<ConfirmationHandler>;
     let mockTronWeb: any;
-    let mockTransactionsService: jest.Mocked<TransactionsService>;
+    let mockTransactionHistoryService: jest.Mocked<TransactionHistoryService>;
+    let mockTransactionBuilderService: jest.Mocked<TransactionBuilderService>;
 
     const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
     const TEST_ADDRESS = 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx';
@@ -531,8 +552,10 @@ describe('ClientRequestHandler', () => {
       mockStakingService = {} as unknown as jest.Mocked<StakingService>;
       mockConfirmationHandler =
         {} as unknown as jest.Mocked<ConfirmationHandler>;
-      mockTransactionsService =
-        {} as unknown as jest.Mocked<TransactionsService>;
+      mockTransactionHistoryService =
+        {} as unknown as jest.Mocked<TransactionHistoryService>;
+      mockTransactionBuilderService =
+        {} as unknown as jest.Mocked<TransactionBuilderService>;
 
       clientRequestHandler = new ClientRequestHandler({
         logger: mockLogger,
@@ -540,11 +563,12 @@ describe('ClientRequestHandler', () => {
         assetsService: mockAssetsService,
         sendService: mockSendService,
         feeCalculatorService: mockFeeCalculatorService,
+        transactionBuilderService: mockTransactionBuilderService,
         tronWebFactory: mockTronWebFactory,
         snapClient: mockSnapClient,
         stakingService: mockStakingService,
         confirmationHandler: mockConfirmationHandler,
-        transactionsService: mockTransactionsService,
+        transactionHistoryService: mockTransactionHistoryService,
       });
     });
 
@@ -725,7 +749,8 @@ describe('ClientRequestHandler - computeStakeFee', () => {
   let mockSnapClient: jest.Mocked<SnapClient>;
   let mockStakingService: jest.Mocked<StakingService>;
   let mockConfirmationHandler: jest.Mocked<ConfirmationHandler>;
-  let mockTransactionsService: jest.Mocked<TransactionsService>;
+  let mockTransactionHistoryService: jest.Mocked<TransactionHistoryService>;
+  let mockTransactionBuilderService: jest.Mocked<TransactionBuilderService>;
   let mockTronWeb: any;
 
   const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
@@ -763,20 +788,23 @@ describe('ClientRequestHandler - computeStakeFee', () => {
     mockSnapClient = {} as unknown as jest.Mocked<SnapClient>;
     mockStakingService = {} as unknown as jest.Mocked<StakingService>;
     mockConfirmationHandler = {} as unknown as jest.Mocked<ConfirmationHandler>;
-    mockTransactionsService = {
+    mockTransactionHistoryService = {
       save: jest.fn(),
-    } as unknown as jest.Mocked<TransactionsService>;
+    } as unknown as jest.Mocked<TransactionHistoryService>;
+    mockTransactionBuilderService =
+      {} as unknown as jest.Mocked<TransactionBuilderService>;
     clientRequestHandler = new ClientRequestHandler({
       logger: mockLogger,
       accountsService: mockAccountsService,
       assetsService: mockAssetsService,
       sendService: mockSendService,
       feeCalculatorService: mockFeeCalculatorService,
+      transactionBuilderService: mockTransactionBuilderService,
       tronWebFactory: mockTronWebFactory,
       snapClient: mockSnapClient,
       stakingService: mockStakingService,
       confirmationHandler: mockConfirmationHandler,
-      transactionsService: mockTransactionsService,
+      transactionHistoryService: mockTransactionHistoryService,
     });
   });
 

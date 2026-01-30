@@ -13,14 +13,14 @@ import contractInfoMock from './mocks/contract-info.json';
 import nativeTransferMock from './mocks/native-transfer.json';
 import trc10TransferMock from './mocks/trc10-transfer.json';
 import trc20TransferMock from './mocks/trc20-transfer.json';
+import { TransactionHistoryService } from './TransactionHistoryService';
 import type { TransactionsRepository } from './TransactionsRepository';
-import { TransactionsService } from './TransactionsService';
 import type { ILogger } from '../../utils/logger';
 
 // Import simplified mock data (each file now contains only one transaction)
 
-describe('TransactionsService', () => {
-  let transactionsService: TransactionsService;
+describe('TransactionHistoryService', () => {
+  let transactionHistoryService: TransactionHistoryService;
   let mockLogger: jest.Mocked<ILogger>;
   let mockTransactionsRepository: jest.Mocked<TransactionsRepository>;
   let mockTrongridApiClient: jest.Mocked<TrongridApiClient>;
@@ -89,7 +89,7 @@ describe('TransactionsService', () => {
     } as unknown as jest.Mocked<TronHttpClient>;
 
     // Create service instance
-    transactionsService = new TransactionsService({
+    transactionHistoryService = new TransactionHistoryService({
       logger: mockLogger,
       transactionsRepository: mockTransactionsRepository,
       trongridApiClient: mockTrongridApiClient,
@@ -107,7 +107,7 @@ describe('TransactionsService', () => {
         contractInfoMock.data as ContractTransactionInfo[],
       );
 
-      await transactionsService.fetchNewTransactionsForAccount(
+      await transactionHistoryService.fetchNewTransactionsForAccount(
         Network.Mainnet,
         mockAccount,
       );
@@ -122,7 +122,7 @@ describe('TransactionsService', () => {
 
       // Verify logger calls
       expect(mockLogger.info).toHaveBeenCalledWith(
-        '[🧾 TransactionsService]',
+        '[🧾 TransactionHistoryService]',
         expect.stringContaining('Fetching new transactions for account'),
       );
 
@@ -145,7 +145,7 @@ describe('TransactionsService', () => {
       });
 
       const transactions =
-        await transactionsService.fetchNewTransactionsForAccount(
+        await transactionHistoryService.fetchNewTransactionsForAccount(
           Network.Mainnet,
           mockAccount2,
         );
@@ -195,7 +195,7 @@ describe('TransactionsService', () => {
       );
 
       const transactions =
-        await transactionsService.fetchNewTransactionsForAccount(
+        await transactionHistoryService.fetchNewTransactionsForAccount(
           Network.Mainnet,
           mockAccount2,
         );
@@ -230,7 +230,7 @@ describe('TransactionsService', () => {
         [],
       );
 
-      await transactionsService.fetchNewTransactionsForAccount(
+      await transactionHistoryService.fetchNewTransactionsForAccount(
         Network.Shasta,
         mockAccount,
       );
@@ -253,10 +253,11 @@ describe('TransactionsService', () => {
         [],
       );
 
-      const result = await transactionsService.fetchNewTransactionsForAccount(
-        Network.Mainnet,
-        mockAccount,
-      );
+      const result =
+        await transactionHistoryService.fetchNewTransactionsForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
 
       expect(result).toStrictEqual([]);
       expect(true).toBe(true);
@@ -272,18 +273,19 @@ describe('TransactionsService', () => {
         apiError,
       );
 
-      const result = await transactionsService.fetchNewTransactionsForAccount(
-        Network.Mainnet,
-        mockAccount,
-      );
+      const result =
+        await transactionHistoryService.fetchNewTransactionsForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
 
       expect(result).toStrictEqual([]);
       expect(mockLogger.error).toHaveBeenCalledWith(
-        '[🧾 TransactionsService]',
+        '[🧾 TransactionHistoryService]',
         'Failed to fetch raw transactions for address TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx on network tron:728126428',
       );
       expect(mockLogger.error).toHaveBeenCalledWith(
-        '[🧾 TransactionsService]',
+        '[🧾 TransactionHistoryService]',
         'Failed to fetch TRC20 transactions for address TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx on network tron:728126428',
       );
       expect(true).toBe(true);
@@ -366,7 +368,7 @@ describe('TransactionsService', () => {
         .mockResolvedValueOnce(mockTransactions1)
         .mockResolvedValueOnce(mockTransactions2);
 
-      const result = await transactionsService.findByAccounts([
+      const result = await transactionHistoryService.findByAccounts([
         mockAccount,
         mockAccount2,
       ]);
@@ -385,7 +387,7 @@ describe('TransactionsService', () => {
     });
 
     it('should handle empty accounts array', async () => {
-      const result = await transactionsService.findByAccounts([]);
+      const result = await transactionHistoryService.findByAccounts([]);
 
       expect(result).toStrictEqual([]);
       expect(mockTransactionsRepository.findByAccountId).not.toHaveBeenCalled();
@@ -428,7 +430,7 @@ describe('TransactionsService', () => {
         fees: [],
       };
 
-      await transactionsService.save(mockTransaction);
+      await transactionHistoryService.save(mockTransaction);
 
       expect(mockTransactionsRepository.saveMany).toHaveBeenCalledWith([
         mockTransaction,
@@ -506,7 +508,7 @@ describe('TransactionsService', () => {
         },
       ];
 
-      await transactionsService.saveMany(mockTransactions);
+      await transactionHistoryService.saveMany(mockTransactions);
 
       expect(mockTransactionsRepository.saveMany).toHaveBeenCalledWith(
         mockTransactions,
@@ -515,7 +517,7 @@ describe('TransactionsService', () => {
     });
 
     it('should handle empty transactions array', async () => {
-      await transactionsService.saveMany([]);
+      await transactionHistoryService.saveMany([]);
 
       expect(mockTransactionsRepository.saveMany).toHaveBeenCalledWith([]);
       expect(true).toBe(true);
@@ -621,7 +623,7 @@ describe('TransactionsService', () => {
         },
       ];
 
-      await transactionsService.saveMany(mockTransactions);
+      await transactionHistoryService.saveMany(mockTransactions);
 
       expect(mockTransactionsRepository.saveMany).toHaveBeenCalledWith(
         mockTransactions,
@@ -642,13 +644,13 @@ describe('TransactionsService', () => {
 
       // Fetch transactions
       const fetchedTransactions =
-        await transactionsService.fetchNewTransactionsForAccount(
+        await transactionHistoryService.fetchNewTransactionsForAccount(
           Network.Mainnet,
           mockAccount,
         );
 
       // Save the fetched transactions
-      await transactionsService.saveMany(fetchedTransactions);
+      await transactionHistoryService.saveMany(fetchedTransactions);
 
       expect(mockTransactionsRepository.saveMany).toHaveBeenCalledWith(
         fetchedTransactions,
@@ -671,7 +673,7 @@ describe('TransactionsService', () => {
         [],
       );
 
-      await transactionsService.fetchNewTransactionsForAccount(
+      await transactionHistoryService.fetchNewTransactionsForAccount(
         Network.Mainnet,
         mockAccount2,
       );

@@ -48,11 +48,23 @@ export class SendService {
     toAddress,
     asset,
     amount,
+    feeLimit,
   }: {
     fromAccountId: string;
     toAddress: string;
     asset: AssetEntity;
     amount: number;
+    /**
+     * Maximum TRX (in SUN) to spend on energy for smart contract transactions.
+     * Only applies to TRC20 transfers.
+     *
+     * For TRC20 transfers, callers should use
+     * FeeCalculatorService.computeFeeLimitFromTransaction() to calculate
+     * an appropriate fee limit based on the built transaction.
+     *
+     * If not provided, TronWeb uses its internal default (150 TRX).
+     */
+    feeLimit?: number;
   }): Promise<
     | Transaction<TransferContract>
     | Transaction<TransferAssetContract>
@@ -92,6 +104,7 @@ export class SendService {
             contractAddress: assetReference,
             amount,
             decimals: asset.decimals,
+            feeLimit,
           });
 
         default:
@@ -160,6 +173,7 @@ export class SendService {
     contractAddress,
     amount,
     decimals,
+    feeLimit,
   }: {
     scope: Network;
     fromAccountId: string;
@@ -167,6 +181,15 @@ export class SendService {
     contractAddress: string;
     amount: number;
     decimals: number;
+    /**
+     * Maximum TRX (in SUN) to spend on energy for this transaction.
+     *
+     * Callers should use FeeCalculatorService.computeFeeLimitFromTransaction()
+     * to calculate an appropriate fee limit based on the built transaction.
+     *
+     * If not provided, TronWeb uses its internal default (150 TRX).
+     */
+    feeLimit?: number;
   }): Promise<Transaction<TriggerSmartContract>> {
     const account = await this.#accountsService.findByIdOrThrow(fromAccountId);
 
@@ -183,11 +206,14 @@ export class SendService {
       { type: 'uint256', value: decimalsAdjustedAmount },
     ];
 
+    // Only pass feeLimit if provided, otherwise let TronWeb use its default
+    const options = feeLimit === undefined ? {} : { feeLimit };
+
     const contractResult =
       await tronWeb.transactionBuilder.triggerSmartContract(
         contractAddress,
         functionSelector,
-        {},
+        options,
         parameter,
         account.address,
       );

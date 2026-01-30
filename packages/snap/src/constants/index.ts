@@ -5,6 +5,19 @@ export const ZERO = BigNumber(0);
 export const ACCOUNT_ACTIVATION_FEE_TRX = BigNumber(1);
 export const SUN_IN_TRX = 1_000_000;
 
+/**
+ * Safety multiplier for fee_limit calculation.
+ * Applied to the estimated energy cost to provide a small buffer for
+ * minor variance between estimation and execution.
+ *
+ * 1.1 = 10% buffer
+ *
+ * This mirrors the logic used by the `wallet/estimateenergy` RPC method,
+ * which also applies a 10% safety margin. We can't use that RPC directly
+ * because Infura/DIN nodes don't expose this method.
+ */
+export const FEE_LIMIT_SAFETY_MULTIPLIER = 1.1;
+
 export const NULL_ADDRESS = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 export const CONSENSYS_SR_NODE_ADDRESS = 'TVMwGfdDz58VvM7yTzGMWWSHsmofSxa9jH';
 

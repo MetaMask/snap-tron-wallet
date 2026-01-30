@@ -10,7 +10,7 @@ import { TronMultichainMethod } from './keyring-types';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { AssetsService } from '../services/assets/AssetsService';
 import type { ConfirmationHandler } from '../services/confirmation/ConfirmationHandler';
-import type { TransactionsService } from '../services/transactions/TransactionsService';
+import type { TransactionHistoryService } from '../services/transactions/TransactionHistoryService';
 import type { WalletService } from '../services/wallet/WalletService';
 import { mockLogger } from '../utils/mockLogger';
 
@@ -54,7 +54,7 @@ describe('KeyringHandler', () => {
   let mockSnapClient: jest.Mocked<SnapClient>;
   let mockAccountsService: jest.Mocked<AccountsService>;
   let mockAssetsService: jest.Mocked<AssetsService>;
-  let mockTransactionsService: jest.Mocked<TransactionsService>;
+  let mockTransactionHistoryService: jest.Mocked<TransactionHistoryService>;
   let mockWalletService: jest.Mocked<WalletService>;
   let mockConfirmationHandler: jest.Mocked<ConfirmationHandler>;
 
@@ -66,7 +66,7 @@ describe('KeyringHandler', () => {
       deriveAccount: jest.fn(),
     } as any;
     mockAssetsService = {} as any;
-    mockTransactionsService = {
+    mockTransactionHistoryService = {
       fetchNewTransactionsForAccount: jest.fn(),
     } as any;
     mockWalletService = {
@@ -83,7 +83,7 @@ describe('KeyringHandler', () => {
       snapClient: mockSnapClient,
       accountsService: mockAccountsService,
       assetsService: mockAssetsService,
-      transactionsService: mockTransactionsService,
+      transactionHistoryService: mockTransactionHistoryService,
       walletService: mockWalletService,
       confirmationHandler: mockConfirmationHandler,
     });
@@ -511,12 +511,12 @@ describe('KeyringHandler', () => {
         .mockImplementation()
         .mockResolvedValue(mockDerivedAccount);
       jest
-        .spyOn(mockTransactionsService, 'fetchNewTransactionsForAccount')
+        .spyOn(mockTransactionHistoryService, 'fetchNewTransactionsForAccount')
         .mockImplementation();
     });
 
     it('returns empty array if there is no activity on any of the scopes', async () => {
-      mockTransactionsService.fetchNewTransactionsForAccount
+      mockTransactionHistoryService.fetchNewTransactionsForAccount
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([]);
 
@@ -534,7 +534,7 @@ describe('KeyringHandler', () => {
     });
 
     it('returns discovered accounts when there is activity on any scope', async () => {
-      mockTransactionsService.fetchNewTransactionsForAccount
+      mockTransactionHistoryService.fetchNewTransactionsForAccount
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([mockTransaction]);
 
@@ -554,7 +554,7 @@ describe('KeyringHandler', () => {
     });
 
     it('throws error if there is an error fetching transactions', async () => {
-      mockTransactionsService.fetchNewTransactionsForAccount.mockRejectedValue(
+      mockTransactionHistoryService.fetchNewTransactionsForAccount.mockRejectedValue(
         new Error('Network error'),
       );
 
@@ -568,7 +568,7 @@ describe('KeyringHandler', () => {
         keyringHandler.discoverAccounts?.([], 'test', 0),
       ).rejects.toThrow('Expected a nonempty array but received an empty one');
       expect(
-        mockTransactionsService.fetchNewTransactionsForAccount,
+        mockTransactionHistoryService.fetchNewTransactionsForAccount,
       ).not.toHaveBeenCalled();
     });
 
@@ -581,7 +581,7 @@ describe('KeyringHandler', () => {
         ),
       ).rejects.toThrow(/Expected one of/u);
       expect(
-        mockTransactionsService.fetchNewTransactionsForAccount,
+        mockTransactionHistoryService.fetchNewTransactionsForAccount,
       ).not.toHaveBeenCalled();
     });
 
@@ -592,7 +592,7 @@ describe('KeyringHandler', () => {
         'Expected a number greater than or equal to 0 but received `-1`',
       );
       expect(
-        mockTransactionsService.fetchNewTransactionsForAccount,
+        mockTransactionHistoryService.fetchNewTransactionsForAccount,
       ).not.toHaveBeenCalled();
     });
   });

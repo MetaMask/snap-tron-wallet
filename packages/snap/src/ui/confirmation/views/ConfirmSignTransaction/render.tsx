@@ -1,7 +1,6 @@
 import type { KeyringRequest } from '@metamask/keyring-api';
 import type { DialogResult } from '@metamask/snaps-sdk';
 import { assert } from '@metamask/superstruct';
-import { bytesToHex, hexToBytes, sha256 } from '@metamask/utils';
 import { BigNumber } from 'bignumber.js';
 import { TronWeb } from 'tronweb';
 import type { Transaction } from 'tronweb/lib/esm/types';
@@ -52,13 +51,13 @@ export const DEFAULT_CONTEXT: ConfirmSignTransactionContext = {
  *
  * @param request - The keyring request to confirm.
  * @param account - The account that the request is for.
- * @param rawData - The raw data of the transaction.
+ * @param deserializedTransaction - The deserialized transaction object.
  * @returns The confirmation dialog result.
  */
 export async function render(
   request: KeyringRequest,
   account: TronKeyringAccount,
-  rawData: Transaction['raw_data'],
+  deserializedTransaction: Transaction,
 ): Promise<DialogResult> {
   const { snapClient, transactionScanService } = snapContext;
   assert(request.request.params, SignTransactionRequestStruct);
@@ -110,25 +109,14 @@ export async function render(
       ? new BigNumber(bandwidthAsset.rawAmount)
       : ZERO;
 
-    // Build transaction object from raw data
-    const txID = bytesToHex(
-      await sha256(hexToBytes(transaction.rawDataHex)),
-    ).slice(2);
-
-    const transactionObj: Transaction = {
-      visible: true,
-      txID,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      raw_data: rawData,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      raw_data_hex: transaction.rawDataHex,
-    };
-
     const fees = await feeCalculatorService.computeFee({
       scope: scope as Network,
-      transaction: transactionObj,
+      transaction: deserializedTransaction,
       availableEnergy,
       availableBandwidth,
+      feeLimit: deserializedTransaction.raw_data.fee_limit as
+        | number
+        | undefined,
     });
 
     // Resolve icon URLs for fee assets
@@ -158,7 +146,8 @@ export async function render(
   }
 
   // Extract scan parameters early (before interface creation)
-  const contractParam = rawData.contract?.[0]?.parameter?.value as any;
+  const contractParam = deserializedTransaction.raw_data.contract?.[0]
+    ?.parameter?.value as any;
   const fromHex = contractParam?.owner_address ?? '';
   const toHex =
     contractParam?.contract_address ?? contractParam?.to_address ?? '';

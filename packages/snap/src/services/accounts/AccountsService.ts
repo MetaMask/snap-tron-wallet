@@ -23,7 +23,7 @@ import { createPrefixedLogger, type ILogger } from '../../utils/logger';
 import { DerivationPathStruct } from '../../validation/structs';
 import type { AssetsService } from '../assets/AssetsService';
 import type { ConfigProvider } from '../config';
-import type { TransactionsService } from '../transactions/TransactionsService';
+import type { TransactionHistoryService } from '../transactions/TransactionHistoryService';
 
 /**
  * Elliptic curve for TRON (same as Ethereum)
@@ -39,7 +39,7 @@ export class AccountsService {
 
   readonly #assetsService: AssetsService;
 
-  readonly #transactionsService: TransactionsService;
+  readonly #transactionHistoryService: TransactionHistoryService;
 
   readonly #snapClient: SnapClient;
 
@@ -49,20 +49,20 @@ export class AccountsService {
     logger,
     assetsService,
     snapClient,
-    transactionsService,
+    transactionHistoryService,
   }: {
     accountsRepository: AccountsRepository;
     configProvider: ConfigProvider;
     logger: ILogger;
     assetsService: AssetsService;
     snapClient: SnapClient;
-    transactionsService: TransactionsService;
+    transactionHistoryService: TransactionHistoryService;
   }) {
     this.#logger = createPrefixedLogger(logger, '[🔑 AccountsService]');
     this.#configProvider = configProvider;
     this.#accountsRepository = accountsRepository;
     this.#assetsService = assetsService;
-    this.#transactionsService = transactionsService;
+    this.#transactionHistoryService = transactionHistoryService;
     this.#snapClient = snapClient;
   }
 
@@ -333,7 +333,7 @@ export class AccountsService {
 
     const transactionResponses = await Promise.allSettled(
       combinations.map(async ({ account, scope }) => {
-        return this.#transactionsService.fetchNewTransactionsForAccount(
+        return this.#transactionHistoryService.fetchNewTransactionsForAccount(
           scope,
           account,
         );
@@ -344,7 +344,7 @@ export class AccountsService {
       response.status === 'fulfilled' ? response.value : [],
     );
 
-    await this.#transactionsService.saveMany(transactions);
+    await this.#transactionHistoryService.saveMany(transactions);
   }
 
   async synchronize(accounts: KeyringAccount[]): Promise<void> {
