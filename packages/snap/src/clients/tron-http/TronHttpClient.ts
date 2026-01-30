@@ -368,7 +368,7 @@ export class TronHttpClient {
 
     const body = JSON.stringify({
       value: contractAddress,
-      visible: true,
+      visible: false,
     });
 
     const response = await fetch(url, {
