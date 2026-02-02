@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.0]
+
+### Uncategorized
+
+- fix: ensure integer amounts when building TronWeb transactions ([#178](https://github.com/MetaMask/snap-tron-wallet/pull/178))
+- feat: support network fees with contract energy sharing mechanism ([#181](https://github.com/MetaMask/snap-tron-wallet/pull/181))
+- feat: update approve type tx with unknow instead of send for MM type tx ([#177](https://github.com/MetaMask/snap-tron-wallet/pull/177))
+- perf: optimize data synchronization to avoid duplicate API requests ([#173](https://github.com/MetaMask/snap-tron-wallet/pull/173))
+- fix: inaccurate energy estimation for system contracts ([#172](https://github.com/MetaMask/snap-tron-wallet/pull/172))
+- chore: cache chain parameters until they expire ([#171](https://github.com/MetaMask/snap-tron-wallet/pull/171))
+
 ### Fixed
 
 - Add pre-confirmation validation to `confirmSend` flow ([#179](https://github.com/MetaMask/snap-tron-wallet/pull/179))
@@ -364,7 +375,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release of Tron wallet snap
 - Support for TRX and token assets balances ([#12](https://github.com/MetaMask/snap-tron-wallet/pull/12))
 
-[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.19.3...HEAD
+[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.20.0...HEAD
+[1.20.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.19.3...v1.20.0
 [1.19.3]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.19.2...v1.19.3
 [1.19.2]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.19.1...v1.19.2
 [1.19.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.19.0...v1.19.1
