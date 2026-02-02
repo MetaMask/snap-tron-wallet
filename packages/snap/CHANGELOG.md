@@ -9,14 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.20.0]
 
-### Uncategorized
+### Added
 
-- fix: ensure integer amounts when building TronWeb transactions ([#178](https://github.com/MetaMask/snap-tron-wallet/pull/178))
-- feat: support network fees with contract energy sharing mechanism ([#181](https://github.com/MetaMask/snap-tron-wallet/pull/181))
-- feat: update approve type tx with unknow instead of send for MM type tx ([#177](https://github.com/MetaMask/snap-tron-wallet/pull/177))
-- perf: optimize data synchronization to avoid duplicate API requests ([#173](https://github.com/MetaMask/snap-tron-wallet/pull/173))
-- fix: inaccurate energy estimation for system contracts ([#172](https://github.com/MetaMask/snap-tron-wallet/pull/172))
-- chore: cache chain parameters until they expire ([#171](https://github.com/MetaMask/snap-tron-wallet/pull/171))
+- Support estimating network fees with contract energy sharing mechanism ([#181](https://github.com/MetaMask/snap-tron-wallet/pull/181))
+
+### Changed
+
+- Optimize data synchronization to avoid duplicate API requests ([#173](https://github.com/MetaMask/snap-tron-wallet/pull/173))
+- Cache chain parameters until they expire ([#171](https://github.com/MetaMask/snap-tron-wallet/pull/171))
 
 ### Fixed
 
@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Validates that the user has enough funds to cover both the amount and all associated fees (bandwidth, energy, account activation) before showing the confirmation dialog.
 - Fix missing values in simulation API request ([#176](https://github.com/MetaMask/snap-tron-wallet/pull/176))
   - The wrong parameters sent to the simulation API were causing inaccurate estimations and false negatives.
+- Ensure integer amounts are passed to TronWeb's functions that involve `SUN` ([#178](https://github.com/MetaMask/snap-tron-wallet/pull/178))
+- Correct inaccurate energy estimation for system contracts ([#172](https://github.com/MetaMask/snap-tron-wallet/pull/172))
+- Correct mapping of `approve` type transactions ([#177](https://github.com/MetaMask/snap-tron-wallet/pull/177))
 
 ## [1.19.3]
 
