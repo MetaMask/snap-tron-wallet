@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add "Ready for Withdrawal" TRX as a special asset to display unstaked TRX that has completed the withdrawal period and is ready to be claimed ([#208](https://github.com/MetaMask/snap-tron-wallet/pull/208))
 - Add staking rewards TRX asset to display unclaimed voting rewards ([#209](https://github.com/MetaMask/snap-tron-wallet/pull/209))
 
+### Fixed
+
+- Disable simulation for unsupported transactions ([#186](https://github.com/MetaMask/snap-tron-wallet/pull/186))
+  - Supported transactions are those single-contract interaction transactions of the following types: `TransferContract`, `TriggerSmartContract`, `TransferAssetContract`.
+
 ## [1.22.0]
 
 ### Added
