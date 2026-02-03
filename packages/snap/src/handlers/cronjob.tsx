@@ -358,7 +358,8 @@ export class CronHandler {
       return;
     }
 
-    const { preferences, scope, account, origin } = interfaceContext;
+    const { preferences, scope, account, origin, transaction } =
+      interfaceContext;
 
     // Determine what needs to be refreshed
     const shouldRefreshScan =
@@ -394,8 +395,8 @@ export class CronHandler {
 
         const transactionRawData: Types.Transaction['raw_data'] =
           utils.deserializeTx.deserializeTransaction(
-            interfaceContext.transaction.type,
-            interfaceContext.transaction.rawDataHex,
+            transaction.type,
+            transaction.rawDataHex,
           );
 
         try {
