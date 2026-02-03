@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Support fetching TRC20 token balances for inactive accounts using fallback endpoint ([#190](https://github.com/MetaMask/snap-tron-wallet/pull/190))
+
 ## [1.21.0]
 
 ### Fixed
