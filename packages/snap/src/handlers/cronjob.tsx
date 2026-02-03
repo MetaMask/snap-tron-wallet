@@ -1,4 +1,5 @@
 import type { JsonRpcRequest } from '@metamask/snaps-sdk';
+import { type Types, utils } from 'tronweb';
 
 import type { PriceApiClient } from '../clients/price-api/PriceApiClient';
 import type { SnapClient } from '../clients/snap/SnapClient';
@@ -357,7 +358,7 @@ export class CronHandler {
       return;
     }
 
-    const { preferences, scope, account, origin, scanParameters } =
+    const { preferences, scope, account, origin, transaction } =
       interfaceContext;
 
     // Determine what needs to be refreshed
@@ -392,15 +393,16 @@ export class CronHandler {
           options.push('validation');
         }
 
+        const transactionRawData: Types.Transaction['raw_data'] =
+          utils.deserializeTx.deserializeTransaction(
+            transaction.type,
+            transaction.rawDataHex,
+          );
+
         try {
           scan = await this.#transactionScanService.scanTransaction({
             accountAddress: account.address,
-            parameters: {
-              from: scanParameters?.from ?? undefined,
-              to: scanParameters?.to ?? undefined,
-              data: scanParameters?.data ?? undefined,
-              value: scanParameters?.value ?? undefined,
-            },
+            transactionRawData,
             origin,
             scope,
             options,

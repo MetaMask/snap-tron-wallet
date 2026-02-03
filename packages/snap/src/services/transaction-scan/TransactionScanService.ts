@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import type { Types } from 'tronweb';
+
 import type { TransactionScanResult, TransactionScanValidation } from './types';
 import { ScanStatus, SecurityAlertResponse } from './types';
 import type { SecurityAlertsApiClient } from '../../clients/security-alerts-api/SecurityAlertsApiClient';
@@ -33,11 +35,7 @@ export class TransactionScanService {
    *
    * @param params - The parameters for the function.
    * @param params.accountAddress - The address of the account.
-   * @param params.parameters - The parameters for the transaction.
-   * @param params.parameters.from - The from address.
-   * @param params.parameters.to - The to address.
-   * @param params.parameters.data - The data of the transaction.
-   * @param params.parameters.value - The value of the transaction.
+   * @param params.transactionRawData - The raw data of the transaction.
    * @param params.origin - The origin of the transaction.
    * @param params.scope - The network scope.
    * @param params.options - The options for the scan (simulation, validation).
@@ -46,19 +44,14 @@ export class TransactionScanService {
    */
   async scanTransaction({
     accountAddress,
-    parameters,
+    transactionRawData,
     origin,
     scope,
     options = ['simulation', 'validation'],
     account,
   }: {
     accountAddress: string;
-    parameters: {
-      from: string | undefined;
-      to: string | undefined;
-      data: string | undefined;
-      value: number | undefined | null;
-    };
+    transactionRawData: Types.Transaction['raw_data'];
     origin: string;
     scope: Network;
     options?: string[] | undefined;
@@ -67,7 +60,7 @@ export class TransactionScanService {
     try {
       const result = await this.#securityAlertsApiClient.scanTransaction({
         accountAddress,
-        parameters,
+        transactionRawData,
         origin: origin === METAMASK_ORIGIN ? METAMASK_ORIGIN_URL : origin,
         options,
       });
