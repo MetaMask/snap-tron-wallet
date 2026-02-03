@@ -1,6 +1,12 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 
+import type { Types } from 'tronweb';
+
 import type { SecurityAlertSimulationValidationResponse } from './types';
+import {
+  extractScanParametersFromTransactionData,
+  isTransactionSupported,
+} from './utils';
 import type { ConfigProvider } from '../../services/config';
 import logger, { createPrefixedLogger, type ILogger } from '../../utils/logger';
 
@@ -36,37 +42,34 @@ export class SecurityAlertsApiClient {
    *
    * @param params - The parameters for the scan.
    * @param params.accountAddress - The account address in base58 format.
-   * @param params.parameters - The parameters for the transaction.
-   * @param params.parameters.from - The from address.
-   * @param params.parameters.to - The to address.
-   * @param params.parameters.data - The data of the transaction.
-   * @param params.parameters.value - The value of the transaction.
+   * @param params.transactionRawData - The raw data of the transaction.
    * @param params.origin - The origin URL of the request.
    * @param params.options - Optional scan options (simulation, validation).
    * @returns The security alert response from Security Alerts API.
    */
   async scanTransaction({
     accountAddress,
-    parameters,
+    transactionRawData,
     origin,
     options = ['simulation', 'validation'],
   }: {
     accountAddress: string;
-    parameters: {
-      from: string | undefined;
-      to: string | undefined;
-      data: string | undefined;
-      value: number | undefined | null;
-    };
+    transactionRawData: Types.Transaction['raw_data'];
     origin: string;
     options?: string[];
   }): Promise<SecurityAlertSimulationValidationResponse> {
     this.#logger.info('Scanning Tron transaction with Security Alerts API');
 
+    if (!isTransactionSupported(transactionRawData)) {
+      throw new Error('The transaction is not supported for scanning.');
+    }
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       accept: 'application/json',
     };
+
+    const data = extractScanParametersFromTransactionData(transactionRawData);
 
     const response = await this.#fetch(
       `${this.#baseUrl}/tron/transaction/scan`,
@@ -78,7 +81,7 @@ export class SecurityAlertsApiClient {
           metadata: {
             domain: origin,
           },
-          data: parameters,
+          data,
           options,
         }),
       },

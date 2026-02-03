@@ -1,7 +1,13 @@
 import { add0x } from '@metamask/utils';
-import { TronWeb, type Types } from 'tronweb';
+import { TronWeb, Types } from 'tronweb';
 
 import type { SecurityScanPayload } from './types';
+
+export const SUPPORTED_CONTRACT_TYPES: Types.ContractType[] = [
+  Types.ContractType.TransferContract,
+  Types.ContractType.TransferAssetContract,
+  Types.ContractType.TriggerSmartContract,
+];
 
 /**
  * Extracts scan parameters from the raw transaction data. This function
@@ -41,4 +47,32 @@ export const extractScanParametersFromTransactionData = (
   }
 
   return { from, to, data, value };
+};
+
+/**
+ * Checks if the given transaction is supported for scanning.
+ *
+ * @param rawData - The raw transaction data.
+ * @returns True if the transaction is supported, false otherwise.
+ */
+export const isTransactionSupported = (
+  rawData: Types.Transaction['raw_data'],
+): boolean => {
+  if (rawData.contract.length > 1) {
+    // We only support transactions with a single contract interaction for now
+    return false;
+  }
+
+  const [contractInteraction] = rawData.contract;
+  if (!contractInteraction) {
+    // No contract interaction found
+    return false;
+  }
+
+  if (!SUPPORTED_CONTRACT_TYPES.includes(contractInteraction.type)) {
+    // Unsupported contract type
+    return false;
+  }
+
+  return true;
 };
