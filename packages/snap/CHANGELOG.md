@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Extend transaction expiration when showing sign confirmation to prevent "Transaction too old" errors
+
 ## [1.20.0]
 
 ### Added
