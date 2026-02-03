@@ -1,9 +1,11 @@
 import en from '../../locales/en.json';
 import es from '../../locales/es.json';
+import fr from '../../locales/fr.json';
 
 export const locales = {
   en: en.messages,
   es: es.messages,
+  fr: fr.messages,
 };
 
 export const FALLBACK_LANGUAGE: Locale = 'en';
