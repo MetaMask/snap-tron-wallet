@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add staking rewards TRX asset to display unclaimed voting rewards ([#209](https://github.com/MetaMask/snap-tron-wallet/pull/209))
 - Return "In Lock Period TRX" as a special asset showing TRX that is unstaked but still in the 14-day lock period ([#210](https://github.com/MetaMask/snap-tron-wallet/pull/210))
 
+### Fixed
+
+- Disable simulation for unsupported transactions ([#186](https://github.com/MetaMask/snap-tron-wallet/pull/186))
+  - Supported transactions are those single-contract interaction transactions of the following types: `TransferContract`, `TriggerSmartContract`, `TransferAssetContract`.
+
 ## [1.22.0]
 
 ### Added
