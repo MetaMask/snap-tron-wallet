@@ -1,4 +1,6 @@
 import { assert } from '@metamask/superstruct';
+import { bytesToHex, hexToBytes, sha256 } from '@metamask/utils';
+import type { Transaction } from 'tronweb/lib/esm/types';
 
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
@@ -90,11 +92,11 @@ export class ConfirmationHandler {
     const {
       scope,
       request: {
-        params: {
-          transaction: { rawDataHex, type },
-        },
+        params: { transaction: transactionParams },
       },
     } = request;
+
+    const { rawDataHex, type } = transactionParams;
 
     // Create a TronWeb instance for transaction deserialization
     const tronWeb = this.#tronWebFactory.createClient(scope);
@@ -105,12 +107,70 @@ export class ConfirmationHandler {
       rawDataHex,
     );
 
+    // Extend the transaction expiration to give users more time to review
+    // dApps typically set ~60 second expiration which can expire during review
+    const extendedTransaction = await this.#extendTransactionExpiration(
+      tronWeb,
+      rawData,
+      rawDataHex,
+    );
+
+    // Update the request with the extended transaction's rawDataHex
+    // This ensures the confirmation dialog and subsequent signing use the extended transaction
+    transactionParams.rawDataHex = extendedTransaction.raw_data_hex;
+
     const result = await renderConfirmSignTransaction(
       request,
       account,
-      rawData,
+      extendedTransaction.raw_data,
     );
     return result === true;
+  }
+
+  /**
+   * Extends transaction expiration by 5 minutes to prevent "Transaction too old" errors.
+   * dApps typically create transactions with ~60 second expiration, but users may need
+   * more time to review security alerts and transaction details.
+   *
+   * @param tronWeb - TronWeb instance for the network
+   * @param rawData - Deserialized transaction raw data
+   * @param rawDataHex - Original hex-encoded raw data
+   * @returns Transaction with extended expiration
+   */
+  async #extendTransactionExpiration(
+    tronWeb: ReturnType<TronWebFactory['createClient']>,
+    rawData: Transaction['raw_data'],
+    rawDataHex: string,
+  ): Promise<Transaction> {
+    // Build a Transaction object from the deserialized data
+    const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);
+
+    const transaction: Transaction = {
+      visible: true,
+      txID,
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      raw_data: rawData,
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      raw_data_hex: rawDataHex,
+    };
+
+    // Extend expiration by 5 minutes (300,000 milliseconds)
+    // This gives users adequate time to review the transaction details and security alerts
+    const EXPIRATION_EXTENSION_MS = 300_000;
+
+    const extendedTransaction =
+      await tronWeb.transactionBuilder.extendExpiration(
+        transaction,
+        EXPIRATION_EXTENSION_MS,
+      );
+
+    this.#logger.info('Extended transaction expiration', {
+      originalExpiration: rawData.expiration,
+      newExpiration: extendedTransaction.raw_data.expiration,
+      extensionMs: EXPIRATION_EXTENSION_MS,
+    });
+
+    return extendedTransaction;
   }
 
   async confirmTransactionRequest({
