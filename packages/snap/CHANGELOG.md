@@ -36,6 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Correct account discovery by using address-based activity checks instead of account IDs ([#206](https://github.com/MetaMask/snap-tron-wallet/pull/206))
 
+### Fixed
+
+- Disable simulation for unsupported transactions ([#186](https://github.com/MetaMask/snap-tron-wallet/pull/186))
+  - Supported transactions are those single-contract interaction transactions of the following types: `TransferContract`, `TriggerSmartContract`, `TransferAssetContract`.
+
 ## [1.22.0]
 
 ### Added
