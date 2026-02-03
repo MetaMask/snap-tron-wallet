@@ -1,18 +1,36 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { JsonSLIP10Node } from '@metamask/key-tree';
 import type { EntropySourceId } from '@metamask/keyring-api';
-import type {
-  DialogResult,
-  EntropySource,
-  GetClientStatusResult,
-  GetInterfaceStateResult,
-  Json,
-  ResolveInterfaceResult,
-  UpdateInterfaceResult,
+import {
+  assert,
+  type DialogResult,
+  type EntropySource,
+  type GetClientStatusResult,
+  type GetInterfaceStateResult,
+  type Json,
+  type ResolveInterfaceResult,
+  type UpdateInterfaceResult,
 } from '@metamask/snaps-sdk';
 
 import { SecurityEventType, TransactionEventType } from '../../types/analytics';
 import type { Preferences } from '../../types/snap';
+
+/**
+ * Checks if an error is an "interface not found" error.
+ * Detects errors thrown by the MetaMask SDK or by our assert calls
+ * when an interface context is not found.
+ *
+ * @param error - The error to check.
+ * @returns True if the error indicates the interface was not found.
+ */
+export function isInterfaceNotFoundError(error: unknown): boolean {
+  if (error instanceof Error) {
+    // Match error message pattern for interface not found
+    const message = error.message.toLowerCase();
+    return message.includes('interface') && message.includes('not found');
+  }
+  return false;
+}
 
 /**
  * Client for interacting with the Snap API.
@@ -130,6 +148,47 @@ export class SnapClient {
     }
 
     return rawContext as TContext;
+  }
+
+  /**
+   * Gets the context of an interface by its ID, throwing if not found.
+   * Uses the standard `assert` function from @metamask/snaps-sdk.
+   *
+   * @param id - The ID for the interface.
+   * @returns The context object associated with the interface.
+   * @throws AssertionError if the interface context is not found.
+   */
+  async getInterfaceContextOrThrow<TContext extends Json>(
+    id: string,
+  ): Promise<TContext> {
+    const context = await this.getInterfaceContext<TContext>(id);
+    assert(context, `Interface with id "${id}" not found`);
+    return context;
+  }
+
+  /**
+   * Updates an interface, silently ignoring "interface not found" errors.
+   * Use this method when the interface may have been dismissed by the user
+   * during an async operation (e.g., security scan, price fetch).
+   *
+   * @param id - The interface id returned from createInterface.
+   * @param ui - The new UI component to render.
+   * @param context - The updated context object to associate with the interface.
+   * @returns The update interface result, or null if the interface was not found.
+   */
+  async updateInterfaceIfExists<TContext>(
+    id: string,
+    ui: any,
+    context: TContext & Record<string, Json>,
+  ): Promise<UpdateInterfaceResult | null> {
+    try {
+      return await this.updateInterface(id, ui, context);
+    } catch (error) {
+      if (isInterfaceNotFoundError(error)) {
+        return null; // Interface was dismissed, silently ignore
+      }
+      throw error; // Re-throw other errors
+    }
   }
 
   /**

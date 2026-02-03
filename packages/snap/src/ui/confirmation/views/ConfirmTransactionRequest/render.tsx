@@ -239,6 +239,12 @@ export async function render(
   } else {
     // If pricing is disabled, set to fetched immediately
     context.tokenPricesFetchStatus = 'fetched';
+    // Update interface (silently ignores if interface was dismissed)
+    await snapClient.updateInterfaceIfExists(
+      id,
+      <ConfirmTransactionRequest context={context} />,
+      context,
+    );
   }
 
   // Schedule security scan background refresh (every 20 seconds)
