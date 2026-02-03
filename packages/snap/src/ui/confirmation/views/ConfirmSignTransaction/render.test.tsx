@@ -185,12 +185,7 @@ describe('ConfirmSignTransaction render', () => {
     // Verify security scan was triggered with from/to addresses and value
     expect(mockTransactionScanService.scanTransaction).toHaveBeenCalledWith({
       accountAddress: mockAccount.address,
-      parameters: {
-        from: 'TQkE4s6hQqxym4fYvtVLNEGPsaAChFqxPk',
-        to: '6wjzKJfLvipffZfji1fGwz4hbhwZrTgF5',
-        data: undefined,
-        value: 100000,
-      },
+      transactionRawData: mockRawData,
       origin: testOrigin,
       scope: Network.Mainnet,
       options: ['simulation', 'validation'],

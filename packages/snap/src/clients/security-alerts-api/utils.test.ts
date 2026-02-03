@@ -1,7 +1,11 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Types } from 'tronweb';
 
-import { extractScanParametersFromTransactionData } from './utils';
+import {
+  extractScanParametersFromTransactionData,
+  isTransactionSupported,
+  SUPPORTED_CONTRACT_TYPES,
+} from './utils';
 import type {
   TransferAssetContractParameter,
   TransferContractParameter,
@@ -121,4 +125,119 @@ describe('SecurityAlertsApiClient utils', () => {
       expect(result).toBeNull();
     });
   });
+
+  describe('isTransactionSupported', () => {
+    it('returns false for transactions with multiple contract interactions', () => {
+      const rawData: Types.Transaction['raw_data'] = {
+        contract: [
+          {
+            type: Types.ContractType.TransferContract,
+            parameter: {
+              value: {
+                owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
+                contract_address: '4191bba2f3f6e1c4d5c8e8f5b6a7c8d9e0f1a2b3c4',
+                call_value: 200000,
+                data: 'abcdef',
+              },
+              type_url: 'type.googleapis.com/protocol.TriggerSmartContract',
+            },
+          },
+          {
+            type: Types.ContractType.TriggerSmartContract,
+            parameter: {
+              value: {
+                owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
+                contract_address: '4191bba2f3f6e1c4d5c8e8f5b6a7c8d9e0f1a2b3c4',
+                call_value: 200000,
+                data: 'abcdef',
+              },
+              type_url: 'type.googleapis.com/protocol.TriggerSmartContract',
+            },
+          },
+        ],
+        ref_block_bytes: '',
+        ref_block_hash: '',
+        expiration: 0,
+        timestamp: 0,
+      };
+
+      const result = isTransactionSupported(rawData);
+
+      expect(result).toBe(false);
+    });
+  });
+
+  it.each([
+    Types.ContractType.AccountUpdateContract,
+    Types.ContractType.FreezeBalanceContract,
+    Types.ContractType.UnfreezeBalanceContract,
+    Types.ContractType.WithdrawBalanceContract,
+    Types.ContractType.UpdateAssetContract,
+    Types.ContractType.ParticipateAssetIssueContract,
+    Types.ContractType.AccountPermissionUpdateContract,
+    Types.ContractType.ExchangeCreateContract,
+    Types.ContractType.ExchangeInjectContract,
+    Types.ContractType.ExchangeWithdrawContract,
+    Types.ContractType.ExchangeTransactionContract,
+  ])(
+    'returns false for transactions with unsupported contract types',
+    (contractType) => {
+      const rawData: Types.Transaction['raw_data'] = {
+        contract: [
+          {
+            type: contractType,
+            parameter: {
+              value: {
+                owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
+                contract_address: '4191bba2f3f6e1c4d5c8e8f5b6a7c8d9e0f1a2b3c4',
+                call_value: 200000,
+                data: 'abcdef',
+              },
+              // This is here only to make TypeScript happy; the actual type_url is irrelevant for the test
+              type_url: 'type.googleapis.com/protocol.UnknownContract',
+            },
+          },
+        ],
+        ref_block_bytes: '',
+        ref_block_hash: '',
+        expiration: 0,
+        timestamp: 0,
+      };
+
+      const result = isTransactionSupported(rawData);
+
+      expect(result).toBe(false);
+    },
+  );
+
+  it.each(SUPPORTED_CONTRACT_TYPES)(
+    'returns true for transactions with a single supported contract type',
+    (contractType) => {
+      const rawData: Types.Transaction['raw_data'] = {
+        contract: [
+          {
+            type: contractType,
+            parameter: {
+              value: {
+                owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
+                contract_address: '4191bba2f3f6e1c4d5c8e8f5b6a7c8d9e0f1a2b3c4',
+                call_value: 200000,
+                data: 'abcdef',
+              },
+              // This is here only to make TypeScript happy; the actual type_url is irrelevant for the test
+              type_url: 'type.googleapis.com/protocol.UnknownContract',
+            },
+          },
+        ],
+        ref_block_bytes: '',
+        ref_block_hash: '',
+        expiration: 0,
+        timestamp: 0,
+      };
+
+      const result = isTransactionSupported(rawData);
+
+      expect(result).toBe(true);
+    },
+  );
 });
