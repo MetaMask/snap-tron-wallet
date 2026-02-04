@@ -4,9 +4,12 @@ import { emitSnapKeyringEvent } from '@metamask/keyring-snap-sdk';
 
 import type { AssetsRepository } from './AssetsRepository';
 import type { PriceApiClient } from '../../clients/price-api/PriceApiClient';
+import type { SpotPrices } from '../../clients/price-api/types';
 import type { TokenApiClient } from '../../clients/token-api/TokenApiClient';
 import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
+import type { AccountResources } from '../../clients/tron-http/types';
 import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
+import type { Trc20Balance, TronAccount } from '../../clients/trongrid/types';
 import { KnownCaip19Id, Network } from '../../constants';
 import type { AssetEntity } from '../../entities/assets';
 import { mockLogger } from '../../utils/mockLogger';
@@ -140,6 +143,57 @@ describe('AssetsService', () => {
     scopes: ['tron:728126428'],
   };
 
+  // Reusable mock for empty AccountResources (inactive account scenario)
+  const emptyAccountResources: AccountResources = {
+    freeNetUsed: 0,
+    freeNetLimit: 0,
+    NetLimit: 0,
+    TotalNetLimit: 0,
+    TotalNetWeight: 0,
+    tronPowerUsed: 0,
+    tronPowerLimit: 0,
+    TotalEnergyLimit: 0,
+    TotalEnergyWeight: 0,
+  };
+
+  // Helper to create properly typed SpotPrices for tests
+  const createSpotPrices = (
+    entries: Record<string, { id: string; price: number }>,
+  ): SpotPrices =>
+    Object.fromEntries(
+      Object.entries(entries).map(([key, value]) => [
+        key,
+        { id: value.id, price: value.price },
+      ]),
+    );
+
+  // Helper to create properly typed TronAccount for tests
+  // Uses snake_case property names to match Tron API response format
+  /* eslint-disable @typescript-eslint/naming-convention */
+  const createMockTronAccount = (
+    overrides: Partial<TronAccount> & { address: string },
+  ): TronAccount => ({
+    owner_permission: { keys: [], threshold: 1, permission_name: 'owner' },
+    account_resource: {
+      energy_window_optimized: false,
+      energy_window_size: 0,
+    },
+    active_permission: [],
+    create_time: 0,
+    latest_opration_time: 0,
+    frozenV2: [],
+    unfrozenV2: [],
+    balance: 0,
+    trc20: [],
+    latest_consume_free_time: 0,
+    votes: [],
+    latest_withdraw_time: 0,
+    net_window_size: 0,
+    net_window_optimized: false,
+    ...overrides,
+  });
+  /* eslint-enable @typescript-eslint/naming-convention */
+
   beforeEach(() => {
     jest.clearAllMocks();
 
@@ -190,7 +244,9 @@ describe('AssetsService', () => {
         mockTrongridApiClient.getAccountInfoByAddress.mockRejectedValue(
           new Error('Account not found or no data returned'),
         );
-        mockTronHttpClient.getAccountResources.mockResolvedValue({} as never);
+        mockTronHttpClient.getAccountResources.mockResolvedValue(
+          emptyAccountResources,
+        );
 
         // TRC20 fallback endpoint returns some balances
         const trc20Balances = [
@@ -202,12 +258,11 @@ describe('AssetsService', () => {
 
         // Mock price API to return prices for the TRC20 tokens
         const trc20AssetId = `${String(Network.Mainnet)}/trc20:TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t`;
-        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue({
-          [trc20AssetId]: {
-            id: trc20AssetId,
-            price: 1.0,
-          },
-        } as never);
+        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue(
+          createSpotPrices({
+            [trc20AssetId]: { id: trc20AssetId, price: 1.0 },
+          }),
+        );
 
         // Act
         const assets = await assetsService.fetchAssetsAndBalancesForAccount(
@@ -242,7 +297,9 @@ describe('AssetsService', () => {
         mockTrongridApiClient.getAccountInfoByAddress.mockRejectedValue(
           new Error('Account not found or no data returned'),
         );
-        mockTronHttpClient.getAccountResources.mockResolvedValue({} as never);
+        mockTronHttpClient.getAccountResources.mockResolvedValue(
+          emptyAccountResources,
+        );
 
         // TRC20 fallback endpoint returns empty (no tokens)
         mockTrongridApiClient.getTrc20BalancesByAddress.mockResolvedValue([]);
@@ -284,7 +341,9 @@ describe('AssetsService', () => {
         mockTrongridApiClient.getAccountInfoByAddress.mockRejectedValue(
           new Error('Account not found or no data returned'),
         );
-        mockTronHttpClient.getAccountResources.mockResolvedValue({} as never);
+        mockTronHttpClient.getAccountResources.mockResolvedValue(
+          emptyAccountResources,
+        );
 
         // TRC20 fallback endpoint also fails
         mockTrongridApiClient.getTrc20BalancesByAddress.mockRejectedValue(
@@ -311,26 +370,25 @@ describe('AssetsService', () => {
         mockTrongridApiClient.getAccountInfoByAddress.mockRejectedValue(
           new Error('Account not found or no data returned'),
         );
-        mockTronHttpClient.getAccountResources.mockResolvedValue({} as never);
+        mockTronHttpClient.getAccountResources.mockResolvedValue(
+          emptyAccountResources,
+        );
 
         // TRC20 fallback returns tokens including a spam token
-        const trc20BalancesWithSpam = [
+        const trc20BalancesWithSpam: Trc20Balance[] = [
           { TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t: '24249143' }, // USDT - has price
           { TSpamToken123456789: '1000000000' }, // Spam token - no price
         ];
         mockTrongridApiClient.getTrc20BalancesByAddress.mockResolvedValue(
-          trc20BalancesWithSpam as never,
+          trc20BalancesWithSpam,
         );
 
         // Mock price API to only return price for USDT
         const usdtAssetId = `${String(Network.Mainnet)}/trc20:TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t`;
-        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue({
-          [usdtAssetId]: {
-            id: usdtAssetId,
-            price: 1.0,
-          },
+        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue(
           // No price for spam token
-        } as never);
+          createSpotPrices({ [usdtAssetId]: { id: usdtAssetId, price: 1.0 } }),
+        );
 
         // Act
         const assets = await assetsService.fetchAssetsAndBalancesForAccount(
@@ -364,10 +422,11 @@ describe('AssetsService', () => {
           new Error('Account not found or no data returned'),
         );
         mockTronHttpClient.getAccountResources.mockResolvedValue({
+          ...emptyAccountResources,
           freeNetLimit: 600,
           NetLimit: 0,
           EnergyLimit: 0,
-        } as never);
+        });
 
         // TRC20 fallback endpoint returns some balances
         const trc20Balances = [
@@ -379,9 +438,11 @@ describe('AssetsService', () => {
 
         // Mock price API for the TRC20 token
         const trc20AssetId = `${String(Network.Mainnet)}/trc20:TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t`;
-        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue({
-          [trc20AssetId]: { id: trc20AssetId, price: 1.0 },
-        } as never);
+        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue(
+          createSpotPrices({
+            [trc20AssetId]: { id: trc20AssetId, price: 1.0 },
+          }),
+        );
 
         // Act
         const assets = await assetsService.fetchAssetsAndBalancesForAccount(
@@ -412,11 +473,13 @@ describe('AssetsService', () => {
 
       it('continues with zero resources when only resources request fails', async () => {
         // Arrange: Account info succeeds, resources fail
-        mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue({
-          address: mockAccount.address,
-          balance: 1000000,
-          trc20: [],
-        } as never);
+        mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+          createMockTronAccount({
+            address: mockAccount.address,
+            balance: 1000000,
+            trc20: [],
+          }),
+        );
         mockTronHttpClient.getAccountResources.mockRejectedValue(
           new Error('Resources endpoint unavailable'),
         );
