@@ -25,7 +25,7 @@ export function isInterfaceNotFoundError(error: unknown): boolean {
     const message = error.message.toLowerCase();
     return message.includes('interface') && message.includes('not found');
   }
-
+  
   return false;
 }
 
