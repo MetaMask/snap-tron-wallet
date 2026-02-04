@@ -123,7 +123,7 @@ export async function render(
     // If pricing is disabled, set to fetched immediately
     context.tokenPricesFetchStatus = 'fetched';
     // Update interface (silently ignores if interface was dismissed)
-    await snapClient.updateInterfaceIfExists(
+    await snapClient.updateInterface(
       id,
       <ConfirmTransactionRequest context={context} />,
       context,

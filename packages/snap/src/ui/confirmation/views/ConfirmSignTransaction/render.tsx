@@ -211,7 +211,7 @@ export async function render(
     await storeIdPromise;
 
     // Update interface with scan results (silently ignores if interface was dismissed)
-    const updated = await snapClient.updateInterfaceIfExists(
+    const updated = await snapClient.updateInterface(
       id,
       <ConfirmSignTransaction context={context} />,
       context,
@@ -234,7 +234,7 @@ export async function render(
     await storeIdPromise;
 
     // Update interface (silently ignores if interface was dismissed)
-    await snapClient.updateInterfaceIfExists(
+    await snapClient.updateInterface(
       id,
       <ConfirmSignTransaction context={context} />,
       context,
