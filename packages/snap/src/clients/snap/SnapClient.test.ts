@@ -1,4 +1,4 @@
-import { isInterfaceNotFoundError, SnapClient } from './SnapClient';
+import { SnapClient } from './SnapClient';
 
 // Mock the global snap object
 const mockSnapRequest = jest.fn();
@@ -6,120 +6,153 @@ const mockSnapRequest = jest.fn();
   request: mockSnapRequest,
 };
 
+/**
+ * Creates a fresh SnapClient and executes the given test function with it.
+ * Resets the `snap.request` mock before each invocation.
+ *
+ * @param testFn - The test body receiving the client and mock.
+ * @returns Whatever the test function returns.
+ */
+async function withSnapClient(
+  testFn: (setup: {
+    snapClient: SnapClient;
+    mockSnapRequest: jest.Mock;
+  }) => void | Promise<void>,
+) {
+  mockSnapRequest.mockReset();
+  const snapClient = new SnapClient();
+  await testFn({ snapClient, mockSnapRequest });
+}
+
 describe('SnapClient', () => {
-  let snapClient: SnapClient;
-
-  beforeEach(() => {
-    snapClient = new SnapClient();
-    mockSnapRequest.mockReset();
-  });
-
-  describe('isInterfaceNotFoundError', () => {
-    it('returns true for errors with matching message pattern', () => {
-      const error = new Error('Interface with id "abc" not found');
-
-      expect(isInterfaceNotFoundError(error)).toBe(true);
-    });
-
-    it('returns true for case-insensitive matching', () => {
-      const error = new Error('INTERFACE WITH ID NOT FOUND');
-
-      expect(isInterfaceNotFoundError(error)).toBe(true);
-    });
-
-    it('returns false for unrelated errors', () => {
-      const error = new Error('Network connection failed');
-
-      expect(isInterfaceNotFoundError(error)).toBe(false);
-    });
-
-    it('returns false for non-Error objects', () => {
-      expect(isInterfaceNotFoundError('string error')).toBe(false);
-      expect(isInterfaceNotFoundError(null)).toBe(false);
-      expect(isInterfaceNotFoundError(undefined)).toBe(false);
-      expect(isInterfaceNotFoundError(42)).toBe(false);
-    });
-  });
-
-  describe('getInterfaceContext', () => {
+  describe('getInterfaceContextIfExists', () => {
     it('returns context when interface exists', async () => {
-      const mockContext = { foo: 'bar' };
-      mockSnapRequest.mockResolvedValue(mockContext);
+      await withSnapClient(
+        async ({ snapClient, mockSnapRequest: mockRequest }) => {
+          const mockContext = { foo: 'bar' };
+          mockRequest.mockResolvedValue(mockContext);
 
-      const result = await snapClient.getInterfaceContext('test-id');
+          const result =
+            await snapClient.getInterfaceContextIfExists('test-id');
 
-      expect(result).toStrictEqual(mockContext);
-      expect(mockSnapRequest).toHaveBeenCalledWith({
-        method: 'snap_getInterfaceContext',
-        params: { id: 'test-id' },
-      });
+          expect(result).toStrictEqual(mockContext);
+          expect(mockRequest).toHaveBeenCalledWith({
+            method: 'snap_getInterfaceContext',
+            params: { id: 'test-id' },
+          });
+        },
+      );
     });
 
     it('returns null when interface is not found', async () => {
-      mockSnapRequest.mockRejectedValue(
-        new Error('Interface with id "xyz" not found'),
+      await withSnapClient(
+        async ({ snapClient, mockSnapRequest: mockRequest }) => {
+          mockRequest.mockRejectedValue(
+            new Error('Interface with id "xyz" not found'),
+          );
+
+          const result = await snapClient.getInterfaceContextIfExists('xyz');
+
+          expect(result).toBeNull();
+        },
       );
-
-      const result = await snapClient.getInterfaceContext('xyz');
-
-      expect(result).toBeNull();
     });
 
     it('re-throws non-interface-not-found errors', async () => {
-      const networkError = new Error('Network timeout');
-      mockSnapRequest.mockRejectedValue(networkError);
+      await withSnapClient(
+        async ({ snapClient, mockSnapRequest: mockRequest }) => {
+          mockRequest.mockRejectedValue(new Error('Network timeout'));
 
-      await expect(snapClient.getInterfaceContext('test-id')).rejects.toThrow(
-        'Network timeout',
+          await expect(
+            snapClient.getInterfaceContextIfExists('test-id'),
+          ).rejects.toThrow('Network timeout');
+        },
+      );
+    });
+
+    it('re-throws when the rejection is not an Error instance', async () => {
+      await withSnapClient(
+        async ({ snapClient, mockSnapRequest: mockRequest }) => {
+          mockRequest.mockRejectedValue('unexpected string rejection');
+
+          await expect(
+            snapClient.getInterfaceContextIfExists('test-id'),
+          ).rejects.toBe('unexpected string rejection');
+        },
       );
     });
   });
 
-  describe('updateInterface', () => {
-    it('returns result when update succeeds', async () => {
-      const mockResult = { success: true };
-      mockSnapRequest.mockResolvedValue(mockResult);
+  describe('updateInterfaceIfExists', () => {
+    it('returns true when update succeeds', async () => {
+      await withSnapClient(
+        async ({ snapClient, mockSnapRequest: mockRequest }) => {
+          // SDK returns null for snap_updateInterface, but our wrapper returns true
+          mockRequest.mockResolvedValue(null);
 
-      const result = await snapClient.updateInterface(
-        'test-id',
-        '<div>test</div>',
-        { context: 'data' },
-      );
+          const result = await snapClient.updateInterfaceIfExists(
+            'test-id',
+            '<div>test</div>',
+            { context: 'data' },
+          );
 
-      expect(result).toStrictEqual(mockResult);
-      expect(mockSnapRequest).toHaveBeenCalledWith({
-        method: 'snap_updateInterface',
-        params: {
-          id: 'test-id',
-          ui: '<div>test</div>',
-          context: { context: 'data' },
+          expect(result).toBe(true);
+          expect(mockRequest).toHaveBeenCalledWith({
+            method: 'snap_updateInterface',
+            params: {
+              id: 'test-id',
+              ui: '<div>test</div>',
+              context: { context: 'data' },
+            },
+          });
         },
-      });
+      );
     });
 
     it('returns null when interface is not found', async () => {
-      mockSnapRequest.mockRejectedValue(
-        new Error('Interface with id "xyz" not found'),
-      );
+      await withSnapClient(
+        async ({ snapClient, mockSnapRequest: mockRequest }) => {
+          mockRequest.mockRejectedValue(
+            new Error('Interface with id "xyz" not found'),
+          );
 
-      const result = await snapClient.updateInterface(
-        'xyz',
-        '<div>test</div>',
-        { context: 'data' },
-      );
+          const result = await snapClient.updateInterfaceIfExists(
+            'xyz',
+            '<div>test</div>',
+            { context: 'data' },
+          );
 
-      expect(result).toBeNull();
+          expect(result).toBeNull();
+        },
+      );
     });
 
     it('re-throws non-interface-not-found errors', async () => {
-      const networkError = new Error('Network timeout');
-      mockSnapRequest.mockRejectedValue(networkError);
+      await withSnapClient(
+        async ({ snapClient, mockSnapRequest: mockRequest }) => {
+          mockRequest.mockRejectedValue(new Error('Network timeout'));
 
-      await expect(
-        snapClient.updateInterface('test-id', '<div>test</div>', {
-          context: 'data',
-        }),
-      ).rejects.toThrow('Network timeout');
+          await expect(
+            snapClient.updateInterfaceIfExists('test-id', '<div>test</div>', {
+              context: 'data',
+            }),
+          ).rejects.toThrow('Network timeout');
+        },
+      );
+    });
+
+    it('re-throws when the rejection is not an Error instance', async () => {
+      await withSnapClient(
+        async ({ snapClient, mockSnapRequest: mockRequest }) => {
+          mockRequest.mockRejectedValue('unexpected string rejection');
+
+          await expect(
+            snapClient.updateInterfaceIfExists('test-id', '<div>test</div>', {
+              context: 'data',
+            }),
+          ).rejects.toBe('unexpected string rejection');
+        },
+      );
     });
   });
 });

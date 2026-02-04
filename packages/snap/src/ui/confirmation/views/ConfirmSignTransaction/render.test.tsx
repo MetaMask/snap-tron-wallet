@@ -88,10 +88,9 @@ describe('ConfirmSignTransaction render', () => {
     mockSnapClient = {
       createInterface: jest.fn().mockResolvedValue('interface-id-123'),
       showDialog: jest.fn().mockResolvedValue(true),
-      updateInterface: jest.fn().mockResolvedValue({}),
+      updateInterfaceIfExists: jest.fn().mockResolvedValue(true),
       getPreferences: jest.fn().mockResolvedValue(mockPreferences),
       scheduleBackgroundEvent: jest.fn().mockResolvedValue(undefined),
-      getInterfaceContext: jest.fn().mockResolvedValue({}),
     } as any;
 
     mockTransactionScanService = {
@@ -198,7 +197,7 @@ describe('ConfirmSignTransaction render', () => {
     });
 
     // Verify interface was updated with scan results
-    expect(mockSnapClient.updateInterface).toHaveBeenCalled();
+    expect(mockSnapClient.updateInterfaceIfExists).toHaveBeenCalled();
   });
 
   it('handles missing transaction scan service gracefully', async () => {
@@ -234,7 +233,7 @@ describe('ConfirmSignTransaction render', () => {
     expect(mockSnapClient.createInterface).toHaveBeenCalledTimes(1);
 
     // Should update interface without scan
-    expect(mockSnapClient.updateInterface).toHaveBeenCalled();
+    expect(mockSnapClient.updateInterfaceIfExists).toHaveBeenCalled();
   });
 
   it('handles security scan failure gracefully', async () => {
@@ -267,7 +266,7 @@ describe('ConfirmSignTransaction render', () => {
 
     // Should still render with error state
     expect(mockSnapClient.createInterface).toHaveBeenCalledTimes(1);
-    expect(mockSnapClient.updateInterface).toHaveBeenCalled();
+    expect(mockSnapClient.updateInterfaceIfExists).toHaveBeenCalled();
   });
 
   it('skips security scan when preferences disable it', async () => {
@@ -393,8 +392,8 @@ describe('ConfirmSignTransaction render', () => {
   });
 
   it('gracefully exits when interface was dismissed during scan', async () => {
-    // Mock updateInterface to return null (simulating user closed dialog during scan)
-    mockSnapClient.updateInterface.mockResolvedValue(null);
+    // Mock updateInterfaceIfExists to return null (simulating user closed dialog during scan)
+    mockSnapClient.updateInterfaceIfExists.mockResolvedValue(null);
 
     const request: KeyringRequest = {
       id: '00000000-0000-4000-8000-000000000008',
@@ -422,8 +421,8 @@ describe('ConfirmSignTransaction render', () => {
     // Security scan was called
     expect(mockTransactionScanService.scanTransaction).toHaveBeenCalled();
 
-    // updateInterface was called (and returned null indicating interface dismissed)
-    expect(mockSnapClient.updateInterface).toHaveBeenCalledWith(
+    // updateInterfaceIfExists was called (and returned null indicating interface dismissed)
+    expect(mockSnapClient.updateInterfaceIfExists).toHaveBeenCalledWith(
       'interface-id-123',
       expect.anything(),
       expect.anything(),
@@ -433,10 +432,10 @@ describe('ConfirmSignTransaction render', () => {
     expect(mockSnapClient.scheduleBackgroundEvent).not.toHaveBeenCalled();
   });
 
-  it('propagates non-interface-not-found errors from updateInterface', async () => {
-    // Mock updateInterface to throw a different error
+  it('propagates non-interface-not-found errors from updateInterfaceIfExists', async () => {
+    // Mock updateInterfaceIfExists to throw a different error
     const networkError = new Error('Network connection failed');
-    mockSnapClient.updateInterface.mockRejectedValue(networkError);
+    mockSnapClient.updateInterfaceIfExists.mockRejectedValue(networkError);
 
     const request: KeyringRequest = {
       id: '00000000-0000-4000-8000-000000000009',

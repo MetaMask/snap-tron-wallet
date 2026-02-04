@@ -20,12 +20,12 @@ import type { Preferences } from '../../types/snap';
  * @param error - The error to check.
  * @returns True if the error indicates the interface was not found.
  */
-export function isInterfaceNotFoundError(error: unknown): boolean {
+function isInterfaceNotFoundError(error: unknown): boolean {
   if (error instanceof Error) {
     const message = error.message.toLowerCase();
     return message.includes('interface') && message.includes('not found');
   }
-  
+
   return false;
 }
 
@@ -91,17 +91,17 @@ export class SnapClient {
    * @param id - The interface id returned from createInterface.
    * @param ui - The new UI component to render.
    * @param context - The updated context object to associate with the interface.
-   * @returns The update interface result, or null if the interface was not found.
+   * @returns True if the interface was updated, or null if it was not found.
    */
-  async updateInterface<TContext>(
+  async updateInterfaceIfExists<TContext>(
     id: string,
     // TODO: Replace `any` with type
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ui: any,
     context: TContext & Record<string, Json>,
-  ): Promise<UpdateInterfaceResult | null> {
+  ): Promise<true | null> {
     try {
-      return await snap.request({
+      await snap.request({
         method: 'snap_updateInterface',
         params: {
           id,
@@ -109,6 +109,7 @@ export class SnapClient {
           context,
         },
       });
+      return true;
     } catch (error) {
       if (isInterfaceNotFoundError(error)) {
         return null;
@@ -124,7 +125,7 @@ export class SnapClient {
    * @param id - The ID for the interface.
    * @returns The context object associated with the interface, or null if not found.
    */
-  async getInterfaceContext<TContext extends Json>(
+  async getInterfaceContextIfExists<TContext extends Json>(
     id: string,
   ): Promise<TContext | null> {
     try {
