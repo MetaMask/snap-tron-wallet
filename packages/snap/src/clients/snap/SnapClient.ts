@@ -86,6 +86,7 @@ export class SnapClient {
 
   /**
    * Update an existing UI interface with a new UI component and context.
+   * Returns null if the interface has been dismissed by the user.
    *
    * @param id - The interface id returned from createInterface.
    * @param ui - The new UI component to render.
@@ -98,52 +99,16 @@ export class SnapClient {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ui: any,
     context: TContext & Record<string, Json>,
-  ): Promise<UpdateInterfaceResult> {
-    return snap.request({
-      method: 'snap_updateInterface',
-      params: {
-        id,
-        ui,
-        context,
-      },
-    });
-  }
-
-  /**
-   * Gets the context of an interface by its ID.
-   *
-   * @param id - The ID for the interface.
-   * @returns The context object associated with the interface, or null if not found.
-   */
-  async getInterfaceContext<TContext extends Json>(
-    id: string,
-  ): Promise<TContext | null> {
-    const rawContext = await snap.request({
-      method: 'snap_getInterfaceContext',
-      params: {
-        id,
-      },
-    });
-
-    if (!rawContext) {
-      return null;
-    }
-
-    return rawContext as TContext;
-  }
-
-  /**
-   * Gets the context of an interface by its ID, silently returning null if the
-   * interface has been dismissed.
-   *
-   * @param id - The ID for the interface.
-   * @returns The context object associated with the interface, or null if not found.
-   */
-  async getInterfaceContextIfExists<TContext extends Json>(
-    id: string,
-  ): Promise<TContext | null> {
+  ): Promise<UpdateInterfaceResult | null> {
     try {
-      return await this.getInterfaceContext<TContext>(id);
+      return await snap.request({
+        method: 'snap_updateInterface',
+        params: {
+          id,
+          ui,
+          context,
+        },
+      });
     } catch (error) {
       if (isInterfaceNotFoundError(error)) {
         return null;
@@ -153,22 +118,28 @@ export class SnapClient {
   }
 
   /**
-   * Updates an interface, silently ignoring "interface not found" errors.
-   * Use this method when the interface may have been dismissed by the user
-   * during an async operation (e.g., security scan, price fetch).
+   * Gets the context of an interface by its ID.
+   * Returns null if the interface has been dismissed by the user.
    *
-   * @param id - The interface id returned from createInterface.
-   * @param ui - The new UI component to render.
-   * @param context - The updated context object to associate with the interface.
-   * @returns The update interface result, or null if the interface was not found.
+   * @param id - The ID for the interface.
+   * @returns The context object associated with the interface, or null if not found.
    */
-  async updateInterfaceIfExists<TContext>(
+  async getInterfaceContext<TContext extends Json>(
     id: string,
-    ui: any,
-    context: TContext & Record<string, Json>,
-  ): Promise<UpdateInterfaceResult | null> {
+  ): Promise<TContext | null> {
     try {
-      return await this.updateInterface(id, ui, context);
+      const rawContext = await snap.request({
+        method: 'snap_getInterfaceContext',
+        params: {
+          id,
+        },
+      });
+
+      if (!rawContext) {
+        return null;
+      }
+
+      return rawContext as TContext;
     } catch (error) {
       if (isInterfaceNotFoundError(error)) {
         return null;

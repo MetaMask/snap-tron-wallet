@@ -216,7 +216,7 @@ export class CronHandler {
   ): Promise<void> {
     // Get the current interface context (returns null if dismissed)
     const interfaceContext =
-      await this.#snapClient.getInterfaceContextIfExists<ConfirmTransactionRequestContext>(
+      await this.#snapClient.getInterfaceContext<ConfirmTransactionRequestContext>(
         confirmationInterfaceId,
       );
 
@@ -245,7 +245,7 @@ export class CronHandler {
       };
 
       // Update interface (silently ignores if interface was dismissed)
-      await this.#snapClient.updateInterfaceIfExists(
+      await this.#snapClient.updateInterface(
         confirmationInterfaceId,
         <ConfirmTransactionRequest context={fetchingContext} />,
         fetchingContext,
@@ -264,7 +264,7 @@ export class CronHandler {
 
       // Get the latest context (returns null if dismissed during price fetch)
       const latestContext =
-        await this.#snapClient.getInterfaceContextIfExists<ConfirmTransactionRequestContext>(
+        await this.#snapClient.getInterfaceContext<ConfirmTransactionRequestContext>(
           confirmationInterfaceId,
         );
 
@@ -288,7 +288,7 @@ export class CronHandler {
       };
 
       // Update the interface with new UI and context (silently ignores if dismissed)
-      await this.#snapClient.updateInterfaceIfExists(
+      await this.#snapClient.updateInterface(
         confirmationInterfaceId,
         <ConfirmTransactionRequest context={updatedContext} />,
         updatedContext,
@@ -306,7 +306,7 @@ export class CronHandler {
 
       // Try to update the UI to show error state if possible
       const currentContext =
-        await this.#snapClient.getInterfaceContextIfExists<ConfirmTransactionRequestContext>(
+        await this.#snapClient.getInterfaceContext<ConfirmTransactionRequestContext>(
           confirmationInterfaceId,
         );
 
@@ -316,7 +316,7 @@ export class CronHandler {
           tokenPricesFetchStatus: 'error' as const,
         };
 
-        await this.#snapClient.updateInterfaceIfExists(
+        await this.#snapClient.updateInterface(
           confirmationInterfaceId,
           <ConfirmTransactionRequest context={errorContext} />,
           errorContext,
@@ -515,7 +515,7 @@ export class CronHandler {
 
     // Get the current interface context (returns null if dismissed)
     const interfaceContext =
-      await this.#snapClient.getInterfaceContextIfExists<ConfirmSignTransactionContext>(
+      await this.#snapClient.getInterfaceContext<ConfirmSignTransactionContext>(
         confirmationInterfaceId,
       );
 
@@ -556,7 +556,7 @@ export class CronHandler {
       };
 
       // Update interface (silently ignores if interface was dismissed)
-      await this.#snapClient.updateInterfaceIfExists(
+      await this.#snapClient.updateInterface(
         confirmationInterfaceId,
         <ConfirmSignTransaction context={fetchingContext} />,
         fetchingContext,
@@ -599,7 +599,7 @@ export class CronHandler {
 
       // Get the latest context (returns null if dismissed during scan)
       const latestContext =
-        await this.#snapClient.getInterfaceContextIfExists<ConfirmSignTransactionContext>(
+        await this.#snapClient.getInterfaceContext<ConfirmSignTransactionContext>(
           confirmationInterfaceId,
         );
 
@@ -621,7 +621,7 @@ export class CronHandler {
       };
 
       // Update interface (silently ignores if interface was dismissed)
-      await this.#snapClient.updateInterfaceIfExists(
+      await this.#snapClient.updateInterface(
         confirmationInterfaceId,
         <ConfirmSignTransaction context={updatedContext} />,
         updatedContext,
@@ -639,7 +639,7 @@ export class CronHandler {
 
       // Try to update the UI to show error state
       const currentContext =
-        await this.#snapClient.getInterfaceContextIfExists<ConfirmSignTransactionContext>(
+        await this.#snapClient.getInterfaceContext<ConfirmSignTransactionContext>(
           confirmationInterfaceId,
         );
 
@@ -651,7 +651,7 @@ export class CronHandler {
             : currentContext.scanFetchStatus,
         };
 
-        await this.#snapClient.updateInterfaceIfExists(
+        await this.#snapClient.updateInterface(
           confirmationInterfaceId,
           <ConfirmSignTransaction context={errorContext} />,
           errorContext,
