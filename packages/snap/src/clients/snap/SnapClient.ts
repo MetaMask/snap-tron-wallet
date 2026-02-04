@@ -15,60 +15,16 @@ import type { Preferences } from '../../types/snap';
 
 /**
  * Checks if an error is an "interface not found" error.
- * Detects errors thrown when an interface has been dismissed by the user.
+ * Detects JSON-RPC errors thrown when an interface has been dismissed by the user.
  *
  * @param error - The error to check.
  * @returns True if the error indicates the interface was not found.
  */
 export function isInterfaceNotFoundError(error: unknown): boolean {
-  const messageIndicatesNotFound = (message: string): boolean => {
-    const lowerMessage = message.toLowerCase();
-    return (
-      lowerMessage.includes('interface') && lowerMessage.includes('not found')
-    );
-  };
-
   if (error instanceof Error) {
-    if (messageIndicatesNotFound(error.message)) {
-      return true;
-    }
-
-    // Check for JSON-RPC error structure with nested cause
-    const errorWithData = error as Error & {
-      data?: { cause?: { message?: string } };
-      cause?: { message?: string } | Error;
-    };
-
-    if (
-      errorWithData.data?.cause?.message &&
-      messageIndicatesNotFound(errorWithData.data.cause.message)
-    ) {
-      return true;
-    }
-
-    if (errorWithData.cause) {
-      const causeMessage =
-        errorWithData.cause instanceof Error
-          ? errorWithData.cause.message
-          : (errorWithData.cause as { message?: string }).message;
-      if (causeMessage && messageIndicatesNotFound(causeMessage)) {
-        return true;
-      }
-    }
+    const message = error.message.toLowerCase();
+    return message.includes('interface') && message.includes('not found');
   }
-
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'message' in error &&
-    typeof (error as { message: unknown }).message === 'string'
-  ) {
-    const { message } = error as { message: string };
-    if (messageIndicatesNotFound(message)) {
-      return true;
-    }
-  }
-
   return false;
 }
 
