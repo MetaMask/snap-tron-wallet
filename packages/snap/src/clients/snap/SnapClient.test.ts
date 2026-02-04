@@ -41,12 +41,12 @@ describe('SnapClient', () => {
     });
   });
 
-  describe('getInterfaceContextOrThrow', () => {
+  describe('getInterfaceContextIfExists', () => {
     it('returns context when interface exists', async () => {
       const mockContext = { foo: 'bar' };
       mockSnapRequest.mockResolvedValue(mockContext);
 
-      const result = await snapClient.getInterfaceContextOrThrow('test-id');
+      const result = await snapClient.getInterfaceContextIfExists('test-id');
 
       expect(result).toStrictEqual(mockContext);
       expect(mockSnapRequest).toHaveBeenCalledWith({
@@ -55,13 +55,23 @@ describe('SnapClient', () => {
       });
     });
 
-    it('throws AssertionError when context is null', async () => {
-      mockSnapRequest.mockResolvedValue(null);
+    it('returns null when interface is not found (SDK error)', async () => {
+      mockSnapRequest.mockRejectedValue(
+        new Error('Interface with id "xyz" not found'),
+      );
 
-      // Uses assert from @metamask/snaps-sdk, which throws an error with the message
+      const result = await snapClient.getInterfaceContextIfExists('xyz');
+
+      expect(result).toBeNull();
+    });
+
+    it('re-throws non-interface-not-found errors', async () => {
+      const networkError = new Error('Network timeout');
+      mockSnapRequest.mockRejectedValue(networkError);
+
       await expect(
-        snapClient.getInterfaceContextOrThrow('missing-id'),
-      ).rejects.toThrow('Interface with id "missing-id" not found');
+        snapClient.getInterfaceContextIfExists('test-id'),
+      ).rejects.toThrow('Network timeout');
     });
   });
 
