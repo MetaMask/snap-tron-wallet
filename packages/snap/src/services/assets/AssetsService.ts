@@ -188,7 +188,6 @@ export class AssetsService {
       scope,
     });
 
-    // --- DATA FETCHING ---
     const [tronAccountInfoRequest, tronAccountResourcesRequest] =
       await Promise.allSettled([
         this.#trongridApiClient.getAccountInfoByAddress(scope, account.address),
@@ -215,17 +214,14 @@ export class AssetsService {
           })
       : [];
 
-    // --- NORMALIZE DATA ---
     const accountData = this.#buildAccountData({
       tronAccountInfoRequest,
       tronAccountResourcesRequest,
       trc20BalancesFallback,
     });
 
-    // --- EXTRACT ASSETS ---
     const rawAssets = this.#extractAssets(account, scope, accountData);
 
-    // --- FETCH METADATA & PRICES ---
     const assetTypes = rawAssets.map((asset) => asset.assetType);
     const priceableAssetTypes = this.#getPriceableAssetTypes(rawAssets);
 
@@ -236,7 +232,6 @@ export class AssetsService {
         .catch(() => ({})),
     ]);
 
-    // --- ENRICH & FILTER ---
     const enrichedAssets = this.#enrichAssetsWithMetadata(
       rawAssets,
       assetsMetadata,
