@@ -90,7 +90,7 @@ export class SnapClient {
    * @param context - The updated context object to associate with the interface.
    * @returns The update interface result, or null if the interface was not found.
    */
-  async updateInterface<TContext>(
+  async updateInterfaceIfExists<TContext>(
     id: string,
     ui: any,
     context: TContext & Record<string, Json>,
@@ -119,7 +119,7 @@ export class SnapClient {
    * @param id - The ID for the interface.
    * @returns The context object associated with the interface, or null if not found.
    */
-  async getInterfaceContext<TContext extends Json>(
+  async getInterfaceContextIfExists<TContext extends Json>(
     id: string,
   ): Promise<TContext | null> {
     try {

@@ -41,12 +41,12 @@ describe('SnapClient', () => {
     });
   });
 
-  describe('getInterfaceContext', () => {
+  describe('getInterfaceContextIfExists', () => {
     it('returns context when interface exists', async () => {
       const mockContext = { foo: 'bar' };
       mockSnapRequest.mockResolvedValue(mockContext);
 
-      const result = await snapClient.getInterfaceContext('test-id');
+      const result = await snapClient.getInterfaceContextIfExists('test-id');
 
       expect(result).toStrictEqual(mockContext);
       expect(mockSnapRequest).toHaveBeenCalledWith({
@@ -60,7 +60,7 @@ describe('SnapClient', () => {
         new Error('Interface with id "xyz" not found'),
       );
 
-      const result = await snapClient.getInterfaceContext('xyz');
+      const result = await snapClient.getInterfaceContextIfExists('xyz');
 
       expect(result).toBeNull();
     });
@@ -69,18 +69,18 @@ describe('SnapClient', () => {
       const networkError = new Error('Network timeout');
       mockSnapRequest.mockRejectedValue(networkError);
 
-      await expect(snapClient.getInterfaceContext('test-id')).rejects.toThrow(
-        'Network timeout',
-      );
+      await expect(
+        snapClient.getInterfaceContextIfExists('test-id'),
+      ).rejects.toThrow('Network timeout');
     });
   });
 
-  describe('updateInterface', () => {
+  describe('updateInterfaceIfExists', () => {
     it('returns result when update succeeds', async () => {
       const mockResult = { success: true };
       mockSnapRequest.mockResolvedValue(mockResult);
 
-      const result = await snapClient.updateInterface(
+      const result = await snapClient.updateInterfaceIfExists(
         'test-id',
         '<div>test</div>',
         { context: 'data' },
@@ -102,7 +102,7 @@ describe('SnapClient', () => {
         new Error('Interface with id "xyz" not found'),
       );
 
-      const result = await snapClient.updateInterface(
+      const result = await snapClient.updateInterfaceIfExists(
         'xyz',
         '<div>test</div>',
         { context: 'data' },
@@ -116,7 +116,7 @@ describe('SnapClient', () => {
       mockSnapRequest.mockRejectedValue(networkError);
 
       await expect(
-        snapClient.updateInterface('test-id', '<div>test</div>', {
+        snapClient.updateInterfaceIfExists('test-id', '<div>test</div>', {
           context: 'data',
         }),
       ).rejects.toThrow('Network timeout');
