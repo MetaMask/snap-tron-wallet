@@ -16,7 +16,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Add `tsx` and deduplicate dependencies ([#184](https://github.com/MetaMask/snap-tron-wallet/pull/184))
 - Enable preview builds ([#180](https://github.com/MetaMask/snap-tron-wallet/pull/180))
 
 ## [1.20.0]
