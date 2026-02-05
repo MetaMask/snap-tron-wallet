@@ -9,15 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.21.0]
 
-### Uncategorized
-
-- fix: consider current deployer energy when calculating fees ([#192](https://github.com/MetaMask/snap-tron-wallet/pull/192))
-- chore: add `tsx` and deduplicate dependencies ([#184](https://github.com/MetaMask/snap-tron-wallet/pull/184))
-- ci: enable preview builds ([#180](https://github.com/MetaMask/snap-tron-wallet/pull/180))
-
 ### Fixed
 
 - Handle extreme token amounts to prevent NaN and scientific notation in estimated changes ([#191](https://github.com/MetaMask/snap-tron-wallet/pull/191))
+- Consider contract deployer's energy when calculating fees ([#192](https://github.com/MetaMask/snap-tron-wallet/pull/192))
+
+### Changed
+
+- Add `tsx` and deduplicate dependencies ([#184](https://github.com/MetaMask/snap-tron-wallet/pull/184))
+- Enable preview builds ([#180](https://github.com/MetaMask/snap-tron-wallet/pull/180))
 
 ## [1.20.0]
 
