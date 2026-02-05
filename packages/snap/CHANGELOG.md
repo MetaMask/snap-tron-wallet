@@ -14,8 +14,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Handle extreme token amounts to prevent NaN and scientific notation in estimated changes ([#191](https://github.com/MetaMask/snap-tron-wallet/pull/191))
 - Consider contract deployer's energy when calculating fees ([#192](https://github.com/MetaMask/snap-tron-wallet/pull/192))
 
-### Changed
-
 
 ## [1.20.0]
 
