@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `pending` transactions not being considered for data fetching so we know when they are `confirmed` ([#194](https://github.com/MetaMask/snap-tron-wallet/pull/194))
+- Sent transactions stuck on `pending` state ([#194](https://github.com/MetaMask/snap-tron-wallet/pull/194))
 
 ## [1.21.0]
 
