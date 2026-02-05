@@ -1,14 +1,15 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
-/* eslint-disable no-restricted-globals */
 import type { KeyringAccount } from '@metamask/keyring-api';
 import { KeyringEvent } from '@metamask/keyring-api';
 import { emitSnapKeyringEvent } from '@metamask/keyring-snap-sdk';
 
 import type { AssetsRepository } from './AssetsRepository';
 import type { PriceApiClient } from '../../clients/price-api/PriceApiClient';
+import type { SpotPrices } from '../../clients/price-api/types';
 import type { TokenApiClient } from '../../clients/token-api/TokenApiClient';
 import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
+import type { AccountResources } from '../../clients/tron-http/types';
 import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
+import type { Trc20Balance, TronAccount } from '../../clients/trongrid/types';
 import { KnownCaip19Id, Network } from '../../constants';
 import type { AssetEntity } from '../../entities/assets';
 import { mockLogger } from '../../utils/mockLogger';
@@ -37,19 +38,45 @@ jest.mock('@metamask/keyring-snap-sdk', () => ({
 }));
 
 // Mock global snap object
+// eslint-disable-next-line no-restricted-globals
 (global as any).snap = {};
 
 // Import AssetsService after mocking context
+// eslint-disable-next-line @typescript-eslint/no-require-imports, no-restricted-globals
 const { AssetsService } = require('./AssetsService');
 
 describe('AssetsService', () => {
   let assetsService: any;
-  let mockAssetsRepository: jest.Mocked<AssetsRepository>;
-  let mockState: jest.Mocked<State<UnencryptedStateValue>>;
-  let mockTrongridApiClient: jest.Mocked<TrongridApiClient>;
-  let mockTronHttpClient: jest.Mocked<TronHttpClient>;
-  let mockPriceApiClient: jest.Mocked<PriceApiClient>;
-  let mockTokenApiClient: jest.Mocked<TokenApiClient>;
+  let mockAssetsRepository: jest.Mocked<
+    Pick<
+      AssetsRepository,
+      | 'getByAccountId'
+      | 'getByAccountIdAndAssetType'
+      | 'getByAccountIdAndAssetTypes'
+      | 'saveMany'
+    >
+  >;
+  let mockState: jest.Mocked<
+    Pick<State<UnencryptedStateValue>, 'getKey' | 'setKey'>
+  >;
+  let mockTrongridApiClient: jest.Mocked<
+    Pick<
+      TrongridApiClient,
+      'getAccountInfoByAddress' | 'getTrc20BalancesByAddress'
+    >
+  >;
+  let mockTronHttpClient: jest.Mocked<
+    Pick<TronHttpClient, 'getAccountResources'>
+  >;
+  let mockPriceApiClient: jest.Mocked<
+    Pick<
+      PriceApiClient,
+      'getFiatExchangeRates' | 'getHistoricalPrices' | 'getMultipleSpotPrices'
+    >
+  >;
+  let mockTokenApiClient: jest.Mocked<
+    Pick<TokenApiClient, 'getTokensMetadata'>
+  >;
 
   const mockAccount: KeyringAccount = {
     id: 'test-account-id',
@@ -60,6 +87,57 @@ describe('AssetsService', () => {
     scopes: ['tron:728126428'],
   };
 
+  // Reusable mock for empty AccountResources (inactive account scenario)
+  const emptyAccountResources: AccountResources = {
+    freeNetUsed: 0,
+    freeNetLimit: 0,
+    NetLimit: 0,
+    TotalNetLimit: 0,
+    TotalNetWeight: 0,
+    tronPowerUsed: 0,
+    tronPowerLimit: 0,
+    TotalEnergyLimit: 0,
+    TotalEnergyWeight: 0,
+  };
+
+  // Helper to create properly typed SpotPrices for tests
+  const createSpotPrices = (
+    entries: Record<string, { id: string; price: number }>,
+  ): SpotPrices =>
+    Object.fromEntries(
+      Object.entries(entries).map(([key, value]) => [
+        key,
+        { id: value.id, price: value.price },
+      ]),
+    );
+
+  // Helper to create properly typed TronAccount for tests
+  // Uses snake_case property names to match Tron API response format
+  /* eslint-disable @typescript-eslint/naming-convention */
+  const createMockTronAccount = (
+    overrides: Partial<TronAccount> & { address: string },
+  ): TronAccount => ({
+    owner_permission: { keys: [], threshold: 1, permission_name: 'owner' },
+    account_resource: {
+      energy_window_optimized: false,
+      energy_window_size: 0,
+    },
+    active_permission: [],
+    create_time: 0,
+    latest_opration_time: 0,
+    frozenV2: [],
+    unfrozenV2: [],
+    balance: 0,
+    trc20: [],
+    latest_consume_free_time: 0,
+    votes: [],
+    latest_withdraw_time: 0,
+    net_window_size: 0,
+    net_window_optimized: false,
+    ...overrides,
+  });
+  /* eslint-enable @typescript-eslint/naming-convention */
+
   beforeEach(() => {
     jest.clearAllMocks();
 
@@ -68,17 +146,28 @@ describe('AssetsService', () => {
       getByAccountId: jest.fn().mockResolvedValue([]),
       getByAccountIdAndAssetType: jest.fn().mockResolvedValue(null),
       getByAccountIdAndAssetTypes: jest.fn().mockResolvedValue([]),
-    } as unknown as jest.Mocked<AssetsRepository>;
+    };
 
     mockState = {
       getKey: jest.fn().mockResolvedValue({}),
       setKey: jest.fn().mockResolvedValue(undefined),
-    } as unknown as jest.Mocked<State<UnencryptedStateValue>>;
+    };
 
-    mockTrongridApiClient = {} as jest.Mocked<TrongridApiClient>;
-    mockTronHttpClient = {} as jest.Mocked<TronHttpClient>;
-    mockPriceApiClient = {} as jest.Mocked<PriceApiClient>;
-    mockTokenApiClient = {} as jest.Mocked<TokenApiClient>;
+    mockTrongridApiClient = {
+      getAccountInfoByAddress: jest.fn(),
+      getTrc20BalancesByAddress: jest.fn(),
+    };
+    mockTronHttpClient = {
+      getAccountResources: jest.fn(),
+    };
+    mockPriceApiClient = {
+      getFiatExchangeRates: jest.fn(),
+      getHistoricalPrices: jest.fn(),
+      getMultipleSpotPrices: jest.fn().mockResolvedValue({}),
+    };
+    mockTokenApiClient = {
+      getTokensMetadata: jest.fn().mockResolvedValue({}),
+    };
 
     assetsService = new AssetsService({
       logger: mockLogger,
@@ -88,6 +177,278 @@ describe('AssetsService', () => {
       tronHttpClient: mockTronHttpClient,
       priceApiClient: mockPriceApiClient,
       tokenApiClient: mockTokenApiClient,
+    });
+  });
+
+  describe('fetchAssetsAndBalancesForAccount', () => {
+    describe('inactive account fallback', () => {
+      it('falls back to TRC20 balance endpoint when account info fails (inactive account)', async () => {
+        // Arrange: Account info fails (inactive account doesn't exist on-chain)
+        // Note: getAccountResources returns {} for inactive accounts, not an error
+        mockTrongridApiClient.getAccountInfoByAddress.mockRejectedValue(
+          new Error('Account not found or no data returned'),
+        );
+        mockTronHttpClient.getAccountResources.mockResolvedValue(
+          emptyAccountResources,
+        );
+
+        // TRC20 fallback endpoint returns some balances
+        const trc20Balances = [
+          { TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t: '24249143' },
+        ];
+        mockTrongridApiClient.getTrc20BalancesByAddress.mockResolvedValue(
+          trc20Balances,
+        );
+
+        // Mock price API to return prices for the TRC20 tokens
+        const trc20AssetId = `${String(Network.Mainnet)}/trc20:TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t`;
+        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue(
+          createSpotPrices({
+            [trc20AssetId]: { id: trc20AssetId, price: 1.0 },
+          }),
+        );
+
+        // Act
+        const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
+
+        // Assert: Should have called the fallback endpoint
+        expect(
+          mockTrongridApiClient.getTrc20BalancesByAddress,
+        ).toHaveBeenCalledWith(Network.Mainnet, mockAccount.address);
+
+        // Assert: Should return TRX with zero balance and TRC20 tokens
+        const trxAsset = assets.find(
+          (asset: AssetEntity) => asset.assetType === KnownCaip19Id.TrxMainnet,
+        );
+        expect(trxAsset).toBeDefined();
+        expect(trxAsset?.rawAmount).toBe('0');
+
+        const expectedTrc20AssetType = `${String(Network.Mainnet)}/trc20:TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t`;
+        const trc20Asset = assets.find(
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+          (asset: AssetEntity) => asset.assetType === expectedTrc20AssetType,
+        );
+        expect(trc20Asset).toBeDefined();
+        expect(trc20Asset?.rawAmount).toBe('24249143');
+      });
+
+      it('returns zero TRX and resources when fallback also returns empty', async () => {
+        // Arrange: Account info fails (inactive account)
+        // Note: getAccountResources returns {} for inactive accounts, not an error
+        mockTrongridApiClient.getAccountInfoByAddress.mockRejectedValue(
+          new Error('Account not found or no data returned'),
+        );
+        mockTronHttpClient.getAccountResources.mockResolvedValue(
+          emptyAccountResources,
+        );
+
+        // TRC20 fallback endpoint returns empty (no tokens)
+        mockTrongridApiClient.getTrc20BalancesByAddress.mockResolvedValue([]);
+
+        // Act
+        const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
+
+        // Assert: Should have called the fallback endpoint
+        expect(
+          mockTrongridApiClient.getTrc20BalancesByAddress,
+        ).toHaveBeenCalledWith(Network.Mainnet, mockAccount.address);
+
+        // Assert: Should return TRX with zero balance and zero resources
+        const trxAsset = assets.find(
+          (asset: AssetEntity) => asset.assetType === KnownCaip19Id.TrxMainnet,
+        );
+        expect(trxAsset).toBeDefined();
+        expect(trxAsset?.rawAmount).toBe('0');
+
+        // Assert: Bandwidth and energy should also be present with zero values
+        const bandwidthAsset = assets.find(
+          (asset: AssetEntity) =>
+            asset.assetType === KnownCaip19Id.BandwidthMainnet,
+        );
+        const energyAsset = assets.find(
+          (asset: AssetEntity) =>
+            asset.assetType === KnownCaip19Id.EnergyMainnet,
+        );
+        expect(bandwidthAsset).toBeDefined();
+        expect(energyAsset).toBeDefined();
+      });
+
+      it('gracefully handles fallback endpoint failure', async () => {
+        // Arrange: Account info fails (inactive account)
+        // Note: getAccountResources returns {} for inactive accounts, not an error
+        mockTrongridApiClient.getAccountInfoByAddress.mockRejectedValue(
+          new Error('Account not found or no data returned'),
+        );
+        mockTronHttpClient.getAccountResources.mockResolvedValue(
+          emptyAccountResources,
+        );
+
+        // TRC20 fallback endpoint also fails
+        mockTrongridApiClient.getTrc20BalancesByAddress.mockRejectedValue(
+          new Error('Network error'),
+        );
+
+        // Act
+        const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
+
+        // Assert: Should still return TRX with zero balance
+        const trxAsset = assets.find(
+          (asset: AssetEntity) => asset.assetType === KnownCaip19Id.TrxMainnet,
+        );
+        expect(trxAsset).toBeDefined();
+        expect(trxAsset?.rawAmount).toBe('0');
+      });
+
+      it('filters out TRC20 tokens without price data from inactive account', async () => {
+        // Arrange: Account info fails (inactive account)
+        // Note: getAccountResources returns {} for inactive accounts, not an error
+        mockTrongridApiClient.getAccountInfoByAddress.mockRejectedValue(
+          new Error('Account not found or no data returned'),
+        );
+        mockTronHttpClient.getAccountResources.mockResolvedValue(
+          emptyAccountResources,
+        );
+
+        // TRC20 fallback returns tokens including a spam token
+        const trc20BalancesWithSpam: Trc20Balance[] = [
+          { TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t: '24249143' }, // USDT - has price
+          { TSpamToken123456789: '1000000000' }, // Spam token - no price
+        ];
+        mockTrongridApiClient.getTrc20BalancesByAddress.mockResolvedValue(
+          trc20BalancesWithSpam,
+        );
+
+        // Mock price API to only return price for USDT
+        const usdtAssetId = `${String(Network.Mainnet)}/trc20:TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t`;
+        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue(
+          // No price for spam token
+          createSpotPrices({ [usdtAssetId]: { id: usdtAssetId, price: 1.0 } }),
+        );
+
+        // Act
+        const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
+
+        // Assert: USDT should be included
+        const usdtAssetType = `${String(Network.Mainnet)}/trc20:TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t`;
+        const usdtAsset = assets.find(
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+          (asset: AssetEntity) => asset.assetType === usdtAssetType,
+        );
+        expect(usdtAsset).toBeDefined();
+
+        // Assert: Spam token should be filtered out
+        const spamAssetType = `${String(Network.Mainnet)}/trc20:TSpamToken123456789`;
+        const spamAsset = assets.find(
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+          (asset: AssetEntity) => asset.assetType === spamAssetType,
+        );
+        expect(spamAsset).toBeUndefined();
+      });
+    });
+
+    describe('partial failure handling', () => {
+      it('uses fallback when account info fails even if resources succeed (inactive account)', async () => {
+        // Arrange: Account info fails (inactive account), resources succeed with empty object
+        // This matches real API behavior: getAccountResources returns {} for inactive accounts
+        mockTrongridApiClient.getAccountInfoByAddress.mockRejectedValue(
+          new Error('Account not found or no data returned'),
+        );
+        mockTronHttpClient.getAccountResources.mockResolvedValue({
+          ...emptyAccountResources,
+          freeNetLimit: 600,
+          NetLimit: 0,
+          EnergyLimit: 0,
+        });
+
+        // TRC20 fallback endpoint returns some balances
+        const trc20Balances = [
+          { TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t: '100000' },
+        ];
+        mockTrongridApiClient.getTrc20BalancesByAddress.mockResolvedValue(
+          trc20Balances,
+        );
+
+        // Mock price API for the TRC20 token
+        const trc20AssetId = `${String(Network.Mainnet)}/trc20:TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t`;
+        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue(
+          createSpotPrices({
+            [trc20AssetId]: { id: trc20AssetId, price: 1.0 },
+          }),
+        );
+
+        // Act
+        const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
+
+        // Assert: Should have used the fallback endpoint
+        expect(
+          mockTrongridApiClient.getTrc20BalancesByAddress,
+        ).toHaveBeenCalledWith(Network.Mainnet, mockAccount.address);
+
+        // Assert: Should return zero TRX (fallback behavior)
+        const trxAsset = assets.find(
+          (asset: AssetEntity) => asset.assetType === KnownCaip19Id.TrxMainnet,
+        );
+        expect(trxAsset).toBeDefined();
+        expect(trxAsset?.rawAmount).toBe('0');
+
+        // Assert: Should include TRC20 from fallback
+        const trc20Asset = assets.find(
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+          (asset: AssetEntity) => asset.assetType === trc20AssetId,
+        );
+        expect(trc20Asset).toBeDefined();
+        expect(trc20Asset?.rawAmount).toBe('100000');
+      });
+
+      it('continues with zero resources when only resources request fails', async () => {
+        // Arrange: Account info succeeds, resources fail
+        mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+          createMockTronAccount({
+            address: mockAccount.address,
+            balance: 1000000,
+            trc20: [],
+          }),
+        );
+        mockTronHttpClient.getAccountResources.mockRejectedValue(
+          new Error('Resources endpoint unavailable'),
+        );
+
+        // Act
+        const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
+
+        // Assert: Should return TRX balance from account info
+        const trxAsset = assets.find(
+          (asset: AssetEntity) => asset.assetType === KnownCaip19Id.TrxMainnet,
+        );
+        expect(trxAsset).toBeDefined();
+        expect(trxAsset?.rawAmount).toBe('1000000');
+
+        // Assert: Bandwidth and energy should be 0 (default)
+        const bandwidthAsset = assets.find(
+          (asset: AssetEntity) =>
+            asset.assetType === KnownCaip19Id.BandwidthMainnet,
+        );
+        expect(bandwidthAsset).toBeDefined();
+        expect(bandwidthAsset?.rawAmount).toBe('0');
+      });
     });
   });
 
