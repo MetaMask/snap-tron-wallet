@@ -348,18 +348,10 @@ export class AccountsService {
   }
 
   async synchronize(accounts: KeyringAccount[]): Promise<void> {
-    const [assetsSync, transactionsSync] = await Promise.allSettled([
+    await Promise.all([
       this.synchronizeAssets(accounts),
       this.synchronizeTransactions(accounts),
     ]);
-
-    if (assetsSync.status === 'rejected') {
-      throw new Error(assetsSync.reason);
-    }
-
-    if (transactionsSync.status === 'rejected') {
-      throw new Error(transactionsSync.reason);
-    }
   }
 
   #getLowestUnusedKeyringAccountIndex(
