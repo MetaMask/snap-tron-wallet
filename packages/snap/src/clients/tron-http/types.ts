@@ -73,16 +73,29 @@ export type TRC10TokenMetadata = {
  * @see https://developers.tron.network/reference/getaccountresource
  */
 export type AccountResources = {
+  /** Free bandwidth used */
   freeNetUsed: number;
+  /** Total free bandwidth available per day */
   freeNetLimit: number;
+  /** Bandwidth consumed from staked TRX (present when account has staked for bandwidth) */
+  NetUsed?: number;
+  /** Total bandwidth limit */
   NetLimit: number;
+  /** Total bandwidth limit (free + staked) */
   TotalNetLimit: number;
+  /** Total TRX staked for bandwidth in the network (used to compute limits) */
   TotalNetWeight: number;
+  /** Staking power (votes) already used */
   tronPowerUsed: number;
+  /** Total staking power (voting power) available from staked TRX */
   tronPowerLimit: number;
+  /** Energy consumed in the current window (present when account has staked for energy) */
   EnergyUsed?: number;
+  /** Energy available from staked TRX */
   EnergyLimit?: number;
+  /** Total energy limit */
   TotalEnergyLimit: number;
+  /** Total energy weight */
   TotalEnergyWeight: number;
 };
 
