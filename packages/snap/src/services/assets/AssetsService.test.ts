@@ -44,12 +44,30 @@ const { AssetsService } = require('./AssetsService');
 
 describe('AssetsService', () => {
   let assetsService: any;
-  let mockAssetsRepository: jest.Mocked<AssetsRepository>;
-  let mockState: jest.Mocked<State<UnencryptedStateValue>>;
-  let mockTrongridApiClient: jest.Mocked<TrongridApiClient>;
-  let mockTronHttpClient: jest.Mocked<TronHttpClient>;
-  let mockPriceApiClient: jest.Mocked<PriceApiClient>;
-  let mockTokenApiClient: jest.Mocked<TokenApiClient>;
+  let mockAssetsRepository: jest.Mocked<
+    Pick<
+      AssetsRepository,
+      | 'saveMany'
+      | 'getByAccountId'
+      | 'getByAccountIdAndAssetType'
+      | 'getByAccountIdAndAssetTypes'
+    >
+  >;
+  let mockState: jest.Mocked<
+    Pick<State<UnencryptedStateValue>, 'getKey' | 'setKey'>
+  >;
+  let mockTrongridApiClient: jest.Mocked<
+    Pick<TrongridApiClient, 'getAccountInfoByAddress'>
+  >;
+  let mockTronHttpClient: jest.Mocked<
+    Pick<TronHttpClient, 'getAccountResources'>
+  >;
+  let mockPriceApiClient: jest.Mocked<
+    Pick<PriceApiClient, 'getMultipleSpotPrices'>
+  >;
+  let mockTokenApiClient: jest.Mocked<
+    Pick<TokenApiClient, 'getTokensMetadata'>
+  >;
 
   const mockAccount: KeyringAccount = {
     id: 'test-account-id',
@@ -68,17 +86,25 @@ describe('AssetsService', () => {
       getByAccountId: jest.fn().mockResolvedValue([]),
       getByAccountIdAndAssetType: jest.fn().mockResolvedValue(null),
       getByAccountIdAndAssetTypes: jest.fn().mockResolvedValue([]),
-    } as unknown as jest.Mocked<AssetsRepository>;
+    };
 
     mockState = {
       getKey: jest.fn().mockResolvedValue({}),
       setKey: jest.fn().mockResolvedValue(undefined),
-    } as unknown as jest.Mocked<State<UnencryptedStateValue>>;
+    };
 
-    mockTrongridApiClient = {} as jest.Mocked<TrongridApiClient>;
-    mockTronHttpClient = {} as jest.Mocked<TronHttpClient>;
-    mockPriceApiClient = {} as jest.Mocked<PriceApiClient>;
-    mockTokenApiClient = {} as jest.Mocked<TokenApiClient>;
+    mockTrongridApiClient = {
+      getAccountInfoByAddress: jest.fn(),
+    };
+    mockTronHttpClient = {
+      getAccountResources: jest.fn(),
+    };
+    mockPriceApiClient = {
+      getMultipleSpotPrices: jest.fn(),
+    };
+    mockTokenApiClient = {
+      getTokensMetadata: jest.fn(),
+    };
 
     assetsService = new AssetsService({
       logger: mockLogger,
@@ -1203,6 +1229,190 @@ describe('AssetsService', () => {
             },
           },
         );
+      });
+    });
+  });
+
+  describe('fetchAssetsAndBalancesForAccount', () => {
+    /**
+     * Minimal TronAccount shape required by extractNativeAsset and extractStakedNativeAssets.
+     * Matches the structure returned by Trongrid getAccountInfo (snake_case from API).
+     */
+    /* eslint-disable @typescript-eslint/naming-convention */
+    const minimalTronAccount = {
+      address: 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx',
+      balance: 0,
+      frozenV2: [],
+      account_resource: {
+        energy_window_optimized: false,
+        energy_window_size: 0,
+      },
+      create_time: 0,
+      latest_opration_time: 0,
+      unfrozenV2: [],
+      latest_consume_free_time: 0,
+      votes: [],
+      latest_withdraw_time: 0,
+      net_window_size: 0,
+      net_window_optimized: false,
+      owner_permission: { keys: [], threshold: 0, permission_name: 'owner' },
+      active_permission: [],
+    };
+    /* eslint-enable @typescript-eslint/naming-convention */
+
+    beforeEach(() => {
+      mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+        minimalTronAccount,
+      );
+      mockTokenApiClient.getTokensMetadata.mockResolvedValue({});
+      mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue({});
+    });
+
+    describe('extractBandwidth and extractEnergy with real API-shaped data', () => {
+      it('extracts current bandwidth and energy for account with energy leasing (THPKFgJLtJz8dA7uMgcQqf2jRekLf9wo8d)', async () => {
+        // Real API response from POST https://api.trongrid.io/wallet/getaccountresource
+        // Address: THPKFgJLtJz8dA7uMgcQqf2jRekLf9wo8d
+        //
+        // This account has leased energy, so EnergyUsed (6511) far exceeds
+        // EnergyLimit (46) from staking. The code must handle this gracefully.
+        //
+        // Expected:
+        //   Maximum Bandwidth = freeNetLimit(600) + NetLimit(16) = 616
+        //   Current Bandwidth = Maximum(616) - freeNetUsed(326) - NetUsed(0) = 290
+        //   Maximum Energy    = EnergyLimit = 46
+        //   Current Energy    = max(0, 46 - 6511) = 0  (leased energy consumed beyond staked limit)
+        const accountResources = {
+          freeNetUsed: 326,
+          freeNetLimit: 600,
+          NetLimit: 16,
+          TotalNetLimit: 43200000000,
+          TotalNetWeight: 26853054687,
+          tronPowerUsed: 1,
+          tronPowerLimit: 15,
+          EnergyUsed: 6511,
+          EnergyLimit: 46,
+          TotalEnergyLimit: 180000000000,
+          TotalEnergyWeight: 19364164670,
+        };
+
+        mockTronHttpClient.getAccountResources.mockResolvedValue(
+          accountResources,
+        );
+
+        const account: KeyringAccount = {
+          ...mockAccount,
+          address: 'THPKFgJLtJz8dA7uMgcQqf2jRekLf9wo8d',
+        };
+
+        const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+          Network.Mainnet,
+          account,
+        );
+
+        const bandwidthAsset = assets.find(
+          (a: AssetEntity) => a.assetType === KnownCaip19Id.BandwidthMainnet,
+        );
+        const maximumBandwidthAsset = assets.find(
+          (a: AssetEntity) =>
+            a.assetType === KnownCaip19Id.MaximumBandwidthMainnet,
+        );
+        const energyAsset = assets.find(
+          (a: AssetEntity) => a.assetType === KnownCaip19Id.EnergyMainnet,
+        );
+        const maximumEnergyAsset = assets.find(
+          (a: AssetEntity) =>
+            a.assetType === KnownCaip19Id.MaximumEnergyMainnet,
+        );
+
+        // Current bandwidth = remaining = max - used = 616 - 326 = 290
+        expect(bandwidthAsset).toBeDefined();
+        expect(bandwidthAsset?.rawAmount).toBe('290');
+        expect(bandwidthAsset?.uiAmount).toBe('290');
+
+        // Maximum bandwidth = freeNetLimit + NetLimit = 600 + 16 = 616
+        expect(maximumBandwidthAsset).toBeDefined();
+        expect(maximumBandwidthAsset?.rawAmount).toBe('616');
+        expect(maximumBandwidthAsset?.uiAmount).toBe('616');
+
+        // Current energy = max(0, 46 - 6511) = 0 (leased energy consumed beyond staked limit)
+        expect(energyAsset).toBeDefined();
+        expect(energyAsset?.rawAmount).toBe('0');
+        expect(energyAsset?.uiAmount).toBe('0');
+
+        // Maximum energy = EnergyLimit from staking = 46
+        expect(maximumEnergyAsset).toBeDefined();
+        expect(maximumEnergyAsset?.rawAmount).toBe('46');
+        expect(maximumEnergyAsset?.uiAmount).toBe('46');
+      });
+
+      it('extracts current bandwidth and energy for account with staked energy (TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx)', async () => {
+        // Real API response from POST https://api.trongrid.io/wallet/getaccountresource
+        // Address: TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx
+        //
+        // This account has no EnergyUsed or NetUsed fields in the response
+        // (meaning 0 used for both staked resources).
+        //
+        // Expected:
+        //   Maximum Bandwidth = freeNetLimit(600) + NetLimit(48) = 648
+        //   Current Bandwidth = Maximum(648) - freeNetUsed(26) - NetUsed(0) = 622
+        //   Maximum Energy    = EnergyLimit = 329
+        //   Current Energy    = max(0, 329 - 0) = 329
+        const accountResources = {
+          freeNetUsed: 26,
+          freeNetLimit: 600,
+          NetLimit: 48,
+          TotalNetLimit: 43200000000,
+          TotalNetWeight: 26853054687,
+          tronPowerUsed: 1,
+          tronPowerLimit: 65,
+          EnergyLimit: 329,
+          TotalEnergyLimit: 180000000000,
+          TotalEnergyWeight: 19364164670,
+        };
+
+        mockTronHttpClient.getAccountResources.mockResolvedValue(
+          accountResources,
+        );
+
+        const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
+
+        const bandwidthAsset = assets.find(
+          (a: AssetEntity) => a.assetType === KnownCaip19Id.BandwidthMainnet,
+        );
+        const maximumBandwidthAsset = assets.find(
+          (a: AssetEntity) =>
+            a.assetType === KnownCaip19Id.MaximumBandwidthMainnet,
+        );
+        const energyAsset = assets.find(
+          (a: AssetEntity) => a.assetType === KnownCaip19Id.EnergyMainnet,
+        );
+        const maximumEnergyAsset = assets.find(
+          (a: AssetEntity) =>
+            a.assetType === KnownCaip19Id.MaximumEnergyMainnet,
+        );
+
+        // Current bandwidth = remaining = max - used = 648 - 26 = 622
+        expect(bandwidthAsset).toBeDefined();
+        expect(bandwidthAsset?.rawAmount).toBe('622');
+        expect(bandwidthAsset?.uiAmount).toBe('622');
+
+        // Maximum bandwidth = freeNetLimit + NetLimit = 600 + 48 = 648
+        expect(maximumBandwidthAsset).toBeDefined();
+        expect(maximumBandwidthAsset?.rawAmount).toBe('648');
+        expect(maximumBandwidthAsset?.uiAmount).toBe('648');
+
+        // Current energy = max(0, 329 - 0) = 329 (no energy consumed)
+        expect(energyAsset).toBeDefined();
+        expect(energyAsset?.rawAmount).toBe('329');
+        expect(energyAsset?.uiAmount).toBe('329');
+
+        // Maximum energy = EnergyLimit from staking = 329
+        expect(maximumEnergyAsset).toBeDefined();
+        expect(maximumEnergyAsset?.rawAmount).toBe('329');
+        expect(maximumEnergyAsset?.uiAmount).toBe('329');
       });
     });
   });
