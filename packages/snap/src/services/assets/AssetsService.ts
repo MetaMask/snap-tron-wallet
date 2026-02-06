@@ -457,6 +457,7 @@ export class AssetsService {
     tronAccountResources: AccountResources | Record<string, never>;
   }): AssetEntity[] {
     const maximumEnergy = tronAccountResources?.EnergyLimit ?? 0;
+
     const usedEnergy = tronAccountResources?.EnergyUsed ?? 0;
 
     /**
