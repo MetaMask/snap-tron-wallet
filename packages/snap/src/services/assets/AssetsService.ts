@@ -445,7 +445,7 @@ export class AssetsService {
   }): AssetEntity[] {
     const maximumEnergy = tronAccountResources?.EnergyLimit ?? 0;
     const energyUsed = tronAccountResources?.EnergyUsed ?? 0;
-    const energy = maximumEnergy - energyUsed;
+    const energy = Math.max(0, maximumEnergy - energyUsed);
 
     return [
       {
