@@ -425,16 +425,6 @@ export class AssetsService {
 
     return [
       {
-        assetType: Networks[scope].maximumBandwidth.id,
-        keyringAccountId: account.id,
-        network: scope,
-        symbol: Networks[scope].maximumBandwidth.symbol,
-        decimals: Networks[scope].maximumBandwidth.decimals,
-        rawAmount: maximumBandwidth.toString(),
-        uiAmount: maximumBandwidth.toString(),
-        iconUrl: Networks[scope].maximumBandwidth.iconUrl,
-      },
-      {
         assetType: Networks[scope].bandwidth.id,
         keyringAccountId: account.id,
         network: scope,
@@ -443,6 +433,16 @@ export class AssetsService {
         rawAmount: availableBandwidth.toString(),
         uiAmount: availableBandwidth.toString(),
         iconUrl: Networks[scope].bandwidth.iconUrl,
+      },
+      {
+        assetType: Networks[scope].maximumBandwidth.id,
+        keyringAccountId: account.id,
+        network: scope,
+        symbol: Networks[scope].maximumBandwidth.symbol,
+        decimals: Networks[scope].maximumBandwidth.decimals,
+        rawAmount: maximumBandwidth.toString(),
+        uiAmount: maximumBandwidth.toString(),
+        iconUrl: Networks[scope].maximumBandwidth.iconUrl,
       },
     ];
   }
@@ -457,6 +457,7 @@ export class AssetsService {
     tronAccountResources: AccountResources | Record<string, never>;
   }): AssetEntity[] {
     const maximumEnergy = tronAccountResources?.EnergyLimit ?? 0;
+
     const usedEnergy = tronAccountResources?.EnergyUsed ?? 0;
 
     /**
@@ -466,16 +467,6 @@ export class AssetsService {
 
     return [
       {
-        assetType: Networks[scope].maximumEnergy.id,
-        keyringAccountId: account.id,
-        network: scope,
-        symbol: Networks[scope].maximumEnergy.symbol,
-        decimals: Networks[scope].maximumEnergy.decimals,
-        rawAmount: maximumEnergy.toString(),
-        uiAmount: maximumEnergy.toString(),
-        iconUrl: Networks[scope].maximumEnergy.iconUrl,
-      },
-      {
         assetType: Networks[scope].energy.id,
         keyringAccountId: account.id,
         network: scope,
@@ -484,6 +475,16 @@ export class AssetsService {
         rawAmount: availableEnergy.toString(),
         uiAmount: availableEnergy.toString(),
         iconUrl: Networks[scope].energy.iconUrl,
+      },
+      {
+        assetType: Networks[scope].maximumEnergy.id,
+        keyringAccountId: account.id,
+        network: scope,
+        symbol: Networks[scope].maximumEnergy.symbol,
+        decimals: Networks[scope].maximumEnergy.decimals,
+        rawAmount: maximumEnergy.toString(),
+        uiAmount: maximumEnergy.toString(),
+        iconUrl: Networks[scope].maximumEnergy.iconUrl,
       },
     ];
   }

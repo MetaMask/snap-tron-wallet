@@ -58,7 +58,12 @@ export const AccountResourcesStruct = type({
   TotalEnergyWeight: optional(min(number(), 0)),
 });
 
-export type ValidatedAccountResources = Infer<typeof AccountResourcesStruct>;
+/**
+ * Account resources derived from the Superstruct schema.
+ *
+ * @see https://developers.tron.network/reference/getaccountresource
+ */
+export type AccountResources = Infer<typeof AccountResourcesStruct>;
 
 // --------------------------------------------------------------------------
 // FullNodeTransactionInfo Structs

@@ -153,10 +153,8 @@ describe('AssetsService', () => {
         },
       ];
 
-      // Mock the getAll method to return empty (simulating first sync)
       mockState.getKey.mockResolvedValue({});
 
-      // Act: Save the assets
       await assetsService.saveMany(assets);
 
       // Assert: Energy and bandwidth should be in the "added" list, not "removed"
@@ -1268,110 +1266,57 @@ describe('AssetsService', () => {
       mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue({});
     });
 
-    describe('extractBandwidth and extractEnergy with real API-shaped data', () => {
-      it('extracts current bandwidth and energy for account with energy leasing (THPKFgJLtJz8dA7uMgcQqf2jRekLf9wo8d)', async () => {
-        // Real API response from POST https://api.trongrid.io/wallet/getaccountresource
-        // Address: THPKFgJLtJz8dA7uMgcQqf2jRekLf9wo8d
-        //
-        // This account has leased energy, so EnergyUsed (6511) far exceeds
-        // EnergyLimit (46) from staking. The code must handle this gracefully.
-        //
-        // Expected:
-        //   Maximum Bandwidth = freeNetLimit(600) + NetLimit(16) = 616
-        //   Current Bandwidth = Maximum(616) - freeNetUsed(326) - NetUsed(0) = 290
-        //   Maximum Energy    = EnergyLimit = 46
-        //   Current Energy    = max(0, 46 - 6511) = 0  (leased energy consumed beyond staked limit)
-        const accountResources = {
-          freeNetUsed: 326,
-          freeNetLimit: 600,
-          NetLimit: 16,
-          TotalNetLimit: 43200000000,
-          TotalNetWeight: 26853054687,
-          tronPowerUsed: 1,
-          tronPowerLimit: 15,
-          EnergyUsed: 6511,
-          EnergyLimit: 46,
-          TotalEnergyLimit: 180000000000,
-          TotalEnergyWeight: 19364164670,
-        };
+    /**
+     * Builds a mock AccountResources object matching the shape returned by
+     * POST https://api.trongrid.io/wallet/getaccountresource.
+     *
+     * The Tron full node omits fields with zero values, so all
+     * account-level fields are optional. Network-level totals use
+     * sensible mainnet defaults.
+     *
+     * @see https://developers.tron.network/reference/getaccountresource
+     * @param overrides - Account-specific fields to set.
+     * @returns A mock AccountResources object.
+     */
+    function getMockAccountResources(overrides: Record<string, number> = {}) {
+      return {
+        freeNetLimit: 600,
+        TotalNetLimit: 0,
+        TotalNetWeight: 0,
+        TotalEnergyLimit: 0,
+        TotalEnergyWeight: 0,
+        ...overrides,
+      };
+    }
 
-        mockTronHttpClient.getAccountResources.mockResolvedValue(
-          accountResources,
-        );
+    /**
+     * Finds an asset by its CAIP-19 asset type.
+     *
+     * @param assets - The list of assets to search.
+     * @param assetType - The CAIP-19 asset type to match.
+     * @returns The matching asset, or undefined.
+     */
+    function findAsset(assets: AssetEntity[], assetType: KnownCaip19Id) {
+      return assets.find((a: AssetEntity) => a.assetType === assetType);
+    }
 
-        const account: KeyringAccount = {
-          ...mockAccount,
-          address: 'THPKFgJLtJz8dA7uMgcQqf2jRekLf9wo8d',
-        };
+    describe('bandwidth', () => {
+      it('returns 0 when account has no resources', async () => {
+        mockTronHttpClient.getAccountResources.mockResolvedValue({});
 
         const assets = await assetsService.fetchAssetsAndBalancesForAccount(
           Network.Mainnet,
-          account,
+          mockAccount,
         );
 
-        const bandwidthAsset = assets.find(
-          (a: AssetEntity) => a.assetType === KnownCaip19Id.BandwidthMainnet,
-        );
-        const maximumBandwidthAsset = assets.find(
-          (a: AssetEntity) =>
-            a.assetType === KnownCaip19Id.MaximumBandwidthMainnet,
-        );
-        const energyAsset = assets.find(
-          (a: AssetEntity) => a.assetType === KnownCaip19Id.EnergyMainnet,
-        );
-        const maximumEnergyAsset = assets.find(
-          (a: AssetEntity) =>
-            a.assetType === KnownCaip19Id.MaximumEnergyMainnet,
-        );
-
-        // Current bandwidth = remaining = max - used = 616 - 326 = 290
-        expect(bandwidthAsset).toBeDefined();
-        expect(bandwidthAsset?.rawAmount).toBe('290');
-        expect(bandwidthAsset?.uiAmount).toBe('290');
-
-        // Maximum bandwidth = freeNetLimit + NetLimit = 600 + 16 = 616
-        expect(maximumBandwidthAsset).toBeDefined();
-        expect(maximumBandwidthAsset?.rawAmount).toBe('616');
-        expect(maximumBandwidthAsset?.uiAmount).toBe('616');
-
-        // Current energy = max(0, 46 - 6511) = 0 (leased energy consumed beyond staked limit)
-        expect(energyAsset).toBeDefined();
-        expect(energyAsset?.rawAmount).toBe('0');
-        expect(energyAsset?.uiAmount).toBe('0');
-
-        // Maximum energy = EnergyLimit from staking = 46
-        expect(maximumEnergyAsset).toBeDefined();
-        expect(maximumEnergyAsset?.rawAmount).toBe('46');
-        expect(maximumEnergyAsset?.uiAmount).toBe('46');
+        expect(
+          findAsset(assets, KnownCaip19Id.BandwidthMainnet)?.rawAmount,
+        ).toBe('0');
       });
 
-      it('extracts current bandwidth and energy for account with staked energy (TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx)', async () => {
-        // Real API response from POST https://api.trongrid.io/wallet/getaccountresource
-        // Address: TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx
-        //
-        // This account has no EnergyUsed or NetUsed fields in the response
-        // (meaning 0 used for both staked resources).
-        //
-        // Expected:
-        //   Maximum Bandwidth = freeNetLimit(600) + NetLimit(48) = 648
-        //   Current Bandwidth = Maximum(648) - freeNetUsed(26) - NetUsed(0) = 622
-        //   Maximum Energy    = EnergyLimit = 329
-        //   Current Energy    = max(0, 329 - 0) = 329
-        const accountResources = {
-          freeNetUsed: 26,
-          freeNetLimit: 600,
-          NetLimit: 48,
-          TotalNetLimit: 43200000000,
-          TotalNetWeight: 26853054687,
-          tronPowerUsed: 1,
-          tronPowerLimit: 65,
-          EnergyLimit: 329,
-          TotalEnergyLimit: 180000000000,
-          TotalEnergyWeight: 19364164670,
-        };
-
+      it('returns remaining free bandwidth when no staking', async () => {
         mockTronHttpClient.getAccountResources.mockResolvedValue(
-          accountResources,
+          getMockAccountResources({ freeNetUsed: 200 }),
         );
 
         const assets = await assetsService.fetchAssetsAndBalancesForAccount(
@@ -1379,40 +1324,178 @@ describe('AssetsService', () => {
           mockAccount,
         );
 
-        const bandwidthAsset = assets.find(
-          (a: AssetEntity) => a.assetType === KnownCaip19Id.BandwidthMainnet,
-        );
-        const maximumBandwidthAsset = assets.find(
-          (a: AssetEntity) =>
-            a.assetType === KnownCaip19Id.MaximumBandwidthMainnet,
-        );
-        const energyAsset = assets.find(
-          (a: AssetEntity) => a.assetType === KnownCaip19Id.EnergyMainnet,
-        );
-        const maximumEnergyAsset = assets.find(
-          (a: AssetEntity) =>
-            a.assetType === KnownCaip19Id.MaximumEnergyMainnet,
+        expect(
+          findAsset(assets, KnownCaip19Id.BandwidthMainnet)?.rawAmount,
+        ).toBe('400');
+      });
+
+      it('returns combined remaining free + staked bandwidth', async () => {
+        mockTronHttpClient.getAccountResources.mockResolvedValue(
+          getMockAccountResources({ freeNetUsed: 326, NetLimit: 16 }),
         );
 
-        // Current bandwidth = remaining = max - used = 648 - 26 = 622
-        expect(bandwidthAsset).toBeDefined();
-        expect(bandwidthAsset?.rawAmount).toBe('622');
-        expect(bandwidthAsset?.uiAmount).toBe('622');
+        const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
 
-        // Maximum bandwidth = freeNetLimit + NetLimit = 600 + 48 = 648
-        expect(maximumBandwidthAsset).toBeDefined();
-        expect(maximumBandwidthAsset?.rawAmount).toBe('648');
-        expect(maximumBandwidthAsset?.uiAmount).toBe('648');
+        expect(
+          findAsset(assets, KnownCaip19Id.BandwidthMainnet)?.rawAmount,
+        ).toBe('290');
+      });
 
-        // Current energy = max(0, 329 - 0) = 329 (no energy consumed)
-        expect(energyAsset).toBeDefined();
-        expect(energyAsset?.rawAmount).toBe('329');
-        expect(energyAsset?.uiAmount).toBe('329');
+      it('clamps to 0 when used exceeds maximum', async () => {
+        mockTronHttpClient.getAccountResources.mockResolvedValue(
+          getMockAccountResources({
+            freeNetUsed: 600,
+            NetUsed: 50,
+            NetLimit: 16,
+          }),
+        );
 
-        // Maximum energy = EnergyLimit from staking = 329
-        expect(maximumEnergyAsset).toBeDefined();
-        expect(maximumEnergyAsset?.rawAmount).toBe('329');
-        expect(maximumEnergyAsset?.uiAmount).toBe('329');
+        const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
+
+        expect(
+          findAsset(assets, KnownCaip19Id.BandwidthMainnet)?.rawAmount,
+        ).toBe('0');
+      });
+    });
+
+    describe('maximum bandwidth', () => {
+      it('returns 0 when account has no resources', async () => {
+        mockTronHttpClient.getAccountResources.mockResolvedValue({});
+
+        const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
+
+        expect(
+          findAsset(assets, KnownCaip19Id.MaximumBandwidthMainnet)?.rawAmount,
+        ).toBe('0');
+      });
+
+      it('returns only free bandwidth limit when no staking', async () => {
+        mockTronHttpClient.getAccountResources.mockResolvedValue(
+          getMockAccountResources({}),
+        );
+
+        const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
+
+        expect(
+          findAsset(assets, KnownCaip19Id.MaximumBandwidthMainnet)?.rawAmount,
+        ).toBe('600');
+      });
+
+      it('returns free + staked bandwidth limit', async () => {
+        mockTronHttpClient.getAccountResources.mockResolvedValue(
+          getMockAccountResources({ NetLimit: 48 }),
+        );
+
+        const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
+
+        expect(
+          findAsset(assets, KnownCaip19Id.MaximumBandwidthMainnet)?.rawAmount,
+        ).toBe('648');
+      });
+    });
+
+    describe('energy', () => {
+      it('returns 0 when account has no resources', async () => {
+        mockTronHttpClient.getAccountResources.mockResolvedValue({});
+
+        const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
+
+        expect(findAsset(assets, KnownCaip19Id.EnergyMainnet)?.rawAmount).toBe(
+          '0',
+        );
+      });
+
+      it('returns full energy when none consumed', async () => {
+        mockTronHttpClient.getAccountResources.mockResolvedValue(
+          getMockAccountResources({ EnergyLimit: 329 }),
+        );
+
+        const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
+
+        expect(findAsset(assets, KnownCaip19Id.EnergyMainnet)?.rawAmount).toBe(
+          '329',
+        );
+      });
+
+      it('returns remaining energy after partial consumption', async () => {
+        mockTronHttpClient.getAccountResources.mockResolvedValue(
+          getMockAccountResources({ EnergyLimit: 5000, EnergyUsed: 4383 }),
+        );
+
+        const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
+
+        expect(findAsset(assets, KnownCaip19Id.EnergyMainnet)?.rawAmount).toBe(
+          '617',
+        );
+      });
+
+      it('clamps to 0 when EnergyUsed exceeds EnergyLimit from leasing', async () => {
+        mockTronHttpClient.getAccountResources.mockResolvedValue(
+          getMockAccountResources({ EnergyLimit: 46, EnergyUsed: 6511 }),
+        );
+
+        const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
+
+        expect(findAsset(assets, KnownCaip19Id.EnergyMainnet)?.rawAmount).toBe(
+          '0',
+        );
+      });
+    });
+
+    describe('maximum energy', () => {
+      it('returns 0 when account has no resources', async () => {
+        mockTronHttpClient.getAccountResources.mockResolvedValue({});
+
+        const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
+
+        expect(
+          findAsset(assets, KnownCaip19Id.MaximumEnergyMainnet)?.rawAmount,
+        ).toBe('0');
+      });
+
+      it('returns EnergyLimit from staking', async () => {
+        mockTronHttpClient.getAccountResources.mockResolvedValue(
+          getMockAccountResources({ EnergyLimit: 329 }),
+        );
+
+        const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
+
+        expect(
+          findAsset(assets, KnownCaip19Id.MaximumEnergyMainnet)?.rawAmount,
+        ).toBe('329');
       });
     });
   });
