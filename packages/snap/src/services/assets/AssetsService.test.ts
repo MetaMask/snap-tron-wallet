@@ -42,6 +42,62 @@ jest.mock('@metamask/keyring-snap-sdk', () => ({
 // Import AssetsService after mocking context
 const { AssetsService } = require('./AssetsService');
 
+/* eslint-disable @typescript-eslint/naming-convention */
+const minimalTronAccount = {
+  address: 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx',
+  balance: 0,
+  frozenV2: [],
+  account_resource: {
+    energy_window_optimized: false,
+    energy_window_size: 0,
+  },
+  create_time: 0,
+  latest_opration_time: 0,
+  unfrozenV2: [],
+  latest_consume_free_time: 0,
+  votes: [],
+  latest_withdraw_time: 0,
+  net_window_size: 0,
+  net_window_optimized: false,
+  owner_permission: { keys: [], threshold: 0, permission_name: 'owner' },
+  active_permission: [],
+};
+/* eslint-enable @typescript-eslint/naming-convention */
+
+/**
+ * Builds a mock AccountResources object matching the shape returned by
+ * POST https://api.trongrid.io/wallet/getaccountresource.
+ *
+ * The Tron full node omits fields with zero values, so all
+ * account-level fields are optional. Network-level totals use
+ * sensible mainnet defaults.
+ *
+ * @see https://developers.tron.network/reference/getaccountresource
+ * @param overrides - Account-specific fields to set.
+ * @returns A mock AccountResources object.
+ */
+function getMockAccountResources(overrides: Record<string, number> = {}) {
+  return {
+    freeNetLimit: 600,
+    TotalNetLimit: 0,
+    TotalNetWeight: 0,
+    TotalEnergyLimit: 0,
+    TotalEnergyWeight: 0,
+    ...overrides,
+  };
+}
+
+/**
+ * Finds an asset by its CAIP-19 asset type.
+ *
+ * @param assets - The list of assets to search.
+ * @param assetType - The CAIP-19 asset type to match.
+ * @returns The matching asset, or undefined.
+ */
+function findAsset(assets: AssetEntity[], assetType: KnownCaip19Id) {
+  return assets.find((a: AssetEntity) => a.assetType === assetType);
+}
+
 describe('AssetsService', () => {
   let assetsService: any;
   let mockAssetsRepository: jest.Mocked<
@@ -1232,76 +1288,13 @@ describe('AssetsService', () => {
   });
 
   describe('fetchAssetsAndBalancesForAccount', () => {
-    /**
-     * Minimal TronAccount shape required by extractNativeAsset and extractStakedNativeAssets.
-     * Matches the structure returned by Trongrid getAccountInfo (snake_case from API).
-     */
-    /* eslint-disable @typescript-eslint/naming-convention */
-    const minimalTronAccount = {
-      address: 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx',
-      balance: 0,
-      frozenV2: [],
-      account_resource: {
-        energy_window_optimized: false,
-        energy_window_size: 0,
-      },
-      create_time: 0,
-      latest_opration_time: 0,
-      unfrozenV2: [],
-      latest_consume_free_time: 0,
-      votes: [],
-      latest_withdraw_time: 0,
-      net_window_size: 0,
-      net_window_optimized: false,
-      owner_permission: { keys: [], threshold: 0, permission_name: 'owner' },
-      active_permission: [],
-    };
-    /* eslint-enable @typescript-eslint/naming-convention */
-
-    beforeEach(() => {
-      mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
-        minimalTronAccount,
-      );
-      mockTokenApiClient.getTokensMetadata.mockResolvedValue({});
-      mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue({});
-    });
-
-    /**
-     * Builds a mock AccountResources object matching the shape returned by
-     * POST https://api.trongrid.io/wallet/getaccountresource.
-     *
-     * The Tron full node omits fields with zero values, so all
-     * account-level fields are optional. Network-level totals use
-     * sensible mainnet defaults.
-     *
-     * @see https://developers.tron.network/reference/getaccountresource
-     * @param overrides - Account-specific fields to set.
-     * @returns A mock AccountResources object.
-     */
-    function getMockAccountResources(overrides: Record<string, number> = {}) {
-      return {
-        freeNetLimit: 600,
-        TotalNetLimit: 0,
-        TotalNetWeight: 0,
-        TotalEnergyLimit: 0,
-        TotalEnergyWeight: 0,
-        ...overrides,
-      };
-    }
-
-    /**
-     * Finds an asset by its CAIP-19 asset type.
-     *
-     * @param assets - The list of assets to search.
-     * @param assetType - The CAIP-19 asset type to match.
-     * @returns The matching asset, or undefined.
-     */
-    function findAsset(assets: AssetEntity[], assetType: KnownCaip19Id) {
-      return assets.find((a: AssetEntity) => a.assetType === assetType);
-    }
-
     describe('bandwidth', () => {
       it('returns 0 when account has no resources', async () => {
+        mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+          minimalTronAccount,
+        );
+        mockTokenApiClient.getTokensMetadata.mockResolvedValue({});
+        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue({});
         mockTronHttpClient.getAccountResources.mockResolvedValue({});
 
         const assets = await assetsService.fetchAssetsAndBalancesForAccount(
@@ -1315,6 +1308,11 @@ describe('AssetsService', () => {
       });
 
       it('returns remaining free bandwidth when no staking', async () => {
+        mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+          minimalTronAccount,
+        );
+        mockTokenApiClient.getTokensMetadata.mockResolvedValue({});
+        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue({});
         mockTronHttpClient.getAccountResources.mockResolvedValue(
           getMockAccountResources({ freeNetUsed: 200 }),
         );
@@ -1330,6 +1328,11 @@ describe('AssetsService', () => {
       });
 
       it('returns combined remaining free + staked bandwidth', async () => {
+        mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+          minimalTronAccount,
+        );
+        mockTokenApiClient.getTokensMetadata.mockResolvedValue({});
+        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue({});
         mockTronHttpClient.getAccountResources.mockResolvedValue(
           getMockAccountResources({ freeNetUsed: 326, NetLimit: 16 }),
         );
@@ -1345,6 +1348,11 @@ describe('AssetsService', () => {
       });
 
       it('clamps to 0 when used exceeds maximum', async () => {
+        mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+          minimalTronAccount,
+        );
+        mockTokenApiClient.getTokensMetadata.mockResolvedValue({});
+        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue({});
         mockTronHttpClient.getAccountResources.mockResolvedValue(
           getMockAccountResources({
             freeNetUsed: 600,
@@ -1366,6 +1374,11 @@ describe('AssetsService', () => {
 
     describe('maximum bandwidth', () => {
       it('returns 0 when account has no resources', async () => {
+        mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+          minimalTronAccount,
+        );
+        mockTokenApiClient.getTokensMetadata.mockResolvedValue({});
+        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue({});
         mockTronHttpClient.getAccountResources.mockResolvedValue({});
 
         const assets = await assetsService.fetchAssetsAndBalancesForAccount(
@@ -1379,6 +1392,11 @@ describe('AssetsService', () => {
       });
 
       it('returns only free bandwidth limit when no staking', async () => {
+        mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+          minimalTronAccount,
+        );
+        mockTokenApiClient.getTokensMetadata.mockResolvedValue({});
+        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue({});
         mockTronHttpClient.getAccountResources.mockResolvedValue(
           getMockAccountResources({}),
         );
@@ -1394,6 +1412,11 @@ describe('AssetsService', () => {
       });
 
       it('returns free + staked bandwidth limit', async () => {
+        mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+          minimalTronAccount,
+        );
+        mockTokenApiClient.getTokensMetadata.mockResolvedValue({});
+        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue({});
         mockTronHttpClient.getAccountResources.mockResolvedValue(
           getMockAccountResources({ NetLimit: 48 }),
         );
@@ -1411,6 +1434,11 @@ describe('AssetsService', () => {
 
     describe('energy', () => {
       it('returns 0 when account has no resources', async () => {
+        mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+          minimalTronAccount,
+        );
+        mockTokenApiClient.getTokensMetadata.mockResolvedValue({});
+        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue({});
         mockTronHttpClient.getAccountResources.mockResolvedValue({});
 
         const assets = await assetsService.fetchAssetsAndBalancesForAccount(
@@ -1424,6 +1452,11 @@ describe('AssetsService', () => {
       });
 
       it('returns full energy when none consumed', async () => {
+        mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+          minimalTronAccount,
+        );
+        mockTokenApiClient.getTokensMetadata.mockResolvedValue({});
+        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue({});
         mockTronHttpClient.getAccountResources.mockResolvedValue(
           getMockAccountResources({ EnergyLimit: 329 }),
         );
@@ -1439,6 +1472,11 @@ describe('AssetsService', () => {
       });
 
       it('returns remaining energy after partial consumption', async () => {
+        mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+          minimalTronAccount,
+        );
+        mockTokenApiClient.getTokensMetadata.mockResolvedValue({});
+        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue({});
         mockTronHttpClient.getAccountResources.mockResolvedValue(
           getMockAccountResources({ EnergyLimit: 5000, EnergyUsed: 4383 }),
         );
@@ -1454,6 +1492,11 @@ describe('AssetsService', () => {
       });
 
       it('clamps to 0 when EnergyUsed exceeds EnergyLimit from leasing', async () => {
+        mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+          minimalTronAccount,
+        );
+        mockTokenApiClient.getTokensMetadata.mockResolvedValue({});
+        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue({});
         mockTronHttpClient.getAccountResources.mockResolvedValue(
           getMockAccountResources({ EnergyLimit: 46, EnergyUsed: 6511 }),
         );
@@ -1471,6 +1514,11 @@ describe('AssetsService', () => {
 
     describe('maximum energy', () => {
       it('returns 0 when account has no resources', async () => {
+        mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+          minimalTronAccount,
+        );
+        mockTokenApiClient.getTokensMetadata.mockResolvedValue({});
+        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue({});
         mockTronHttpClient.getAccountResources.mockResolvedValue({});
 
         const assets = await assetsService.fetchAssetsAndBalancesForAccount(
@@ -1484,6 +1532,11 @@ describe('AssetsService', () => {
       });
 
       it('returns EnergyLimit from staking', async () => {
+        mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+          minimalTronAccount,
+        );
+        mockTokenApiClient.getTokensMetadata.mockResolvedValue({});
+        mockPriceApiClient.getMultipleSpotPrices.mockResolvedValue({});
         mockTronHttpClient.getAccountResources.mockResolvedValue(
           getMockAccountResources({ EnergyLimit: 329 }),
         );
