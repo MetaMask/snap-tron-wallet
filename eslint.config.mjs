@@ -20,6 +20,7 @@ export default createConfig([
       prettier,
     },
     rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
       'id-length': ['warn', { exceptions: ['t'] }], // Used for the localized translator helper.
       'prettier/prettier': 'error',
     },
