@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add security scanning for tokens sends ([#205](https://github.com/MetaMask/snap-tron-wallet/pull/205))
+
 ## [1.21.1]
 
 ### Fixed
