@@ -331,8 +331,16 @@ export class AssetsService {
       ...this.#extractStakedNativeAssets(account, scope, data.stakedData),
       ...this.#extractTrc10Assets(account, scope, data.trc10Balances),
       ...this.#extractTrc20Assets(account, scope, data.trc20Balances),
-      ...this.#extractBandwidth(account, scope, data.resources),
-      ...this.#extractEnergy(account, scope, data.resources),
+      ...this.#extractBandwidth({
+        account,
+        scope,
+        tronAccountResources: data.resources,
+      }),
+      ...this.#extractEnergy({
+        account,
+        scope,
+        tronAccountResources: data.resources,
+      }),
     ];
   }
 
@@ -559,9 +567,12 @@ export class AssetsService {
   /**
    * Extracts current and maximum energy from the account resources.
    *
+   * @param account.account
    * @param account - The keyring account.
    * @param scope - The network.
    * @param resources - Account resources (energy, bandwidth).
+   * @param account.scope
+   * @param account.tronAccountResources
    * @returns AssetEntity[] - Array containing energy and maximum energy assets.
    */
   #extractEnergy({
