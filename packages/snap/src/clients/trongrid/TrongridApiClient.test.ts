@@ -8,268 +8,298 @@ import { mockLogger } from '../../utils/mockLogger';
 import type { Serializable } from '../../utils/serialization/types';
 import { TronHttpClient } from '../tron-http/TronHttpClient';
 
-describe('TrongridApiClient', () => {
-  let client: TrongridApiClient;
-  let mockConfigProvider: ConfigProvider;
-  let mockTronHttpClient: TronHttpClient;
-  let mockCache: ICache<Serializable>;
+/**
+ * Builds a TrongridApiClient with default dependencies.
+ * Each call creates fresh instances to keep tests isolated.
+ *
+ * @param overrides - Optional overrides for the config provider base URLs.
+ * @param overrides.trongridBaseUrls - Custom TronGrid API base URLs by network.
+ * @param overrides.tronHttpBaseUrls - Custom Tron HTTP API base URLs by network.
+ * @returns The client and its dependencies.
+ */
+function buildTrongridApiClient(
+  overrides: {
+    trongridBaseUrls?: Record<string, string>;
+    tronHttpBaseUrls?: Record<string, string>;
+  } = {},
+): {
+  client: TrongridApiClient;
+  configProvider: ConfigProvider;
+  tronHttpClient: TronHttpClient;
+  cache: ICache<Serializable>;
+} {
+  const defaultBaseUrls = {
+    [Network.Mainnet]: 'https://api.trongrid.io',
+    [Network.Nile]: 'https://nile.trongrid.io',
+    [Network.Shasta]: 'https://api.shasta.trongrid.io',
+  };
 
+  const configProvider = new ConfigProvider();
+  const baseConfig = configProvider.get();
+  jest.spyOn(configProvider, 'get').mockReturnValue({
+    ...baseConfig,
+    trongridApi: {
+      baseUrls: overrides.trongridBaseUrls ?? defaultBaseUrls,
+    },
+    tronHttpApi: {
+      baseUrls: overrides.tronHttpBaseUrls ?? defaultBaseUrls,
+    },
+  });
+
+  const tronHttpClient = new TronHttpClient({
+    configProvider,
+  });
+
+  const cache = new InMemoryCache(mockLogger);
+
+  const client = new TrongridApiClient({
+    configProvider,
+    tronHttpClient,
+    cache,
+  });
+
+  return { client, configProvider, tronHttpClient, cache };
+}
+
+/**
+ * Wraps a test function that needs to mock `global.fetch`,
+ * ensuring the original fetch is restored after the test completes.
+ *
+ * @param testFn - The async test body to execute.
+ */
+async function withFetch(testFn: () => Promise<void>): Promise<void> {
   // eslint-disable-next-line no-restricted-globals
   const originalFetch = global.fetch;
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-
-    mockConfigProvider = new ConfigProvider();
-    const baseConfig = mockConfigProvider.get();
-    jest.spyOn(mockConfigProvider, 'get').mockReturnValue({
-      ...baseConfig,
-      trongridApi: {
-        baseUrls: {
-          [Network.Mainnet]: 'https://api.trongrid.io',
-          [Network.Nile]: 'https://nile.trongrid.io',
-          [Network.Shasta]: 'https://api.shasta.trongrid.io',
-        },
-      },
-      tronHttpApi: {
-        baseUrls: {
-          [Network.Mainnet]: 'https://api.trongrid.io',
-          [Network.Nile]: 'https://nile.trongrid.io',
-          [Network.Shasta]: 'https://api.shasta.trongrid.io',
-        },
-      },
-    });
-
-    mockTronHttpClient = new TronHttpClient({
-      configProvider: mockConfigProvider,
-    });
-
-    mockCache = new InMemoryCache(mockLogger);
-
-    client = new TrongridApiClient({
-      configProvider: mockConfigProvider,
-      tronHttpClient: mockTronHttpClient,
-      cache: mockCache,
-    });
-  });
-
-  afterEach(() => {
+  try {
+    await testFn();
+  } finally {
     // eslint-disable-next-line no-restricted-globals
     global.fetch = originalFetch;
-  });
+  }
+}
 
+describe('TrongridApiClient', () => {
   describe('getTrc20BalancesByAddress', () => {
     const mockAddress = 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx';
     const normalizeBalances = (balances: Trc20Balance[]): Trc20Balance[] =>
       balances.map((balance) => ({ ...balance }));
 
     it('fetches and returns TRC20 balances for an address', async () => {
-      const mockTrc20Balances: Trc20Balance[] = [
-        { TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t: '24249143' },
-        { TGPuQ7g7H8GsUEXhwvvJop4zCncurEh2ht: '88123456' },
-      ];
+      await withFetch(async () => {
+        const { client } = buildTrongridApiClient();
+        const mockTrc20Balances: Trc20Balance[] = [
+          { TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t: '24249143' },
+          { TGPuQ7g7H8GsUEXhwvvJop4zCncurEh2ht: '88123456' },
+        ];
 
-      // eslint-disable-next-line no-restricted-globals
-      jest.spyOn(global, 'fetch').mockResolvedValueOnce(
         // eslint-disable-next-line no-restricted-globals
-        new Response(
-          JSON.stringify({
-            data: mockTrc20Balances,
-            success: true,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            meta: { at: 1770121997373, page_size: 4 },
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        ),
-      );
+        jest.spyOn(global, 'fetch').mockResolvedValueOnce(
+          // eslint-disable-next-line no-restricted-globals
+          new Response(
+            JSON.stringify({
+              data: mockTrc20Balances,
+              success: true,
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              meta: { at: 1770121997373, page_size: 4 },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        );
 
-      const result = await client.getTrc20BalancesByAddress(
-        Network.Mainnet,
-        mockAddress,
-      );
+        const result = await client.getTrc20BalancesByAddress(
+          Network.Mainnet,
+          mockAddress,
+        );
 
-      expect(normalizeBalances(result)).toStrictEqual(mockTrc20Balances);
-      // eslint-disable-next-line no-restricted-globals
-      expect(global.fetch).toHaveBeenCalledWith(
-        `https://api.trongrid.io/v1/accounts/${mockAddress}/trc20/balance`,
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json',
+        expect(normalizeBalances(result)).toStrictEqual(mockTrc20Balances);
+        // eslint-disable-next-line no-restricted-globals
+        expect(global.fetch).toHaveBeenCalledWith(
+          `https://api.trongrid.io/v1/accounts/${mockAddress}/trc20/balance`,
+          expect.objectContaining({
+            headers: expect.objectContaining({
+              'Content-Type': 'application/json',
+            }),
           }),
-        }),
-      );
+        );
+      });
     });
 
     it('returns empty array when no TRC20 tokens are found', async () => {
-      // eslint-disable-next-line no-restricted-globals
-      jest.spyOn(global, 'fetch').mockResolvedValueOnce(
+      await withFetch(async () => {
+        const { client } = buildTrongridApiClient();
+
         // eslint-disable-next-line no-restricted-globals
-        new Response(
-          JSON.stringify({
-            data: [],
-            success: true,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            meta: { at: 1770121997373, page_size: 0 },
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        ),
-      );
+        jest.spyOn(global, 'fetch').mockResolvedValueOnce(
+          // eslint-disable-next-line no-restricted-globals
+          new Response(
+            JSON.stringify({
+              data: [],
+              success: true,
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              meta: { at: 1770121997373, page_size: 0 },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        );
 
-      const result = await client.getTrc20BalancesByAddress(
-        Network.Mainnet,
-        mockAddress,
-      );
+        const result = await client.getTrc20BalancesByAddress(
+          Network.Mainnet,
+          mockAddress,
+        );
 
-      expect(result).toStrictEqual([]);
+        expect(result).toStrictEqual([]);
+      });
     });
 
     it('returns empty array when data is undefined', async () => {
-      // eslint-disable-next-line no-restricted-globals
-      jest.spyOn(global, 'fetch').mockResolvedValueOnce(
+      await withFetch(async () => {
+        const { client } = buildTrongridApiClient();
+
         // eslint-disable-next-line no-restricted-globals
-        new Response(
-          JSON.stringify({
-            success: true,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            meta: { at: 1770121997373, page_size: 0 },
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        ),
-      );
+        jest.spyOn(global, 'fetch').mockResolvedValueOnce(
+          // eslint-disable-next-line no-restricted-globals
+          new Response(
+            JSON.stringify({
+              success: true,
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              meta: { at: 1770121997373, page_size: 0 },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        );
 
-      const result = await client.getTrc20BalancesByAddress(
-        Network.Mainnet,
-        mockAddress,
-      );
+        const result = await client.getTrc20BalancesByAddress(
+          Network.Mainnet,
+          mockAddress,
+        );
 
-      expect(result).toStrictEqual([]);
+        expect(result).toStrictEqual([]);
+      });
     });
 
     it('throws error when network base URL is invalid', async () => {
-      // Create a client with invalid testnet base URLs
-      const limitedConfigProvider = new ConfigProvider();
-      const limitedBaseConfig = limitedConfigProvider.get();
-      jest.spyOn(limitedConfigProvider, 'get').mockReturnValue({
-        ...limitedBaseConfig,
-        trongridApi: {
-          baseUrls: {
-            [Network.Mainnet]: 'https://api.trongrid.io',
-            [Network.Nile]: '',
-            [Network.Shasta]: '',
-          },
-        },
-        tronHttpApi: {
-          baseUrls: {
-            [Network.Mainnet]: 'https://api.trongrid.io',
-            [Network.Nile]: '',
-            [Network.Shasta]: '',
-          },
-        },
-      });
-
-      const limitedClient = new TrongridApiClient({
-        configProvider: limitedConfigProvider,
-        tronHttpClient: mockTronHttpClient,
-        cache: mockCache,
+      const invalidBaseUrls = {
+        [Network.Mainnet]: 'https://api.trongrid.io',
+        [Network.Nile]: '',
+        [Network.Shasta]: '',
+      };
+      const { client } = buildTrongridApiClient({
+        trongridBaseUrls: invalidBaseUrls,
+        tronHttpBaseUrls: invalidBaseUrls,
       });
 
       await expect(
-        limitedClient.getTrc20BalancesByAddress(Network.Nile, mockAddress),
+        client.getTrc20BalancesByAddress(Network.Nile, mockAddress),
       ).rejects.toThrow('Invalid URL format');
     });
 
     it('throws error when HTTP request fails', async () => {
-      // eslint-disable-next-line no-restricted-globals
-      jest.spyOn(global, 'fetch').mockResolvedValueOnce(
-        // eslint-disable-next-line no-restricted-globals
-        new Response('', { status: 500 }),
-      );
+      await withFetch(async () => {
+        const { client } = buildTrongridApiClient();
 
-      await expect(
-        client.getTrc20BalancesByAddress(Network.Mainnet, mockAddress),
-      ).rejects.toThrow('HTTP error! status: 500');
+        // eslint-disable-next-line no-restricted-globals
+        jest.spyOn(global, 'fetch').mockResolvedValueOnce(
+          // eslint-disable-next-line no-restricted-globals
+          new Response('', { status: 500 }),
+        );
+
+        await expect(
+          client.getTrc20BalancesByAddress(Network.Mainnet, mockAddress),
+        ).rejects.toThrow('HTTP error! status: 500');
+      });
     });
 
     it('throws error when API returns success: false', async () => {
-      // eslint-disable-next-line no-restricted-globals
-      jest.spyOn(global, 'fetch').mockResolvedValueOnce(
-        // eslint-disable-next-line no-restricted-globals
-        new Response(
-          JSON.stringify({
-            data: [],
-            success: false,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            meta: { at: 1770121997373, page_size: 0 },
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        ),
-      );
+      await withFetch(async () => {
+        const { client } = buildTrongridApiClient();
 
-      await expect(
-        client.getTrc20BalancesByAddress(Network.Mainnet, mockAddress),
-      ).rejects.toThrow('API request failed');
+        // eslint-disable-next-line no-restricted-globals
+        jest.spyOn(global, 'fetch').mockResolvedValueOnce(
+          // eslint-disable-next-line no-restricted-globals
+          new Response(
+            JSON.stringify({
+              data: [],
+              success: false,
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              meta: { at: 1770121997373, page_size: 0 },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        );
+
+        await expect(
+          client.getTrc20BalancesByAddress(Network.Mainnet, mockAddress),
+        ).rejects.toThrow('API request failed');
+      });
     });
 
     it('works with different networks', async () => {
-      const mockTrc20Balances: Trc20Balance[] = [{ TTestToken123: '1000000' }];
+      await withFetch(async () => {
+        const { client } = buildTrongridApiClient();
+        const mockTrc20Balances: Trc20Balance[] = [
+          { TTestToken123: '1000000' },
+        ];
 
-      // eslint-disable-next-line no-restricted-globals
-      jest.spyOn(global, 'fetch').mockResolvedValueOnce(
         // eslint-disable-next-line no-restricted-globals
-        new Response(
-          JSON.stringify({
-            data: mockTrc20Balances,
-            success: true,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            meta: { at: 1770121997373, page_size: 1 },
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        ),
-      );
+        jest.spyOn(global, 'fetch').mockResolvedValueOnce(
+          // eslint-disable-next-line no-restricted-globals
+          new Response(
+            JSON.stringify({
+              data: mockTrc20Balances,
+              success: true,
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              meta: { at: 1770121997373, page_size: 1 },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        );
 
-      const result = await client.getTrc20BalancesByAddress(
-        Network.Nile,
-        mockAddress,
-      );
+        const result = await client.getTrc20BalancesByAddress(
+          Network.Nile,
+          mockAddress,
+        );
 
-      expect(normalizeBalances(result)).toStrictEqual(mockTrc20Balances);
-      // eslint-disable-next-line no-restricted-globals
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('nile.trongrid.io'),
-        expect.any(Object),
-      );
+        expect(normalizeBalances(result)).toStrictEqual(mockTrc20Balances);
+        // eslint-disable-next-line no-restricted-globals
+        expect(global.fetch).toHaveBeenCalledWith(
+          expect.stringContaining('nile.trongrid.io'),
+          expect.any(Object),
+        );
+      });
     });
 
     it('validates TRC20 balance data structure', async () => {
-      // Valid structure: array of Record<string, string>
-      const validBalances: Trc20Balance[] = [
-        { TokenAddress1: '100' },
-        { TokenAddress2: '200' },
-      ];
+      await withFetch(async () => {
+        const { client } = buildTrongridApiClient();
+        const validBalances: Trc20Balance[] = [
+          { TokenAddress1: '100' },
+          { TokenAddress2: '200' },
+        ];
 
-      // eslint-disable-next-line no-restricted-globals
-      jest.spyOn(global, 'fetch').mockResolvedValueOnce(
         // eslint-disable-next-line no-restricted-globals
-        new Response(
-          JSON.stringify({
-            data: validBalances,
-            success: true,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            meta: { at: 1770121997373, page_size: 2 },
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        ),
-      );
+        jest.spyOn(global, 'fetch').mockResolvedValueOnce(
+          // eslint-disable-next-line no-restricted-globals
+          new Response(
+            JSON.stringify({
+              data: validBalances,
+              success: true,
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              meta: { at: 1770121997373, page_size: 2 },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        );
 
-      const result = await client.getTrc20BalancesByAddress(
-        Network.Mainnet,
-        mockAddress,
-      );
+        const result = await client.getTrc20BalancesByAddress(
+          Network.Mainnet,
+          mockAddress,
+        );
 
-      expect(result).toHaveLength(2);
-      const normalizedBalances = normalizeBalances(result);
-      expect(normalizedBalances[0]).toStrictEqual({ TokenAddress1: '100' });
-      expect(normalizedBalances[1]).toStrictEqual({ TokenAddress2: '200' });
+        expect(result).toHaveLength(2);
+        const normalizedBalances = normalizeBalances(result);
+        expect(normalizedBalances[0]).toStrictEqual({ TokenAddress1: '100' });
+        expect(normalizedBalances[1]).toStrictEqual({ TokenAddress2: '200' });
+      });
     });
   });
 });
