@@ -567,12 +567,10 @@ export class AssetsService {
   /**
    * Extracts current and maximum energy from the account resources.
    *
-   * @param account.account
-   * @param account - The keyring account.
-   * @param scope - The network.
-   * @param resources - Account resources (energy, bandwidth).
-   * @param account.scope
-   * @param account.tronAccountResources
+   * @param options - Options object.
+   * @param options.account - The keyring account.
+   * @param options.scope - The network.
+   * @param options.tronAccountResources - Account resources (energy, bandwidth).
    * @returns AssetEntity[] - Array containing energy and maximum energy assets.
    */
   #extractEnergy({
