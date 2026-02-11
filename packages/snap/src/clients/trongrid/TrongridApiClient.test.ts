@@ -8,26 +8,36 @@ import { mockLogger } from '../../utils/mockLogger';
 import type { Serializable } from '../../utils/serialization/types';
 import { TronHttpClient } from '../tron-http/TronHttpClient';
 
-/**
- * Builds a TrongridApiClient with default dependencies.
- * Each call creates fresh instances to keep tests isolated.
- *
- * @param overrides - Optional overrides for the config provider base URLs.
- * @param overrides.trongridBaseUrls - Custom TronGrid API base URLs by network.
- * @param overrides.tronHttpBaseUrls - Custom Tron HTTP API base URLs by network.
- * @returns The client and its dependencies.
- */
-function buildTrongridApiClient(
-  overrides: {
-    trongridBaseUrls?: Record<string, string>;
-    tronHttpBaseUrls?: Record<string, string>;
-  } = {},
-): {
+type WithTrongridApiClientCallback<ReturnValue> = (payload: {
   client: TrongridApiClient;
   configProvider: ConfigProvider;
   tronHttpClient: TronHttpClient;
   cache: ICache<Serializable>;
-} {
+}) => Promise<ReturnValue> | ReturnValue;
+
+type WithTrongridApiClientOptions = {
+  options: {
+    trongridBaseUrls?: Record<string, string>;
+    tronHttpBaseUrls?: Record<string, string>;
+  };
+};
+
+/**
+ * Wraps tests for TrongridApiClient by creating a fresh client with all
+ * dependencies and restoring `global.fetch` afterward.
+ *
+ * @param args - Either a callback, or an options bag + callback. Options allow
+ * overriding base URLs. The callback receives the client and its dependencies.
+ * @returns The return value of the callback.
+ */
+async function withTrongridApiClient<ReturnValue>(
+  ...args:
+    | [WithTrongridApiClientCallback<ReturnValue>]
+    | [WithTrongridApiClientOptions, WithTrongridApiClientCallback<ReturnValue>]
+): Promise<ReturnValue> {
+  const [{ options = {} }, testFunction] =
+    args.length === 2 ? args : [{}, args[0]];
+
   const defaultBaseUrls = {
     [Network.Mainnet]: 'https://api.trongrid.io',
     [Network.Nile]: 'https://nile.trongrid.io',
@@ -39,39 +49,30 @@ function buildTrongridApiClient(
   jest.spyOn(configProvider, 'get').mockReturnValue({
     ...baseConfig,
     trongridApi: {
-      baseUrls: overrides.trongridBaseUrls ?? defaultBaseUrls,
+      baseUrls: options.trongridBaseUrls ?? defaultBaseUrls,
     },
     tronHttpApi: {
-      baseUrls: overrides.tronHttpBaseUrls ?? defaultBaseUrls,
+      baseUrls: options.tronHttpBaseUrls ?? defaultBaseUrls,
     },
   });
 
-  const tronHttpClient = new TronHttpClient({
-    configProvider,
-  });
-
+  const tronHttpClient = new TronHttpClient({ configProvider });
   const cache = new InMemoryCache(mockLogger);
-
   const client = new TrongridApiClient({
     configProvider,
     tronHttpClient,
     cache,
   });
 
-  return { client, configProvider, tronHttpClient, cache };
-}
-
-/**
- * Wraps a test function that needs to mock `global.fetch`,
- * ensuring the original fetch is restored after the test completes.
- *
- * @param testFn - The async test body to execute.
- */
-async function withFetch(testFn: () => Promise<void>): Promise<void> {
   // eslint-disable-next-line no-restricted-globals
   const originalFetch = global.fetch;
   try {
-    await testFn();
+    return await testFunction({
+      client,
+      configProvider,
+      tronHttpClient,
+      cache,
+    });
   } finally {
     // eslint-disable-next-line no-restricted-globals
     global.fetch = originalFetch;
@@ -85,8 +86,7 @@ describe('TrongridApiClient', () => {
       balances.map((balance) => ({ ...balance }));
 
     it('fetches and returns TRC20 balances for an address', async () => {
-      await withFetch(async () => {
-        const { client } = buildTrongridApiClient();
+      await withTrongridApiClient(async ({ client }) => {
         const mockTrc20Balances: Trc20Balance[] = [
           { TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t: '24249143' },
           { TGPuQ7g7H8GsUEXhwvvJop4zCncurEh2ht: '88123456' },
@@ -125,9 +125,7 @@ describe('TrongridApiClient', () => {
     });
 
     it('returns empty array when no TRC20 tokens are found', async () => {
-      await withFetch(async () => {
-        const { client } = buildTrongridApiClient();
-
+      await withTrongridApiClient(async ({ client }) => {
         // eslint-disable-next-line no-restricted-globals
         jest.spyOn(global, 'fetch').mockResolvedValueOnce(
           // eslint-disable-next-line no-restricted-globals
@@ -152,9 +150,7 @@ describe('TrongridApiClient', () => {
     });
 
     it('returns empty array when data is undefined', async () => {
-      await withFetch(async () => {
-        const { client } = buildTrongridApiClient();
-
+      await withTrongridApiClient(async ({ client }) => {
         // eslint-disable-next-line no-restricted-globals
         jest.spyOn(global, 'fetch').mockResolvedValueOnce(
           // eslint-disable-next-line no-restricted-globals
@@ -183,20 +179,24 @@ describe('TrongridApiClient', () => {
         [Network.Nile]: '',
         [Network.Shasta]: '',
       };
-      const { client } = buildTrongridApiClient({
-        trongridBaseUrls: invalidBaseUrls,
-        tronHttpBaseUrls: invalidBaseUrls,
-      });
 
-      await expect(
-        client.getTrc20BalancesByAddress(Network.Nile, mockAddress),
-      ).rejects.toThrow('Invalid URL format');
+      await withTrongridApiClient(
+        {
+          options: {
+            trongridBaseUrls: invalidBaseUrls,
+            tronHttpBaseUrls: invalidBaseUrls,
+          },
+        },
+        async ({ client }) => {
+          await expect(
+            client.getTrc20BalancesByAddress(Network.Nile, mockAddress),
+          ).rejects.toThrow('Invalid URL format');
+        },
+      );
     });
 
     it('throws error when HTTP request fails', async () => {
-      await withFetch(async () => {
-        const { client } = buildTrongridApiClient();
-
+      await withTrongridApiClient(async ({ client }) => {
         // eslint-disable-next-line no-restricted-globals
         jest.spyOn(global, 'fetch').mockResolvedValueOnce(
           // eslint-disable-next-line no-restricted-globals
@@ -210,9 +210,7 @@ describe('TrongridApiClient', () => {
     });
 
     it('throws error when API returns success: false', async () => {
-      await withFetch(async () => {
-        const { client } = buildTrongridApiClient();
-
+      await withTrongridApiClient(async ({ client }) => {
         // eslint-disable-next-line no-restricted-globals
         jest.spyOn(global, 'fetch').mockResolvedValueOnce(
           // eslint-disable-next-line no-restricted-globals
@@ -234,8 +232,7 @@ describe('TrongridApiClient', () => {
     });
 
     it('works with different networks', async () => {
-      await withFetch(async () => {
-        const { client } = buildTrongridApiClient();
+      await withTrongridApiClient(async ({ client }) => {
         const mockTrc20Balances: Trc20Balance[] = [
           { TTestToken123: '1000000' },
         ];
@@ -269,8 +266,7 @@ describe('TrongridApiClient', () => {
     });
 
     it('validates TRC20 balance data structure', async () => {
-      await withFetch(async () => {
-        const { client } = buildTrongridApiClient();
+      await withTrongridApiClient(async ({ client }) => {
         const validBalances: Trc20Balance[] = [
           { TokenAddress1: '100' },
           { TokenAddress2: '200' },
