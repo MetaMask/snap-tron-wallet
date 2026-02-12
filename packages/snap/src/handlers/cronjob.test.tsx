@@ -4,9 +4,45 @@ import type { SnapClient } from '../clients/snap/SnapClient';
 import type { TronHttpClient } from '../clients/tron-http/TronHttpClient';
 import { Network } from '../constants';
 import type { AccountsService } from '../services/accounts/AccountsService';
+import type { State, UnencryptedStateValue } from '../services/state/State';
 import type { TransactionScanService } from '../services/transaction-scan/TransactionScanService';
 import type { TransactionScanResult } from '../services/transaction-scan/types';
 import type { ConfirmTransactionRequestContext } from '../ui/confirmation/views/ConfirmTransactionRequest/types';
+import type { ILogger } from '../utils/logger';
+
+/**
+ * Subset of SnapClient methods exercised by `refreshConfirmationSend`.
+ */
+type MockSnapClient = jest.Mocked<
+  Pick<
+    SnapClient,
+    | 'getClientStatus'
+    | 'createInterface'
+    | 'showDialog'
+    | 'updateInterface'
+    | 'getInterfaceContext'
+    | 'scheduleBackgroundEvent'
+    | 'getPreferences'
+  >
+>;
+
+/**
+ * Subset of State methods exercised by `refreshConfirmationSend`.
+ */
+type MockState = jest.Mocked<
+  Pick<State<UnencryptedStateValue>, 'getKey' | 'setKey'>
+>;
+
+/**
+ * Subset of TransactionScanService methods exercised by
+ * `refreshConfirmationSend`.
+ */
+type MockTransactionScanService = jest.Mocked<
+  Pick<
+    TransactionScanService,
+    'scanTransaction' | 'getSecurityAlertDescription'
+  >
+>;
 
 /**
  * Builds a mock scan result for use in tests.
@@ -93,13 +129,115 @@ function buildMockInterfaceContext(
 }
 
 /**
+ * Builds a mock logger satisfying the ILogger interface.
+ *
+ * @returns A mock ILogger.
+ */
+function buildMockLogger(): ILogger {
+  return {
+    log: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  };
+}
+
+/**
+ * Builds a mock SnapClient with only the methods exercised by the
+ * `refreshConfirmationSend` flow.
+ *
+ * @param interfaceContext - The value `getInterfaceContext` resolves to.
+ * @returns A mock SnapClient.
+ */
+function buildMockSnapClient(
+  interfaceContext: ConfirmTransactionRequestContext | null,
+): MockSnapClient {
+  return {
+    getClientStatus: jest
+      .fn()
+      .mockResolvedValue({ active: true, locked: false }),
+    createInterface: jest.fn().mockResolvedValue('interface-id'),
+    showDialog: jest.fn().mockResolvedValue(true),
+    updateInterface: jest.fn().mockResolvedValue(undefined),
+    getInterfaceContext: jest.fn().mockResolvedValue(interfaceContext),
+    scheduleBackgroundEvent: jest.fn().mockResolvedValue(undefined),
+    getPreferences: jest.fn().mockResolvedValue({}),
+  };
+}
+
+/**
+ * Builds a mock State with only the methods exercised by the
+ * `refreshConfirmationSend` flow.
+ *
+ * @param mapInterfaceNameToId - The value `getKey` resolves to.
+ * @returns A mock State.
+ */
+function buildMockState(
+  mapInterfaceNameToId: Record<string, string>,
+): MockState {
+  return {
+    setKey: jest.fn().mockResolvedValue(undefined),
+    getKey: jest.fn().mockResolvedValue(mapInterfaceNameToId),
+  };
+}
+
+/**
+ * Builds a mock TransactionScanService with only the methods exercised by
+ * the `refreshConfirmationSend` flow.
+ *
+ * @param scanResult - The value `scanTransaction` resolves to.
+ * @returns A mock TransactionScanService.
+ */
+function buildMockTransactionScanService(
+  scanResult: TransactionScanResult,
+): MockTransactionScanService {
+  return {
+    scanTransaction: jest.fn().mockResolvedValue(scanResult),
+    getSecurityAlertDescription: jest.fn().mockReturnValue('description'),
+  };
+}
+
+/**
+ * Assembles a CronHandler from the given partial mocks. Type assertions are
+ * concentrated here so that every other part of the test file stays
+ * assertion-free.
+ *
+ * @param deps - The mock dependencies.
+ * @param deps.mockSnapClient - The mock SnapClient.
+ * @param deps.mockState - The mock State.
+ * @param deps.mockTransactionScanService - The mock TransactionScanService.
+ * @returns A CronHandler instance wired to the mocks.
+ */
+function buildCronHandler({
+  mockSnapClient,
+  mockState,
+  mockTransactionScanService,
+}: {
+  mockSnapClient: MockSnapClient;
+  mockState: MockState;
+  mockTransactionScanService: MockTransactionScanService;
+}): CronHandler {
+  return new CronHandler({
+    logger: buildMockLogger(),
+    accountsService: {} as AccountsService,
+    snapClient: mockSnapClient as unknown as SnapClient,
+    state: mockState as unknown as State<UnencryptedStateValue>,
+    priceApiClient: {} as PriceApiClient,
+    tronHttpClient: {} as TronHttpClient,
+    transactionScanService:
+      mockTransactionScanService as unknown as TransactionScanService,
+  });
+}
+
+/**
  * The callback that `withCronHandler` calls.
  */
 type WithCronHandlerCallback = (payload: {
   cronHandler: CronHandler;
-  mockSnapClient: jest.Mocked<SnapClient>;
-  mockState: jest.Mocked<{ getKey: jest.Mock; setKey: jest.Mock }>;
-  mockTransactionScanService: jest.Mocked<TransactionScanService>;
+  mockSnapClient: MockSnapClient;
+  mockState: MockState;
+  mockTransactionScanService: MockTransactionScanService;
 }) => Promise<void> | void;
 
 /**
@@ -117,7 +255,6 @@ type WithCronHandlerOptions = {
  * configure the mocks for specific test scenarios.
  *
  * @param args - Either a function, or an options bag + a function.
- * @returns The return value of the given function.
  */
 async function withCronHandler(
   ...args:
@@ -132,42 +269,15 @@ async function withCronHandler(
     mapInterfaceNameToId = { confirmTransaction: 'interface-id-456' },
   } = options;
 
-  const mockSnapClient = {
-    getClientStatus: jest
-      .fn()
-      .mockResolvedValue({ active: true, locked: false }),
-    createInterface: jest.fn().mockResolvedValue('interface-id'),
-    showDialog: jest.fn().mockResolvedValue(true),
-    updateInterface: jest.fn().mockResolvedValue(undefined),
-    getInterfaceContext: jest.fn().mockResolvedValue(interfaceContext),
-    scheduleBackgroundEvent: jest.fn().mockResolvedValue(undefined),
-    getPreferences: jest.fn().mockResolvedValue({}),
-  } as unknown as jest.Mocked<SnapClient>;
+  const mockSnapClient = buildMockSnapClient(interfaceContext);
+  const mockState = buildMockState(mapInterfaceNameToId);
+  const mockTransactionScanService =
+    buildMockTransactionScanService(scanResult);
 
-  const mockState = {
-    setKey: jest.fn().mockResolvedValue(undefined),
-    getKey: jest.fn().mockResolvedValue(mapInterfaceNameToId),
-  } as unknown as jest.Mocked<{ getKey: jest.Mock; setKey: jest.Mock }>;
-
-  const mockTransactionScanService = {
-    scanTransaction: jest.fn().mockResolvedValue(scanResult),
-    getSecurityAlertDescription: jest.fn().mockReturnValue('description'),
-  } as unknown as jest.Mocked<TransactionScanService>;
-
-  const cronHandler = new CronHandler({
-    logger: {
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      log: jest.fn(),
-      debug: jest.fn(),
-    } as any,
-    accountsService: {} as AccountsService,
-    snapClient: mockSnapClient,
-    state: mockState as any,
-    priceApiClient: {} as PriceApiClient,
-    tronHttpClient: {} as TronHttpClient,
-    transactionScanService: mockTransactionScanService,
+  const cronHandler = buildCronHandler({
+    mockSnapClient,
+    mockState,
+    mockTransactionScanService,
   });
 
   await testFunction({
