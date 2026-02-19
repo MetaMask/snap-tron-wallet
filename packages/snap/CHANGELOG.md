@@ -9,13 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.22.0]
 
-### Uncategorized
-
-- test: enable coverage collection and thresholds ([#204](https://github.com/MetaMask/snap-tron-wallet/pull/204))
-- chore: enable `@typescript-eslint/no-explicit-any` as `error` ([#203](https://github.com/MetaMask/snap-tron-wallet/pull/203))
-- ci: enforce package deduplication ([#201](https://github.com/MetaMask/snap-tron-wallet/pull/201))
-- ci: add changelog validation scripts ([#198](https://github.com/MetaMask/snap-tron-wallet/pull/198))
-
 ### Added
 
 - Support fetching TRC20 token balances for inactive accounts using fallback endpoint ([#190](https://github.com/MetaMask/snap-tron-wallet/pull/190))
