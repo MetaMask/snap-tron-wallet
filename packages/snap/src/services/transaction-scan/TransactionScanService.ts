@@ -5,6 +5,7 @@ import type { TransactionScanResult, TransactionScanValidation } from './types';
 import { ScanStatus, SecurityAlertResponse } from './types';
 import type { SecurityAlertsApiClient } from '../../clients/security-alerts-api/SecurityAlertsApiClient';
 import type { SecurityAlertSimulationValidationResponse } from '../../clients/security-alerts-api/types';
+import { isTransactionSupported } from '../../clients/security-alerts-api/utils';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { Network } from '../../constants';
 import type { TronKeyringAccount } from '../../entities';
@@ -57,6 +58,22 @@ export class TransactionScanService {
     options?: string[] | undefined;
     account?: TronKeyringAccount;
   }): Promise<TransactionScanResult | null> {
+    const simulationAccurate = isTransactionSupported(transactionRawData);
+
+    if (!simulationAccurate) {
+      this.#logger.info(
+        'Transaction is not supported for scanning, returning inaccurate simulation result',
+      );
+
+      return {
+        status: 'SUCCESS',
+        estimatedChanges: { assets: [] },
+        validation: { type: null, reason: null },
+        error: null,
+        simulationAccurate: false,
+      };
+    }
+
     try {
       const result = await this.#securityAlertsApiClient.scanTransaction({
         accountAddress,
@@ -239,6 +256,7 @@ export class TransactionScanService {
               message: result.simulation?.error ?? null,
             }
           : null,
+      simulationAccurate: true,
     };
   }
 }
