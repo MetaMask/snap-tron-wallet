@@ -6,7 +6,8 @@ import { type Network } from '../../constants';
 export type NativeCaipAssetType = `${Network}/slip44:195`;
 export type StakedCaipAssetType =
   `${TrxScope}/slip44:195-staked-for-${'energy' | 'bandwidth'}`;
-export type WithdrawableCaipAssetType = `${TrxScope}/slip44:195-withdrawable`;
+export type ReadyForWithdrawalCaipAssetType =
+  `${TrxScope}/slip44:195-ready-for-withdrawal`;
 export type ResourceCaipAssetType =
   `${TrxScope}/slip44:${'energy' | 'bandwidth'}`;
 export type TokenCaipAssetType = `${TrxScope}/${'trc10' | 'trc20'}:${string}`;
@@ -29,11 +30,11 @@ export const StakedCaipAssetTypeStruct = pattern(
 );
 
 /**
- * Validates a TRON withdrawable CAIP-19 ID (e.g., "tron:728126428/slip44:195-withdrawable")
+ * Validates a TRON ready-for-withdrawal CAIP-19 ID (e.g., "tron:728126428/slip44:195-ready-for-withdrawal")
  */
-export const WithdrawableCaipAssetTypeStruct = pattern(
+export const ReadyForWithdrawalCaipAssetTypeStruct = pattern(
   CaipAssetTypeStruct,
-  /^tron:(728126428|3448148188|2494104990)\/slip44:195-withdrawable$/u,
+  /^tron:(728126428|3448148188|2494104990)\/slip44:195-ready-for-withdrawal$/u,
 );
 
 /**

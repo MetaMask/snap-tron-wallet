@@ -749,8 +749,8 @@ describe('AssetsService', () => {
     });
 
     /* eslint-disable @typescript-eslint/naming-convention */
-    describe('withdrawable TRX', () => {
-      it('returns 0 when account has no unfrozenV2 data', async () => {
+    describe('TRX ready for withdrawal', () => {
+      it('returns undefined when account has no unfrozenV2 data', async () => {
         await withAssetsService(
           async ({
             assetsService,
@@ -770,16 +770,16 @@ describe('AssetsService', () => {
               mockAccount,
             );
 
-            const withdrawableAsset = findAsset(
+            const readyForWithdrawalAsset = findAsset(
               assets,
-              KnownCaip19Id.TrxWithdrawableMainnet,
+              KnownCaip19Id.TrxReadyForWithdrawalMainnet,
             );
-            expect(withdrawableAsset).toBeUndefined();
+            expect(readyForWithdrawalAsset).toBeUndefined();
           },
         );
       });
 
-      it('returns withdrawable amount when unfrozenV2 has expired entries', async () => {
+      it('returns ready for withdrawal amount when unfrozenV2 has expired entries', async () => {
         await withAssetsService(
           async ({
             assetsService,
@@ -802,17 +802,17 @@ describe('AssetsService', () => {
               mockAccount,
             );
 
-            const withdrawableAsset = findAsset(
+            const readyForWithdrawalAsset = findAsset(
               assets,
-              KnownCaip19Id.TrxWithdrawableMainnet,
+              KnownCaip19Id.TrxReadyForWithdrawalMainnet,
             );
-            expect(withdrawableAsset).toBeDefined();
-            expect(withdrawableAsset?.rawAmount).toBe('1000000');
+            expect(readyForWithdrawalAsset).toBeDefined();
+            expect(readyForWithdrawalAsset?.rawAmount).toBe('1000000');
           },
         );
       });
 
-      it('does not return withdrawable when unfrozenV2 has not expired', async () => {
+      it('does not return asset when unfrozenV2 has not expired', async () => {
         await withAssetsService(
           async ({
             assetsService,
@@ -838,11 +838,11 @@ describe('AssetsService', () => {
               mockAccount,
             );
 
-            const withdrawableAsset = findAsset(
+            const readyForWithdrawalAsset = findAsset(
               assets,
-              KnownCaip19Id.TrxWithdrawableMainnet,
+              KnownCaip19Id.TrxReadyForWithdrawalMainnet,
             );
-            expect(withdrawableAsset).toBeUndefined();
+            expect(readyForWithdrawalAsset).toBeUndefined();
           },
         );
       });
@@ -872,12 +872,12 @@ describe('AssetsService', () => {
               mockAccount,
             );
 
-            const withdrawableAsset = findAsset(
+            const readyForWithdrawalAsset = findAsset(
               assets,
-              KnownCaip19Id.TrxWithdrawableMainnet,
+              KnownCaip19Id.TrxReadyForWithdrawalMainnet,
             );
-            expect(withdrawableAsset).toBeDefined();
-            expect(withdrawableAsset?.rawAmount).toBe('3000000');
+            expect(readyForWithdrawalAsset).toBeDefined();
+            expect(readyForWithdrawalAsset?.rawAmount).toBe('3000000');
           },
         );
       });
@@ -910,12 +910,12 @@ describe('AssetsService', () => {
               mockAccount,
             );
 
-            const withdrawableAsset = findAsset(
+            const readyForWithdrawalAsset = findAsset(
               assets,
-              KnownCaip19Id.TrxWithdrawableMainnet,
+              KnownCaip19Id.TrxReadyForWithdrawalMainnet,
             );
-            expect(withdrawableAsset).toBeDefined();
-            expect(withdrawableAsset?.rawAmount).toBe('1000000');
+            expect(readyForWithdrawalAsset).toBeDefined();
+            expect(readyForWithdrawalAsset?.rawAmount).toBe('1000000');
           },
         );
       });
@@ -1301,7 +1301,7 @@ describe('AssetsService', () => {
       });
     });
 
-    it('keeps withdrawable assets even with zero amounts', async () => {
+    it('keeps ready for withdrawal assets even with zero amounts', async () => {
       await withAssetsService(async ({ assetsService, mockState }) => {
         const assets: AssetEntity[] = [
           {
@@ -1315,10 +1315,10 @@ describe('AssetsService', () => {
             iconUrl: '',
           },
           {
-            assetType: KnownCaip19Id.TrxWithdrawableMainnet,
+            assetType: KnownCaip19Id.TrxReadyForWithdrawalMainnet,
             keyringAccountId: mockAccount.id,
             network: Network.Mainnet,
-            symbol: 'wTRX',
+            symbol: 'rfwTRX',
             decimals: 6,
             rawAmount: '0',
             uiAmount: '0',
@@ -1338,7 +1338,7 @@ describe('AssetsService', () => {
               [mockAccount.id]: {
                 added: expect.arrayContaining([
                   KnownCaip19Id.TrxMainnet,
-                  KnownCaip19Id.TrxWithdrawableMainnet,
+                  KnownCaip19Id.TrxReadyForWithdrawalMainnet,
                 ]),
                 removed: [],
               },
