@@ -748,6 +748,180 @@ describe('AssetsService', () => {
       });
     });
 
+    /* eslint-disable @typescript-eslint/naming-convention */
+    describe('withdrawable TRX', () => {
+      it('returns 0 when account has no unfrozenV2 data', async () => {
+        await withAssetsService(
+          async ({
+            assetsService,
+            mockTrongridApiClient,
+            mockTronHttpClient,
+          }) => {
+            mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+              createMockTronAccount({
+                address: mockAccount.address,
+                unfrozenV2: [],
+              }),
+            );
+            mockTronHttpClient.getAccountResources.mockResolvedValue({});
+
+            const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+              Network.Mainnet,
+              mockAccount,
+            );
+
+            const withdrawableAsset = findAsset(
+              assets,
+              KnownCaip19Id.TrxWithdrawableMainnet,
+            );
+            expect(withdrawableAsset).toBeUndefined();
+          },
+        );
+      });
+
+      it('returns withdrawable amount when unfrozenV2 has expired entries', async () => {
+        await withAssetsService(
+          async ({
+            assetsService,
+            mockTrongridApiClient,
+            mockTronHttpClient,
+          }) => {
+            const pastTime = Date.now() - 1000;
+            mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+              createMockTronAccount({
+                address: mockAccount.address,
+                unfrozenV2: [
+                  { unfreeze_amount: 1000000, unfreeze_expire_time: pastTime },
+                ],
+              }),
+            );
+            mockTronHttpClient.getAccountResources.mockResolvedValue({});
+
+            const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+              Network.Mainnet,
+              mockAccount,
+            );
+
+            const withdrawableAsset = findAsset(
+              assets,
+              KnownCaip19Id.TrxWithdrawableMainnet,
+            );
+            expect(withdrawableAsset).toBeDefined();
+            expect(withdrawableAsset?.rawAmount).toBe('1000000');
+          },
+        );
+      });
+
+      it('does not return withdrawable when unfrozenV2 has not expired', async () => {
+        await withAssetsService(
+          async ({
+            assetsService,
+            mockTrongridApiClient,
+            mockTronHttpClient,
+          }) => {
+            const futureTime = Date.now() + 1000000;
+            mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+              createMockTronAccount({
+                address: mockAccount.address,
+                unfrozenV2: [
+                  {
+                    unfreeze_amount: 1000000,
+                    unfreeze_expire_time: futureTime,
+                  },
+                ],
+              }),
+            );
+            mockTronHttpClient.getAccountResources.mockResolvedValue({});
+
+            const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+              Network.Mainnet,
+              mockAccount,
+            );
+
+            const withdrawableAsset = findAsset(
+              assets,
+              KnownCaip19Id.TrxWithdrawableMainnet,
+            );
+            expect(withdrawableAsset).toBeUndefined();
+          },
+        );
+      });
+
+      it('sums multiple expired unfrozen entries', async () => {
+        await withAssetsService(
+          async ({
+            assetsService,
+            mockTrongridApiClient,
+            mockTronHttpClient,
+          }) => {
+            const pastTime1 = Date.now() - 1000;
+            const pastTime2 = Date.now() - 2000;
+            mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+              createMockTronAccount({
+                address: mockAccount.address,
+                unfrozenV2: [
+                  { unfreeze_amount: 1000000, unfreeze_expire_time: pastTime1 },
+                  { unfreeze_amount: 2000000, unfreeze_expire_time: pastTime2 },
+                ],
+              }),
+            );
+            mockTronHttpClient.getAccountResources.mockResolvedValue({});
+
+            const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+              Network.Mainnet,
+              mockAccount,
+            );
+
+            const withdrawableAsset = findAsset(
+              assets,
+              KnownCaip19Id.TrxWithdrawableMainnet,
+            );
+            expect(withdrawableAsset).toBeDefined();
+            expect(withdrawableAsset?.rawAmount).toBe('3000000');
+          },
+        );
+      });
+
+      it('only includes expired entries when mixed with non-expired', async () => {
+        await withAssetsService(
+          async ({
+            assetsService,
+            mockTrongridApiClient,
+            mockTronHttpClient,
+          }) => {
+            const pastTime = Date.now() - 1000;
+            const futureTime = Date.now() + 1000000;
+            mockTrongridApiClient.getAccountInfoByAddress.mockResolvedValue(
+              createMockTronAccount({
+                address: mockAccount.address,
+                unfrozenV2: [
+                  { unfreeze_amount: 1000000, unfreeze_expire_time: pastTime },
+                  {
+                    unfreeze_amount: 5000000,
+                    unfreeze_expire_time: futureTime,
+                  },
+                ],
+              }),
+            );
+            mockTronHttpClient.getAccountResources.mockResolvedValue({});
+
+            const assets = await assetsService.fetchAssetsAndBalancesForAccount(
+              Network.Mainnet,
+              mockAccount,
+            );
+
+            const withdrawableAsset = findAsset(
+              assets,
+              KnownCaip19Id.TrxWithdrawableMainnet,
+            );
+            expect(withdrawableAsset).toBeDefined();
+            expect(withdrawableAsset?.rawAmount).toBe('1000000');
+          },
+        );
+      });
+    });
+    /* eslint-enable @typescript-eslint/naming-convention */
+
     describe('energy', () => {
       it('returns 0 when account has no resources', async () => {
         await withAssetsService(
@@ -1118,6 +1292,53 @@ describe('AssetsService', () => {
                   KnownCaip19Id.TrxMainnet,
                   KnownCaip19Id.TrxStakedForBandwidthMainnet,
                   KnownCaip19Id.TrxStakedForEnergyMainnet,
+                ]),
+                removed: [],
+              },
+            },
+          },
+        );
+      });
+    });
+
+    it('keeps withdrawable assets even with zero amounts', async () => {
+      await withAssetsService(async ({ assetsService, mockState }) => {
+        const assets: AssetEntity[] = [
+          {
+            assetType: KnownCaip19Id.TrxMainnet,
+            keyringAccountId: mockAccount.id,
+            network: Network.Mainnet,
+            symbol: 'TRX',
+            decimals: 6,
+            rawAmount: '1000000',
+            uiAmount: '1',
+            iconUrl: '',
+          },
+          {
+            assetType: KnownCaip19Id.TrxWithdrawableMainnet,
+            keyringAccountId: mockAccount.id,
+            network: Network.Mainnet,
+            symbol: 'wTRX',
+            decimals: 6,
+            rawAmount: '0',
+            uiAmount: '0',
+            iconUrl: '',
+          },
+        ];
+
+        mockState.getKey.mockResolvedValue({});
+
+        await assetsService.saveMany(assets);
+
+        expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
+          expect.anything(),
+          KeyringEvent.AccountAssetListUpdated,
+          {
+            assets: {
+              [mockAccount.id]: {
+                added: expect.arrayContaining([
+                  KnownCaip19Id.TrxMainnet,
+                  KnownCaip19Id.TrxWithdrawableMainnet,
                 ]),
                 removed: [],
               },

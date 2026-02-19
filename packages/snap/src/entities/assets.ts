@@ -3,6 +3,7 @@ import type {
   NativeCaipAssetType,
   NftCaipAssetType,
   TokenCaipAssetType,
+  WithdrawableCaipAssetType,
 } from '../services/assets/types';
 
 type BaseAsset = {
@@ -22,6 +23,10 @@ export type NativeAsset = BaseAsset & {
 
 export type StakedAsset = BaseAsset & {
   assetType: `${Network}/slip44:195-staked-for-${'energy' | 'bandwidth'}`;
+};
+
+export type WithdrawableAsset = BaseAsset & {
+  assetType: WithdrawableCaipAssetType;
 };
 
 export type ResourceAsset = BaseAsset & {
@@ -55,6 +60,7 @@ export type NftAsset = BaseAsset & {
 export type AssetEntity =
   | NativeAsset
   | StakedAsset
+  | WithdrawableAsset
   | TokenAsset
   | NftAsset
   | ResourceAsset
