@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Support fetching TRC20 token balances for inactive accounts using fallback endpoint ([#190](https://github.com/MetaMask/snap-tron-wallet/pull/190))
 - Add security scanning for tokens sends ([#205](https://github.com/MetaMask/snap-tron-wallet/pull/205))
+- Add "Withdrawable TRX" as a special asset to display unstaked TRX that has completed the withdrawal period and is ready to be claimed ([#208](https://github.com/MetaMask/snap-tron-wallet/pull/208))
 
 ### Fixed
 
