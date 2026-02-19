@@ -25,6 +25,7 @@ import type {
   ResourceCaipAssetType,
   StakedCaipAssetType,
   TokenCaipAssetType,
+  WithdrawableCaipAssetType,
 } from './types';
 import type { PriceApiClient } from '../../clients/price-api/PriceApiClient';
 import type {
@@ -40,7 +41,11 @@ import type { TokenApiClient } from '../../clients/token-api/TokenApiClient';
 import type { AccountResources } from '../../clients/tron-http';
 import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
 import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
-import type { Trc20Balance, TronAccount } from '../../clients/trongrid/types';
+import type {
+  RawTronUnfrozenV2,
+  Trc20Balance,
+  TronAccount,
+} from '../../clients/trongrid/types';
 import type { KnownCaip19Id, Network } from '../../constants';
 import {
   BANDWIDTH_METADATA,
@@ -53,6 +58,7 @@ import {
   TRX_METADATA,
   TRX_STAKED_FOR_BANDWIDTH_METADATA,
   TRX_STAKED_FOR_ENERGY_METADATA,
+  TRX_WITHDRAWABLE_METADATA,
 } from '../../constants';
 import { configProvider } from '../../context';
 import type { AssetEntity } from '../../entities/assets';
@@ -75,6 +81,7 @@ type NormalizedAccountData = {
   /** Staking data including frozen balances and delegated resources. */
   stakedData: {
     frozenV2: TronAccount['frozenV2'];
+    unfrozenV2: TronAccount['unfrozenV2'];
     accountResource: TronAccount['account_resource'] | undefined;
   };
   /** Account resources (energy, bandwidth). Empty object for inactive accounts. */
@@ -294,7 +301,11 @@ export class AssetsService {
         nativeBalance: 0,
         trc10Balances: [],
         trc20Balances: trc20BalancesFallback,
-        stakedData: { frozenV2: [], accountResource: undefined },
+        stakedData: {
+          frozenV2: [],
+          unfrozenV2: [],
+          accountResource: undefined,
+        },
         resources,
       };
     }
@@ -306,6 +317,7 @@ export class AssetsService {
       trc20Balances: tronAccountInfo.trc20 ?? [],
       stakedData: {
         frozenV2: tronAccountInfo.frozenV2 ?? [],
+        unfrozenV2: tronAccountInfo.unfrozenV2 ?? [],
         accountResource: tronAccountInfo.account_resource,
       },
       resources,
@@ -329,6 +341,7 @@ export class AssetsService {
     return [
       this.#extractNativeAsset(account, scope, data.nativeBalance),
       ...this.#extractStakedNativeAssets(account, scope, data.stakedData),
+      ...this.#extractWithdrawableNativeAssets(account, scope, data.stakedData),
       ...this.#extractTrc10Assets(account, scope, data.trc10Balances),
       ...this.#extractTrc20Assets(account, scope, data.trc20Balances),
       ...this.#extractBandwidth({
@@ -513,6 +526,53 @@ export class AssetsService {
   }
 
   /**
+   * Extracts withdrawable TRX assets (unstaked TRX that has completed the withdrawal period).
+   *
+   * @param account - The keyring account.
+   * @param scope - The network.
+   * @param stakedData - Staking data including unfrozen balances.
+   * @returns AssetEntity[] - Array with withdrawable asset (may be empty if no withdrawable TRX).
+   */
+  #extractWithdrawableNativeAssets(
+    account: KeyringAccount,
+    scope: Network,
+    stakedData: NormalizedAccountData['stakedData'],
+  ): AssetEntity[] {
+    const assets: AssetEntity[] = [];
+
+    const currentTimestamp = Date.now();
+    let withdrawableAmount = 0;
+
+    stakedData.unfrozenV2?.forEach((unfrozen: RawTronUnfrozenV2) => {
+      const expireTime = unfrozen.unfreeze_expire_time ?? 0;
+      const amount = unfrozen.unfreeze_amount ?? 0;
+
+      if (expireTime <= currentTimestamp && amount > 0) {
+        withdrawableAmount += amount;
+      }
+    });
+
+    if (withdrawableAmount > 0) {
+      const withdrawableAsset: AssetEntity = {
+        assetType: Networks[scope].withdrawable.id as WithdrawableCaipAssetType,
+        keyringAccountId: account.id,
+        network: scope,
+        symbol: Networks[scope].withdrawable.symbol,
+        decimals: Networks[scope].withdrawable.decimals,
+        rawAmount: withdrawableAmount.toString(),
+        uiAmount: toUiAmount(
+          withdrawableAmount,
+          Networks[scope].withdrawable.decimals,
+        ).toString(),
+        iconUrl: Networks[scope].withdrawable.iconUrl,
+      };
+      assets.push(withdrawableAsset);
+    }
+
+    return assets;
+  }
+
+  /**
    * Extracts current and maximum bandwidth from the account resources.
    *
    * @param options - Options object.
@@ -682,6 +742,7 @@ export class AssetsService {
     const {
       nativeAssetTypes,
       stakedNativeAssetTypes,
+      withdrawableAssetTypes,
       energyAssetTypes,
       maximunEnergyAssetTypes,
       bandwidthAssetTypes,
@@ -694,6 +755,9 @@ export class AssetsService {
       this.#getNativeTokensMetadata(nativeAssetTypes);
     const stakedTokensMetadata = this.#getStakedTokensMetadata(
       stakedNativeAssetTypes,
+    );
+    const withdrawableTokensMetadata = this.#getWithdrawableTokensMetadata(
+      withdrawableAssetTypes,
     );
     const energyTokensMetadata = this.#getEnergyMetadata(energyAssetTypes);
     const maximunEnergyTokensMetadata = this.#getMaximunEnergyMetadata(
@@ -712,6 +776,7 @@ export class AssetsService {
     const result = {
       ...nativeTokensMetadata,
       ...stakedTokensMetadata,
+      ...withdrawableTokensMetadata,
       ...energyTokensMetadata,
       ...maximunEnergyTokensMetadata,
       ...bandwidthTokensMetadata,
@@ -727,6 +792,7 @@ export class AssetsService {
   #splitAssetsByType(assetTypes: CaipAssetType[]): {
     nativeAssetTypes: NativeCaipAssetType[];
     stakedNativeAssetTypes: StakedCaipAssetType[];
+    withdrawableAssetTypes: WithdrawableCaipAssetType[];
     energyAssetTypes: ResourceCaipAssetType[];
     maximunEnergyAssetTypes: ResourceCaipAssetType[];
     bandwidthAssetTypes: ResourceCaipAssetType[];
@@ -741,6 +807,9 @@ export class AssetsService {
     const stakedNativeAssetTypes = assetTypes.filter((assetType) =>
       assetType.includes('/slip44:195-staked-for-'),
     ) as StakedCaipAssetType[];
+    const withdrawableAssetTypes = assetTypes.filter((assetType) =>
+      assetType.endsWith('/slip44:195-withdrawable'),
+    ) as WithdrawableCaipAssetType[];
     const energyAssetTypes = assetTypes.filter((assetType) =>
       assetType.endsWith('/slip44:energy'),
     ) as ResourceCaipAssetType[];
@@ -766,6 +835,7 @@ export class AssetsService {
     return {
       nativeAssetTypes,
       stakedNativeAssetTypes,
+      withdrawableAssetTypes,
       energyAssetTypes,
       maximunEnergyAssetTypes,
       bandwidthAssetTypes,
@@ -851,6 +921,33 @@ export class AssetsService {
     }
 
     return stakedTokensMetadata;
+  }
+
+  #getWithdrawableTokensMetadata(
+    assetTypes: WithdrawableCaipAssetType[],
+  ): Record<CaipAssetType, FungibleAssetMetadata | null> {
+    const withdrawableTokensMetadata: Record<
+      CaipAssetType,
+      FungibleAssetMetadata | null
+    > = {};
+
+    for (const assetType of assetTypes) {
+      withdrawableTokensMetadata[assetType] = {
+        fungible: TRX_WITHDRAWABLE_METADATA.fungible,
+        name: TRX_WITHDRAWABLE_METADATA.name,
+        symbol: TRX_WITHDRAWABLE_METADATA.symbol,
+        iconUrl: TRX_WITHDRAWABLE_METADATA.iconUrl,
+        units: [
+          {
+            decimals: TRX_WITHDRAWABLE_METADATA.decimals,
+            symbol: TRX_WITHDRAWABLE_METADATA.symbol,
+            name: TRX_WITHDRAWABLE_METADATA.name,
+          },
+        ],
+      };
+    }
+
+    return withdrawableTokensMetadata;
   }
 
   #getBandwidthMetadata(

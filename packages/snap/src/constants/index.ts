@@ -33,6 +33,13 @@ export enum KnownCaip19Id {
   TrxStakedForEnergyShasta = `${Network.Shasta}/slip44:195-staked-for-energy`,
 
   /**
+   * Withdrawable Tron (unstaked TRX ready to be withdrawn)
+   */
+  TrxWithdrawableMainnet = `${Network.Mainnet}/slip44:195-withdrawable`,
+  TrxWithdrawableNile = `${Network.Nile}/slip44:195-withdrawable`,
+  TrxWithdrawableShasta = `${Network.Shasta}/slip44:195-withdrawable`,
+
+  /**
    * Tron Resource Assets
    */
   EnergyMainnet = `${Network.Mainnet}/slip44:energy`,
@@ -73,6 +80,15 @@ export const TRX_STAKED_FOR_BANDWIDTH_METADATA = {
 export const TRX_STAKED_FOR_ENERGY_METADATA = {
   name: 'Staked for Energy',
   symbol: 'sTRX-ENERGY',
+  fungible: true as const,
+  decimals: 6,
+  iconUrl:
+    'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
+};
+
+export const TRX_WITHDRAWABLE_METADATA = {
+  name: 'Withdrawable TRX',
+  symbol: 'wTRX',
   fungible: true as const,
   decimals: 6,
   iconUrl:
@@ -159,6 +175,21 @@ export const TokenMetadata = {
     ...TRX_STAKED_FOR_ENERGY_METADATA,
   },
   /**
+   * Tron Withdrawable Metadata
+   */
+  [KnownCaip19Id.TrxWithdrawableMainnet]: {
+    id: KnownCaip19Id.TrxWithdrawableMainnet,
+    ...TRX_WITHDRAWABLE_METADATA,
+  },
+  [KnownCaip19Id.TrxWithdrawableNile]: {
+    id: KnownCaip19Id.TrxWithdrawableNile,
+    ...TRX_WITHDRAWABLE_METADATA,
+  },
+  [KnownCaip19Id.TrxWithdrawableShasta]: {
+    id: KnownCaip19Id.TrxWithdrawableShasta,
+    ...TRX_WITHDRAWABLE_METADATA,
+  },
+  /**
    * Bandwidth Resource Metadata
    */
   [KnownCaip19Id.BandwidthMainnet]: {
@@ -229,6 +260,7 @@ export const Networks = {
     stakedForBandwidth:
       TokenMetadata[KnownCaip19Id.TrxStakedForBandwidthMainnet],
     stakedForEnergy: TokenMetadata[KnownCaip19Id.TrxStakedForEnergyMainnet],
+    withdrawable: TokenMetadata[KnownCaip19Id.TrxWithdrawableMainnet],
     bandwidth: TokenMetadata[KnownCaip19Id.BandwidthMainnet],
     maximumBandwidth: TokenMetadata[KnownCaip19Id.MaximumBandwidthMainnet],
     energy: TokenMetadata[KnownCaip19Id.EnergyMainnet],
@@ -241,6 +273,7 @@ export const Networks = {
     nativeToken: TokenMetadata[KnownCaip19Id.TrxNile],
     stakedForBandwidth: TokenMetadata[KnownCaip19Id.TrxStakedForBandwidthNile],
     stakedForEnergy: TokenMetadata[KnownCaip19Id.TrxStakedForEnergyNile],
+    withdrawable: TokenMetadata[KnownCaip19Id.TrxWithdrawableNile],
     bandwidth: TokenMetadata[KnownCaip19Id.BandwidthNile],
     maximumBandwidth: TokenMetadata[KnownCaip19Id.MaximumBandwidthNile],
     energy: TokenMetadata[KnownCaip19Id.EnergyNile],
@@ -254,6 +287,7 @@ export const Networks = {
     stakedForBandwidth:
       TokenMetadata[KnownCaip19Id.TrxStakedForBandwidthShasta],
     stakedForEnergy: TokenMetadata[KnownCaip19Id.TrxStakedForEnergyShasta],
+    withdrawable: TokenMetadata[KnownCaip19Id.TrxWithdrawableShasta],
     bandwidth: TokenMetadata[KnownCaip19Id.BandwidthShasta],
     maximumBandwidth: TokenMetadata[KnownCaip19Id.MaximumBandwidthShasta],
     energy: TokenMetadata[KnownCaip19Id.EnergyShasta],
@@ -268,6 +302,9 @@ export const SPECIAL_ASSETS: string[] = [
   KnownCaip19Id.TrxStakedForEnergyMainnet,
   KnownCaip19Id.TrxStakedForEnergyNile,
   KnownCaip19Id.TrxStakedForEnergyShasta,
+  KnownCaip19Id.TrxWithdrawableMainnet,
+  KnownCaip19Id.TrxWithdrawableNile,
+  KnownCaip19Id.TrxWithdrawableShasta,
   KnownCaip19Id.BandwidthMainnet,
   KnownCaip19Id.BandwidthNile,
   KnownCaip19Id.BandwidthShasta,
