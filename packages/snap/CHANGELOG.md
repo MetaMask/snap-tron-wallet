@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Support fetching TRC20 token balances for inactive accounts using fallback endpoint ([#190](https://github.com/MetaMask/snap-tron-wallet/pull/190))
 - Add security scanning for tokens sends ([#205](https://github.com/MetaMask/snap-tron-wallet/pull/205))
+- Add staking rewards TRX asset to display unclaimed voting rewards ([#209](https://github.com/MetaMask/snap-tron-wallet/pull/209))
 
 ### Fixed
 
