@@ -2,6 +2,7 @@ import type { KnownCaip19Id, Network } from '../constants';
 import type {
   NativeCaipAssetType,
   NftCaipAssetType,
+  PendingWithdrawalCaipAssetType,
   ReadyForWithdrawalCaipAssetType,
   StakingRewardsCaipAssetType,
   TokenCaipAssetType,
@@ -32,6 +33,10 @@ export type ReadyForWithdrawalAsset = BaseAsset & {
 
 export type StakingRewardsAsset = BaseAsset & {
   assetType: StakingRewardsCaipAssetType;
+};
+
+export type PendingWithdrawalAsset = BaseAsset & {
+  assetType: PendingWithdrawalCaipAssetType;
 };
 
 export type ResourceAsset = BaseAsset & {
@@ -67,6 +72,7 @@ export type AssetEntity =
   | StakedAsset
   | ReadyForWithdrawalAsset
   | StakingRewardsAsset
+  | PendingWithdrawalAsset
   | TokenAsset
   | NftAsset
   | ResourceAsset
