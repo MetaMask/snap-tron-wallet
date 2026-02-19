@@ -1132,7 +1132,7 @@ describe('AssetsService', () => {
             );
             expect(stakingRewardsAsset?.rawAmount).toBe('5000000');
             expect(stakingRewardsAsset?.uiAmount).toBe('5');
-            expect(stakingRewardsAsset?.symbol).toBe('rTRX');
+            expect(stakingRewardsAsset?.symbol).toBe('srTRX');
           },
         );
       });
