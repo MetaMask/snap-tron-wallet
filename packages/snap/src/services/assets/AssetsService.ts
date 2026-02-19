@@ -20,9 +20,9 @@ import { pick } from 'lodash';
 
 import type { AssetsRepository } from './AssetsRepository';
 import type {
+  InLockPeriodCaipAssetType,
   NativeCaipAssetType,
   NftCaipAssetType,
-  PendingWithdrawalCaipAssetType,
   ReadyForWithdrawalCaipAssetType,
   ResourceCaipAssetType,
   StakedCaipAssetType,
@@ -57,8 +57,8 @@ import {
   MAX_ENERGY_METADATA,
   Networks,
   TokenMetadata,
+  TRX_IN_LOCK_PERIOD_METADATA,
   TRX_METADATA,
-  TRX_PENDING_WITHDRAWAL_METADATA,
   TRX_READY_FOR_WITHDRAWAL_METADATA,
   TRX_STAKED_FOR_BANDWIDTH_METADATA,
   TRX_STAKED_FOR_ENERGY_METADATA,
@@ -362,7 +362,7 @@ export class AssetsService {
       this.#extractNativeAsset(account, scope, data.nativeBalance),
       ...this.#extractStakedNativeAssets(account, scope, data.stakedData),
       ...this.#extractReadyForWithdrawalAssets(account, scope, data.stakedData),
-      ...this.#extractPendingWithdrawalAssets(account, scope, data.stakedData),
+      ...this.#extractInLockPeriodAssets(account, scope, data.stakedData),
       this.#extractStakingRewardsAsset(account, scope, data.stakingRewards),
       ...this.#extractTrc10Assets(account, scope, data.trc10Balances),
       ...this.#extractTrc20Assets(account, scope, data.trc20Balances),
@@ -621,47 +621,46 @@ export class AssetsService {
   }
 
   /**
-   * Extracts TRX that is in the withdrawal period (unstaked but lock period not yet ended).
+   * Extracts TRX that is in the lock period (unstaked but lock period not yet ended).
    * This represents TRX that the user has initiated unstaking for but must wait
    * the 14-day lock period before they can withdraw.
    *
    * @param account - The keyring account.
    * @param scope - The network.
    * @param stakedData - Staking data including unfrozen balances.
-   * @returns AssetEntity[] - Array with pending withdrawal asset (may be empty if none).
+   * @returns AssetEntity[] - Array with in-lock-period asset (may be empty if none).
    */
-  #extractPendingWithdrawalAssets(
+  #extractInLockPeriodAssets(
     account: KeyringAccount,
     scope: Network,
     stakedData: NormalizedAccountData['stakedData'],
   ): AssetEntity[] {
     const currentTimestamp = Date.now();
-    let pendingWithdrawalAmount = 0;
+    let inLockPeriodAmount = 0;
 
     stakedData.unfrozenV2?.forEach((unfrozen: RawTronUnfrozenV2) => {
       const expireTime = unfrozen.unfreeze_expire_time ?? 0;
       const amount = unfrozen.unfreeze_amount ?? 0;
 
       if (expireTime > currentTimestamp && amount > 0) {
-        pendingWithdrawalAmount += amount;
+        inLockPeriodAmount += amount;
       }
     });
 
-    if (pendingWithdrawalAmount > 0) {
-      const { id, symbol, decimals, iconUrl } =
-        Networks[scope].pendingWithdrawal;
+    if (inLockPeriodAmount > 0) {
+      const { id, symbol, decimals, iconUrl } = Networks[scope].inLockPeriod;
 
-      const pendingWithdrawalAsset: AssetEntity = {
+      const inLockPeriodAsset: AssetEntity = {
         assetType: id,
         keyringAccountId: account.id,
         network: scope,
         symbol,
         decimals,
-        rawAmount: pendingWithdrawalAmount.toString(),
-        uiAmount: toUiAmount(pendingWithdrawalAmount, decimals).toString(),
+        rawAmount: inLockPeriodAmount.toString(),
+        uiAmount: toUiAmount(inLockPeriodAmount, decimals).toString(),
         iconUrl,
       };
-      return [pendingWithdrawalAsset];
+      return [inLockPeriodAsset];
     }
 
     return [];
@@ -838,7 +837,7 @@ export class AssetsService {
       nativeAssetTypes,
       stakedNativeAssetTypes,
       readyForWithdrawalAssetTypes,
-      pendingWithdrawalAssetTypes,
+      inLockPeriodAssetTypes,
       stakingRewardsAssetTypes,
       energyAssetTypes,
       maximunEnergyAssetTypes,
@@ -855,9 +854,8 @@ export class AssetsService {
     );
     const readyForWithdrawalTokensMetadata =
       this.#getReadyForWithdrawalTokensMetadata(readyForWithdrawalAssetTypes);
-    const pendingWithdrawalTokensMetadata = this.#getPendingWithdrawalMetadata(
-      pendingWithdrawalAssetTypes,
-    );
+    const inLockPeriodTokensMetadata =
+      this.#getInLockPeriodMetadata(inLockPeriodAssetTypes);
     const stakingRewardsMetadata = this.#getStakingRewardsMetadata(
       stakingRewardsAssetTypes,
     );
@@ -879,7 +877,7 @@ export class AssetsService {
       ...nativeTokensMetadata,
       ...stakedTokensMetadata,
       ...readyForWithdrawalTokensMetadata,
-      ...pendingWithdrawalTokensMetadata,
+      ...inLockPeriodTokensMetadata,
       ...stakingRewardsMetadata,
       ...energyTokensMetadata,
       ...maximunEnergyTokensMetadata,
@@ -897,7 +895,7 @@ export class AssetsService {
     nativeAssetTypes: NativeCaipAssetType[];
     stakedNativeAssetTypes: StakedCaipAssetType[];
     readyForWithdrawalAssetTypes: ReadyForWithdrawalCaipAssetType[];
-    pendingWithdrawalAssetTypes: PendingWithdrawalCaipAssetType[];
+    inLockPeriodAssetTypes: InLockPeriodCaipAssetType[];
     stakingRewardsAssetTypes: StakingRewardsCaipAssetType[];
     energyAssetTypes: ResourceCaipAssetType[];
     maximunEnergyAssetTypes: ResourceCaipAssetType[];
@@ -916,9 +914,9 @@ export class AssetsService {
     const readyForWithdrawalAssetTypes = assetTypes.filter((assetType) =>
       assetType.endsWith('/slip44:195-ready-for-withdrawal'),
     ) as ReadyForWithdrawalCaipAssetType[];
-    const pendingWithdrawalAssetTypes = assetTypes.filter((assetType) =>
-      assetType.endsWith('/slip44:195-pending-withdrawal'),
-    ) as PendingWithdrawalCaipAssetType[];
+    const inLockPeriodAssetTypes = assetTypes.filter((assetType) =>
+      assetType.endsWith('/slip44:195-in-lock-period'),
+    ) as InLockPeriodCaipAssetType[];
     const stakingRewardsAssetTypes = assetTypes.filter((assetType) =>
       assetType.endsWith('/slip44:195-staking-rewards'),
     ) as StakingRewardsCaipAssetType[];
@@ -948,7 +946,7 @@ export class AssetsService {
       nativeAssetTypes,
       stakedNativeAssetTypes,
       readyForWithdrawalAssetTypes,
-      pendingWithdrawalAssetTypes,
+      inLockPeriodAssetTypes,
       stakingRewardsAssetTypes,
       energyAssetTypes,
       maximunEnergyAssetTypes,
@@ -1091,31 +1089,31 @@ export class AssetsService {
     return stakingRewardsMetadata;
   }
 
-  #getPendingWithdrawalMetadata(
-    assetTypes: PendingWithdrawalCaipAssetType[],
+  #getInLockPeriodMetadata(
+    assetTypes: InLockPeriodCaipAssetType[],
   ): Record<CaipAssetType, FungibleAssetMetadata | null> {
-    const pendingWithdrawalTokensMetadata: Record<
+    const inLockPeriodTokensMetadata: Record<
       CaipAssetType,
       FungibleAssetMetadata | null
     > = {};
 
     for (const assetType of assetTypes) {
-      pendingWithdrawalTokensMetadata[assetType] = {
-        fungible: TRX_PENDING_WITHDRAWAL_METADATA.fungible,
-        name: TRX_PENDING_WITHDRAWAL_METADATA.name,
-        symbol: TRX_PENDING_WITHDRAWAL_METADATA.symbol,
-        iconUrl: TRX_PENDING_WITHDRAWAL_METADATA.iconUrl,
+      inLockPeriodTokensMetadata[assetType] = {
+        fungible: TRX_IN_LOCK_PERIOD_METADATA.fungible,
+        name: TRX_IN_LOCK_PERIOD_METADATA.name,
+        symbol: TRX_IN_LOCK_PERIOD_METADATA.symbol,
+        iconUrl: TRX_IN_LOCK_PERIOD_METADATA.iconUrl,
         units: [
           {
-            decimals: TRX_PENDING_WITHDRAWAL_METADATA.decimals,
-            symbol: TRX_PENDING_WITHDRAWAL_METADATA.symbol,
-            name: TRX_PENDING_WITHDRAWAL_METADATA.name,
+            decimals: TRX_IN_LOCK_PERIOD_METADATA.decimals,
+            symbol: TRX_IN_LOCK_PERIOD_METADATA.symbol,
+            name: TRX_IN_LOCK_PERIOD_METADATA.name,
           },
         ],
       };
     }
 
-    return pendingWithdrawalTokensMetadata;
+    return inLockPeriodTokensMetadata;
   }
 
   #getBandwidthMetadata(

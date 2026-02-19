@@ -47,11 +47,11 @@ export enum KnownCaip19Id {
   TrxStakingRewardsShasta = `${Network.Shasta}/slip44:195-staking-rewards`,
 
   /**
-   * TRX in Withdrawal Period (pending unstake, still in lock period)
+   * TRX in Lock Period (unstaked but waiting for lock period to end)
    */
-  TrxPendingWithdrawalMainnet = `${Network.Mainnet}/slip44:195-pending-withdrawal`,
-  TrxPendingWithdrawalNile = `${Network.Nile}/slip44:195-pending-withdrawal`,
-  TrxPendingWithdrawalShasta = `${Network.Shasta}/slip44:195-pending-withdrawal`,
+  TrxInLockPeriodMainnet = `${Network.Mainnet}/slip44:195-in-lock-period`,
+  TrxInLockPeriodNile = `${Network.Nile}/slip44:195-in-lock-period`,
+  TrxInLockPeriodShasta = `${Network.Shasta}/slip44:195-in-lock-period`,
 
   /**
    * Tron Resource Assets
@@ -118,9 +118,9 @@ export const TRX_STAKING_REWARDS_METADATA = {
     'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
 };
 
-export const TRX_PENDING_WITHDRAWAL_METADATA = {
-  name: 'In Withdrawal Period',
-  symbol: 'wTRX',
+export const TRX_IN_LOCK_PERIOD_METADATA = {
+  name: 'In Lock Period',
+  symbol: 'ilpTRX',
   fungible: true as const,
   decimals: 6,
   iconUrl:
@@ -237,19 +237,19 @@ export const TokenMetadata = {
     ...TRX_STAKING_REWARDS_METADATA,
   },
   /**
-   * TRX Pending Withdrawal Metadata
+   * TRX In Lock Period Metadata
    */
-  [KnownCaip19Id.TrxPendingWithdrawalMainnet]: {
-    id: KnownCaip19Id.TrxPendingWithdrawalMainnet,
-    ...TRX_PENDING_WITHDRAWAL_METADATA,
+  [KnownCaip19Id.TrxInLockPeriodMainnet]: {
+    id: KnownCaip19Id.TrxInLockPeriodMainnet,
+    ...TRX_IN_LOCK_PERIOD_METADATA,
   },
-  [KnownCaip19Id.TrxPendingWithdrawalNile]: {
-    id: KnownCaip19Id.TrxPendingWithdrawalNile,
-    ...TRX_PENDING_WITHDRAWAL_METADATA,
+  [KnownCaip19Id.TrxInLockPeriodNile]: {
+    id: KnownCaip19Id.TrxInLockPeriodNile,
+    ...TRX_IN_LOCK_PERIOD_METADATA,
   },
-  [KnownCaip19Id.TrxPendingWithdrawalShasta]: {
-    id: KnownCaip19Id.TrxPendingWithdrawalShasta,
-    ...TRX_PENDING_WITHDRAWAL_METADATA,
+  [KnownCaip19Id.TrxInLockPeriodShasta]: {
+    id: KnownCaip19Id.TrxInLockPeriodShasta,
+    ...TRX_IN_LOCK_PERIOD_METADATA,
   },
   /**
    * Bandwidth Resource Metadata
@@ -325,7 +325,7 @@ export const Networks = {
     readyForWithdrawal:
       TokenMetadata[KnownCaip19Id.TrxReadyForWithdrawalMainnet],
     stakingRewards: TokenMetadata[KnownCaip19Id.TrxStakingRewardsMainnet],
-    pendingWithdrawal: TokenMetadata[KnownCaip19Id.TrxPendingWithdrawalMainnet],
+    inLockPeriod: TokenMetadata[KnownCaip19Id.TrxInLockPeriodMainnet],
     bandwidth: TokenMetadata[KnownCaip19Id.BandwidthMainnet],
     maximumBandwidth: TokenMetadata[KnownCaip19Id.MaximumBandwidthMainnet],
     energy: TokenMetadata[KnownCaip19Id.EnergyMainnet],
@@ -340,7 +340,7 @@ export const Networks = {
     stakedForEnergy: TokenMetadata[KnownCaip19Id.TrxStakedForEnergyNile],
     readyForWithdrawal: TokenMetadata[KnownCaip19Id.TrxReadyForWithdrawalNile],
     stakingRewards: TokenMetadata[KnownCaip19Id.TrxStakingRewardsNile],
-    pendingWithdrawal: TokenMetadata[KnownCaip19Id.TrxPendingWithdrawalNile],
+    inLockPeriod: TokenMetadata[KnownCaip19Id.TrxInLockPeriodNile],
     bandwidth: TokenMetadata[KnownCaip19Id.BandwidthNile],
     maximumBandwidth: TokenMetadata[KnownCaip19Id.MaximumBandwidthNile],
     energy: TokenMetadata[KnownCaip19Id.EnergyNile],
@@ -357,7 +357,7 @@ export const Networks = {
     readyForWithdrawal:
       TokenMetadata[KnownCaip19Id.TrxReadyForWithdrawalShasta],
     stakingRewards: TokenMetadata[KnownCaip19Id.TrxStakingRewardsShasta],
-    pendingWithdrawal: TokenMetadata[KnownCaip19Id.TrxPendingWithdrawalShasta],
+    inLockPeriod: TokenMetadata[KnownCaip19Id.TrxInLockPeriodShasta],
     bandwidth: TokenMetadata[KnownCaip19Id.BandwidthShasta],
     maximumBandwidth: TokenMetadata[KnownCaip19Id.MaximumBandwidthShasta],
     energy: TokenMetadata[KnownCaip19Id.EnergyShasta],
@@ -378,9 +378,9 @@ export const SPECIAL_ASSETS: string[] = [
   KnownCaip19Id.TrxStakingRewardsMainnet,
   KnownCaip19Id.TrxStakingRewardsNile,
   KnownCaip19Id.TrxStakingRewardsShasta,
-  KnownCaip19Id.TrxPendingWithdrawalMainnet,
-  KnownCaip19Id.TrxPendingWithdrawalNile,
-  KnownCaip19Id.TrxPendingWithdrawalShasta,
+  KnownCaip19Id.TrxInLockPeriodMainnet,
+  KnownCaip19Id.TrxInLockPeriodNile,
+  KnownCaip19Id.TrxInLockPeriodShasta,
   KnownCaip19Id.BandwidthMainnet,
   KnownCaip19Id.BandwidthNile,
   KnownCaip19Id.BandwidthShasta,

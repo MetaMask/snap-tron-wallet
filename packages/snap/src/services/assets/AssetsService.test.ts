@@ -926,7 +926,7 @@ describe('AssetsService', () => {
     /* eslint-enable @typescript-eslint/naming-convention */
 
     /* eslint-disable @typescript-eslint/naming-convention */
-    describe('TRX pending withdrawal (in lock period)', () => {
+    describe('TRX in lock period', () => {
       it('returns undefined when account has no unfrozenV2 data', async () => {
         await withAssetsService(
           async ({
@@ -947,16 +947,16 @@ describe('AssetsService', () => {
               mockAccount,
             );
 
-            const pendingWithdrawalAsset = findAsset(
+            const inLockPeriodAsset = findAsset(
               assets,
-              KnownCaip19Id.TrxPendingWithdrawalMainnet,
+              KnownCaip19Id.TrxInLockPeriodMainnet,
             );
-            expect(pendingWithdrawalAsset).toBeUndefined();
+            expect(inLockPeriodAsset).toBeUndefined();
           },
         );
       });
 
-      it('returns pending withdrawal amount when unfrozenV2 has future entries', async () => {
+      it('returns in lock period amount when unfrozenV2 has future entries', async () => {
         await withAssetsService(
           async ({
             assetsService,
@@ -979,12 +979,12 @@ describe('AssetsService', () => {
               mockAccount,
             );
 
-            const pendingWithdrawalAsset = findAsset(
+            const inLockPeriodAsset = findAsset(
               assets,
-              KnownCaip19Id.TrxPendingWithdrawalMainnet,
+              KnownCaip19Id.TrxInLockPeriodMainnet,
             );
-            expect(pendingWithdrawalAsset).toBeDefined();
-            expect(pendingWithdrawalAsset?.rawAmount).toBe('1000000');
+            expect(inLockPeriodAsset).toBeDefined();
+            expect(inLockPeriodAsset?.rawAmount).toBe('1000000');
           },
         );
       });
@@ -1015,11 +1015,11 @@ describe('AssetsService', () => {
               mockAccount,
             );
 
-            const pendingWithdrawalAsset = findAsset(
+            const inLockPeriodAsset = findAsset(
               assets,
-              KnownCaip19Id.TrxPendingWithdrawalMainnet,
+              KnownCaip19Id.TrxInLockPeriodMainnet,
             );
-            expect(pendingWithdrawalAsset).toBeUndefined();
+            expect(inLockPeriodAsset).toBeUndefined();
           },
         );
       });
@@ -1049,12 +1049,12 @@ describe('AssetsService', () => {
               mockAccount,
             );
 
-            const pendingWithdrawalAsset = findAsset(
+            const inLockPeriodAsset = findAsset(
               assets,
-              KnownCaip19Id.TrxPendingWithdrawalMainnet,
+              KnownCaip19Id.TrxInLockPeriodMainnet,
             );
-            expect(pendingWithdrawalAsset).toBeDefined();
-            expect(pendingWithdrawalAsset?.rawAmount).toBe('3000000');
+            expect(inLockPeriodAsset).toBeDefined();
+            expect(inLockPeriodAsset?.rawAmount).toBe('3000000');
           },
         );
       });
@@ -1087,12 +1087,12 @@ describe('AssetsService', () => {
               mockAccount,
             );
 
-            const pendingWithdrawalAsset = findAsset(
+            const inLockPeriodAsset = findAsset(
               assets,
-              KnownCaip19Id.TrxPendingWithdrawalMainnet,
+              KnownCaip19Id.TrxInLockPeriodMainnet,
             );
-            expect(pendingWithdrawalAsset).toBeDefined();
-            expect(pendingWithdrawalAsset?.rawAmount).toBe('5000000');
+            expect(inLockPeriodAsset).toBeDefined();
+            expect(inLockPeriodAsset?.rawAmount).toBe('5000000');
           },
         );
       });
@@ -1114,11 +1114,11 @@ describe('AssetsService', () => {
               mockAccount,
             );
 
-            const pendingWithdrawalAsset = findAsset(
+            const inLockPeriodAsset = findAsset(
               assets,
-              KnownCaip19Id.TrxPendingWithdrawalMainnet,
+              KnownCaip19Id.TrxInLockPeriodMainnet,
             );
-            expect(pendingWithdrawalAsset).toBeUndefined();
+            expect(inLockPeriodAsset).toBeUndefined();
           },
         );
       });
