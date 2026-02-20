@@ -1,4 +1,4 @@
-import type { TronKeyringAccount } from '../../entities';
+import type { TronKeyringAccount } from '../../entities/keyring-account';
 import type { IStateManager } from '../state/IStateManager';
 import type { UnencryptedStateValue } from '../state/State';
 
@@ -29,9 +29,17 @@ export class AccountsRepository {
     return accounts.find((account) => account.id === id) ?? null;
   }
 
-  async findByIds(ids: string[]): Promise<TronKeyringAccount[] | null> {
+  /**
+   * Returns all accounts whose IDs are in the given list.
+   * Order is not guaranteed to match the input array.
+   * If an account is not found, it is not included in the result.
+   *
+   * @param ids - The IDs of the accounts to find.
+   * @returns The matching accounts.
+   */
+  async findByIds(ids: string[]): Promise<TronKeyringAccount[]> {
     const accounts = await this.getAll();
-    return accounts.filter((account) => ids.includes(account.id)) ?? null;
+    return accounts.filter((account) => ids.includes(account.id));
   }
 
   async findByAddress(address: string): Promise<TronKeyringAccount | null> {

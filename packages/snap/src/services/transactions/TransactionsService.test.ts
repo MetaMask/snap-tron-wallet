@@ -1,20 +1,20 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type { Transaction } from '@metamask/keyring-api';
 
-import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
 import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
 import type {
   ContractTransactionInfo,
   TransactionInfo,
 } from '../../clients/trongrid/types';
 import { KnownCaip19Id, Network } from '../../constants';
-import type { TronKeyringAccount } from '../../entities';
 import contractInfoMock from './mocks/contract-info.json';
 import nativeTransferMock from './mocks/native-transfer.json';
 import trc10TransferMock from './mocks/trc10-transfer.json';
 import trc20TransferMock from './mocks/trc20-transfer.json';
 import type { TransactionsRepository } from './TransactionsRepository';
 import { TransactionsService } from './TransactionsService';
+import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
+import type { TronKeyringAccount } from '../../entities/keyring-account';
 import type { ILogger } from '../../utils/logger';
 
 // Import simplified mock data (each file now contains only one transaction)
@@ -450,6 +450,55 @@ describe('TransactionsService', () => {
       expect(result).toStrictEqual([]);
       expect(mockTransactionsRepository.findByAccountId).not.toHaveBeenCalled();
       expect(true).toBe(true);
+    });
+  });
+
+  describe('checkAddressActivity', () => {
+    it('returns true when the address has transaction activity', async () => {
+      mockTrongridApiClient.getTransactionInfoByAddress.mockResolvedValue([
+        nativeTransferMock,
+      ] as TransactionInfo[]);
+
+      const result = await transactionsService.checkAddressActivity(
+        Network.Mainnet,
+        mockAccount.address,
+      );
+
+      expect(result).toBe(true);
+      expect(
+        mockTrongridApiClient.getTransactionInfoByAddress,
+      ).toHaveBeenCalledWith(Network.Mainnet, mockAccount.address, {
+        limit: 1,
+      });
+    });
+
+    it('returns false when the address has no activity', async () => {
+      mockTrongridApiClient.getTransactionInfoByAddress.mockResolvedValue([]);
+
+      const result = await transactionsService.checkAddressActivity(
+        Network.Shasta,
+        mockAccount.address,
+      );
+
+      expect(result).toBe(false);
+      expect(
+        mockTrongridApiClient.getTransactionInfoByAddress,
+      ).toHaveBeenCalledWith(Network.Shasta, mockAccount.address, {
+        limit: 1,
+      });
+    });
+
+    it('propagates errors from the API client', async () => {
+      mockTrongridApiClient.getTransactionInfoByAddress.mockRejectedValue(
+        new Error('Network error'),
+      );
+
+      await expect(
+        transactionsService.checkAddressActivity(
+          Network.Mainnet,
+          mockAccount.address,
+        ),
+      ).rejects.toThrow('Network error');
     });
   });
 
