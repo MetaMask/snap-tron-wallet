@@ -373,12 +373,16 @@ export class CronHandler {
     }
 
     // Skip if required fields are missing
-    if (!interfaceContext.fromAddress || !interfaceContext.scope) {
+    if (
+      !interfaceContext.fromAddress ||
+      !interfaceContext.scope ||
+      !interfaceContext.transactionRawData
+    ) {
       this.#logger.info('Context is missing required fields for scan refresh');
       return;
     }
 
-    const { preferences, scope, fromAddress, origin, scanParameters } =
+    const { preferences, scope, fromAddress, origin, transactionRawData } =
       interfaceContext;
 
     try {
@@ -414,12 +418,8 @@ export class CronHandler {
       try {
         scan = await this.#transactionScanService.scanTransaction({
           accountAddress: fromAddress,
-          parameters: {
-            from: scanParameters?.from ?? undefined,
-            to: scanParameters?.to ?? undefined,
-            data: scanParameters?.data ?? undefined,
-            value: scanParameters?.value ?? undefined,
-          },
+          transactionRawData:
+            transactionRawData as unknown as Types.Transaction['raw_data'],
           origin,
           scope,
           options,

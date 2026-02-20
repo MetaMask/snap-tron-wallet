@@ -44,7 +44,8 @@ export const ConfirmTransactionRequest = ({
   const translate = i18n(preferences.locale);
 
   const shouldDisableConfirmButton =
-    scanFetchStatus === 'fetching' || scan?.status === 'ERROR';
+    scanFetchStatus === 'fetching' ||
+    (scan?.status === 'ERROR' && scan?.simulationAccurate);
 
   return (
     <Container>
