@@ -309,7 +309,7 @@ export class AssetsService {
         : {};
     const stakingRewards =
       stakingRewardsRequest.status === 'fulfilled'
-        ? stakingRewardsRequest.value
+        ? Math.max(0, stakingRewardsRequest.value)
         : 0;
 
     if (isInactiveAccount) {

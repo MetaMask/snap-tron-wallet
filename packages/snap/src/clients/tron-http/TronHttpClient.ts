@@ -416,7 +416,7 @@ export class TronHttpClient {
     const { baseUrl, headers } = client;
     const url = buildUrl({
       baseUrl,
-      path: '/wallet/getReward',
+      path: '/wallet/getreward',
     });
 
     const body = JSON.stringify({
