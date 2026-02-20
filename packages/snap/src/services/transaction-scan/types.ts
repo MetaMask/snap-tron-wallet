@@ -36,6 +36,7 @@ export type TransactionScanResult = {
   estimatedChanges: TransactionScanEstimatedChanges;
   validation: TransactionScanValidation;
   error: TransactionScanError | null;
+  simulationAccurate: boolean;
 };
 
 export enum SecurityAlertResponse {

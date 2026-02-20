@@ -5,7 +5,7 @@ import type { SecurityScanPayload } from './types';
 
 export const SUPPORTED_CONTRACT_TYPES: Types.ContractType[] = [
   Types.ContractType.TransferContract,
-  Types.ContractType.TransferAssetContract,
+  Types.ContractType.CreateSmartContract,
   Types.ContractType.TriggerSmartContract,
 ];
 
