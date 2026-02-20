@@ -29,9 +29,12 @@ import { sortBy } from 'lodash';
 
 import type { SnapClient } from '../clients/snap/SnapClient';
 import { ESSENTIAL_ASSETS, type Network } from '../constants';
-import { asStrictKeyringAccount, type TronKeyringAccount } from '../entities';
 import { BackgroundEventMethod } from './cronjob';
 import type { TronMultichainMethod } from './keyring-types';
+import {
+  asStrictKeyringAccount,
+  type TronKeyringAccount,
+} from '../entities/keyring-account';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { CreateAccountOptions } from '../services/accounts/types';
 import type { AssetsService } from '../services/assets/AssetsService';
@@ -240,10 +243,15 @@ export class KeyringHandler implements Keyring {
         keyringAccount,
       ]);
 
-      // Find the starting index based on the 'next' signature
+      // Find the starting index based on the 'next' cursor
       const startIndex = next
         ? transactions.findIndex((tx) => tx.id === next)
         : 0;
+
+      // If the cursor was provided but not found, return empty results
+      if (startIndex === -1) {
+        return { data: [], next: null };
+      }
 
       // Get transactions from startIndex to startIndex + limit
       const accountTransactions = transactions.slice(
@@ -251,7 +259,7 @@ export class KeyringHandler implements Keyring {
         startIndex + limit,
       );
 
-      // Determine the next signature for pagination
+      // Determine the next cursor for pagination
       const hasMore = startIndex + pagination.limit < transactions.length;
       const nextSignature = hasMore
         ? (transactions[startIndex + pagination.limit]?.id ?? null)
@@ -280,27 +288,21 @@ export class KeyringHandler implements Keyring {
         DiscoverAccountsStruct,
       );
 
-      const account = await this.#accountsService.deriveAccount({
+      const derivedAccount = await this.#accountsService.deriveAccount({
         entropySource,
         index: groupIndex,
       });
 
-      const activityChecksPromises = [];
-
-      for (const scope of scopes) {
-        activityChecksPromises.push(
-          this.#transactionsService.fetchNewTransactionsForAccount(
-            scope as Network,
-            account,
-          ),
-        );
-      }
-
-      const transactionsOnAllScopes = await Promise.all(activityChecksPromises);
-
-      const hasActivity = transactionsOnAllScopes.some(
-        (transactions) => transactions.length > 0,
+      const activityChecks = scopes.map(async (scope) =>
+        this.#transactionsService.checkAddressActivity(
+          scope as Network,
+          derivedAccount.address,
+        ),
       );
+
+      const activityResults = await Promise.all(activityChecks);
+
+      const hasActivity = activityResults.some(Boolean);
 
       if (!hasActivity) {
         return [];
@@ -310,7 +312,7 @@ export class KeyringHandler implements Keyring {
         {
           type: 'bip44',
           scopes,
-          derivationPath: account.derivationPath,
+          derivationPath: derivedAccount.derivationPath,
         },
       ];
       // TODO: Replace `any` with type
@@ -477,7 +479,6 @@ export class KeyringHandler implements Keyring {
 
     await this.#snapClient.scheduleBackgroundEvent({
       method: BackgroundEventMethod.SynchronizeSelectedAccounts,
-      params: { accountIds },
       duration: 'PT1S',
     });
   }

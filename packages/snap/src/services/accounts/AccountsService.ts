@@ -16,7 +16,7 @@ import type { SnapClient } from '../../clients/snap/SnapClient';
 import {
   asStrictKeyringAccount,
   type TronKeyringAccount,
-} from '../../entities';
+} from '../../entities/keyring-account';
 import { sanitizeSensitiveError } from '../../utils/errors';
 import { getLowestUnusedIndex } from '../../utils/getLowestUnusedIndex';
 import { createPrefixedLogger, type ILogger } from '../../utils/logger';
@@ -111,8 +111,8 @@ export class AccountsService {
       const privateKeyHex = node.privateKey.slice(2);
 
       // Derive address from public key (cheaper than from private key)
-      const ethAddress = computeAddress(node.publicKey);
-      const address = TronWeb.address.fromHex(ethAddress);
+      const hexAddress = computeAddress(node.publicKey);
+      const address = TronWeb.address.fromHex(hexAddress);
 
       if (!address) {
         throw new Error('Unable to derive address');
@@ -279,10 +279,10 @@ export class AccountsService {
     return account;
   }
 
-  async findByIds(ids: string[]): Promise<TronKeyringAccount[] | null> {
+  async findByIds(ids: string[]): Promise<TronKeyringAccount[]> {
     const accounts = await this.#accountsRepository.findByIds(ids);
 
-    if (!accounts || ids.length !== accounts.length) {
+    if (ids.length !== accounts.length) {
       this.#logger.error('[findByIds] Some accounts not found');
     }
 
@@ -303,7 +303,7 @@ export class AccountsService {
    *
    * @param accounts - The accounts to synchronize assets for.
    */
-  async synchronizeAssets(accounts: KeyringAccount[]): Promise<void> {
+  async synchronizeAssets(accounts: TronKeyringAccount[]): Promise<void> {
     const scopes = this.#configProvider.get().activeNetworks;
     const combinations = accounts.flatMap((account) =>
       scopes.map((scope) => ({ account, scope })),
@@ -325,7 +325,7 @@ export class AccountsService {
     await this.#assetsService.saveMany(assets);
   }
 
-  async synchronizeTransactions(accounts: KeyringAccount[]): Promise<void> {
+  async synchronizeTransactions(accounts: TronKeyringAccount[]): Promise<void> {
     const scopes = this.#configProvider.get().activeNetworks;
     const combinations = accounts.flatMap((account) =>
       scopes.map((scope) => ({ account, scope })),
@@ -347,7 +347,7 @@ export class AccountsService {
     await this.#transactionsService.saveMany(transactions);
   }
 
-  async synchronize(accounts: KeyringAccount[]): Promise<void> {
+  async synchronize(accounts: TronKeyringAccount[]): Promise<void> {
     await Promise.all([
       this.synchronizeAssets(accounts),
       this.synchronizeTransactions(accounts),

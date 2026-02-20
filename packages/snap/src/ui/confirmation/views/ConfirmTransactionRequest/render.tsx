@@ -10,8 +10,8 @@ import {
 import type { SnapClient } from '../../../../clients/snap/SnapClient';
 import { Network } from '../../../../constants';
 import snapContext from '../../../../context';
-import type { TronKeyringAccount } from '../../../../entities';
 import type { AssetEntity } from '../../../../entities/assets';
+import type { TronKeyringAccount } from '../../../../entities/keyring-account';
 import { BackgroundEventMethod } from '../../../../handlers/cronjob';
 import type { ComputeFeeResult } from '../../../../services/send/types';
 import type {
