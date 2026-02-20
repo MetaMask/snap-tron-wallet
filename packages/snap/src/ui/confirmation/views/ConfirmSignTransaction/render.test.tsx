@@ -79,6 +79,7 @@ describe('ConfirmSignTransaction render', () => {
       reason: null,
     },
     error: null,
+    simulationAccurate: true,
   };
 
   let mockSnapClient: jest.Mocked<SnapClient>;
