@@ -1,3 +1,5 @@
+import type { Json } from '@metamask/snaps-sdk';
+
 import { BackgroundEventMethod, CronHandler } from './cronjob';
 import type { PriceApiClient } from '../clients/price-api/PriceApiClient';
 import type { SnapClient } from '../clients/snap/SnapClient';
@@ -9,6 +11,28 @@ import type { TransactionScanService } from '../services/transaction-scan/Transa
 import type { TransactionScanResult } from '../services/transaction-scan/types';
 import type { ConfirmTransactionRequestContext } from '../ui/confirmation/views/ConfirmTransactionRequest/types';
 import type { ILogger } from '../utils/logger';
+
+/* eslint-disable @typescript-eslint/naming-convention */
+const MOCK_TRANSACTION_RAW_DATA: Json = {
+  contract: [
+    {
+      type: 'TransferContract',
+      parameter: {
+        value: {
+          owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
+          to_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13d',
+          amount: 1000000,
+        },
+        type_url: 'type.googleapis.com/protocol.TransferContract',
+      },
+    },
+  ],
+  ref_block_bytes: '',
+  ref_block_hash: '',
+  expiration: 0,
+  timestamp: 0,
+};
+/* eslint-enable @typescript-eslint/naming-convention */
 
 /**
  * Subset of SnapClient methods exercised by `refreshConfirmationSend`.
@@ -70,6 +94,7 @@ function buildMockScanResult(
     },
     validation: { type: 'Benign', reason: null },
     error: null,
+    simulationAccurate: true,
     ...overrides,
   };
 }
@@ -117,12 +142,7 @@ function buildMockInterfaceContext(
     tokenPricesFetchStatus: 'fetched',
     scan: null,
     scanFetchStatus: 'initial',
-    scanParameters: {
-      from: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
-      to: 'TQkE4s6hQqxym4fYvtVLNEGPsaAChFqxPk',
-      data: null,
-      value: 1000000,
-    },
+    transactionRawData: MOCK_TRANSACTION_RAW_DATA,
     accountType: 'tron:eoa',
     ...overrides,
   };
