@@ -968,7 +968,10 @@ describe('AssetsService', () => {
               createMockTronAccount({
                 address: mockAccount.address,
                 unfrozenV2: [
-                  { unfreeze_amount: 1000000, unfreeze_expire_time: futureTime },
+                  {
+                    unfreeze_amount: 1000000,
+                    unfreeze_expire_time: futureTime,
+                  },
                 ],
               }),
             );
@@ -1037,8 +1040,14 @@ describe('AssetsService', () => {
               createMockTronAccount({
                 address: mockAccount.address,
                 unfrozenV2: [
-                  { unfreeze_amount: 1000000, unfreeze_expire_time: futureTime1 },
-                  { unfreeze_amount: 2000000, unfreeze_expire_time: futureTime2 },
+                  {
+                    unfreeze_amount: 1000000,
+                    unfreeze_expire_time: futureTime1,
+                  },
+                  {
+                    unfreeze_amount: 2000000,
+                    unfreeze_expire_time: futureTime2,
+                  },
                 ],
               }),
             );
@@ -1106,6 +1115,9 @@ describe('AssetsService', () => {
           }) => {
             mockTrongridApiClient.getAccountInfoByAddress.mockRejectedValue(
               new Error('account not found'),
+            );
+            mockTrongridApiClient.getTrc20BalancesByAddress.mockResolvedValue(
+              [],
             );
             mockTronHttpClient.getAccountResources.mockResolvedValue({});
 

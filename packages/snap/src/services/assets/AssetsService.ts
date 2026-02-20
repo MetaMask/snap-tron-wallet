@@ -854,8 +854,9 @@ export class AssetsService {
     );
     const readyForWithdrawalTokensMetadata =
       this.#getReadyForWithdrawalTokensMetadata(readyForWithdrawalAssetTypes);
-    const inLockPeriodTokensMetadata =
-      this.#getInLockPeriodMetadata(inLockPeriodAssetTypes);
+    const inLockPeriodTokensMetadata = this.#getInLockPeriodMetadata(
+      inLockPeriodAssetTypes,
+    );
     const stakingRewardsMetadata = this.#getStakingRewardsMetadata(
       stakingRewardsAssetTypes,
     );
