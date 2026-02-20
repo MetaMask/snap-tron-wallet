@@ -91,7 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Show sTRX-* in staked assets ([#150](https://github.com/MetaMask/snap-tron-wallet/pull/150))
+- Show sTRX-\* in staked assets ([#150](https://github.com/MetaMask/snap-tron-wallet/pull/150))
 
 ## [1.18.0]
 
