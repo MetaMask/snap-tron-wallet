@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { add0x } from '@metamask/utils';
 import { TronWeb, Types } from 'tronweb';
 
@@ -47,6 +48,78 @@ export const extractScanParametersFromTransactionData = (
   }
 
   return { from, to, data, value };
+};
+
+/**
+ * Builds a minimal `Transaction['raw_data']` suitable for security scanning
+ * from high-level send parameters. This is the inverse of
+ * {@link extractScanParametersFromTransactionData}.
+ *
+ * @param params - The send parameters.
+ * @param params.from - The sender address (base58).
+ * @param params.to - The recipient or contract address (base58).
+ * @param params.amount - The amount in sun (for native TRX sends).
+ * @param params.data - Optional contract call data (for TRC20 sends).
+ * @param params.isTrc20 - Whether this is a TRC20 token transfer.
+ * @returns A minimal raw transaction data object.
+ */
+export const buildTransactionRawData = ({
+  from,
+  to,
+  amount,
+  data,
+  isTrc20,
+}: {
+  from: string;
+  to: string;
+  amount: number;
+  data?: string | null;
+  isTrc20: boolean;
+}): Types.Transaction['raw_data'] => {
+  const ownerAddressHex = TronWeb.address.toHex(from);
+
+  if (isTrc20) {
+    return {
+      contract: [
+        {
+          type: Types.ContractType.TriggerSmartContract,
+          parameter: {
+            value: {
+              owner_address: ownerAddressHex,
+              contract_address: TronWeb.address.toHex(to),
+              ...(data ? { data } : {}),
+              ...(amount ? { call_value: amount } : {}),
+            },
+            type_url: 'type.googleapis.com/protocol.TriggerSmartContract',
+          },
+        },
+      ],
+      ref_block_bytes: '',
+      ref_block_hash: '',
+      expiration: 0,
+      timestamp: 0,
+    };
+  }
+
+  return {
+    contract: [
+      {
+        type: Types.ContractType.TransferContract,
+        parameter: {
+          value: {
+            owner_address: ownerAddressHex,
+            to_address: TronWeb.address.toHex(to),
+            amount,
+          },
+          type_url: 'type.googleapis.com/protocol.TransferContract',
+        },
+      },
+    ],
+    ref_block_bytes: '',
+    ref_block_hash: '',
+    expiration: 0,
+    timestamp: 0,
+  };
 };
 
 /**

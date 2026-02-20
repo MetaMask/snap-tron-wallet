@@ -1,8 +1,32 @@
+import type { Json } from '@metamask/snaps-sdk';
+
 import { ConfirmTransactionRequest } from './ConfirmTransactionRequest';
 import type { ConfirmTransactionRequestContext } from './types';
 import { Network } from '../../../../constants';
 import type { TransactionScanResult } from '../../../../services/transaction-scan/types';
 import type { Preferences } from '../../../../types/snap';
+
+/* eslint-disable @typescript-eslint/naming-convention */
+const MOCK_TRANSACTION_RAW_DATA: Json = {
+  contract: [
+    {
+      type: 'TransferContract',
+      parameter: {
+        value: {
+          owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
+          to_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13d',
+          amount: 1000000,
+        },
+        type_url: 'type.googleapis.com/protocol.TransferContract',
+      },
+    },
+  ],
+  ref_block_bytes: '',
+  ref_block_hash: '',
+  expiration: 0,
+  timestamp: 0,
+};
+/* eslint-enable @typescript-eslint/naming-convention */
 
 // Mock i18n
 jest.mock('../../../../utils/i18n', () => ({
@@ -49,6 +73,7 @@ describe('ConfirmTransactionRequest', () => {
       reason: null,
     },
     error: null,
+    simulationAccurate: true,
   };
 
   const baseContext: ConfirmTransactionRequestContext = {
@@ -74,12 +99,7 @@ describe('ConfirmTransactionRequest', () => {
     tokenPricesFetchStatus: 'fetched',
     scan: mockScanResult,
     scanFetchStatus: 'fetched',
-    scanParameters: {
-      from: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
-      to: 'TQkE4s6hQqxym4fYvtVLNEGPsaAChFqxPk',
-      data: null,
-      value: 1000000,
-    },
+    transactionRawData: MOCK_TRANSACTION_RAW_DATA,
     accountType: 'tron:eoa',
   };
 
