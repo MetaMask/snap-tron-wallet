@@ -43,7 +43,8 @@ export const ConfirmSignTransaction = ({
   } = context;
 
   const shouldDisableConfirmButton =
-    scanFetchStatus === 'fetching' || scan?.status === 'ERROR';
+    scanFetchStatus === 'fetching' ||
+    (scan?.status === 'ERROR' && scan?.simulationAccurate);
 
   const addressCaip10 = account ? `${scope}:${account.address}` : null;
 

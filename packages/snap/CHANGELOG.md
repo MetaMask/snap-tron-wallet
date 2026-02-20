@@ -15,8 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Disable simulation for unsupported transactions ([#186](https://github.com/MetaMask/snap-tron-wallet/pull/186))
-  - Supported transactions are those single-contract interaction transactions of the following types: `TransferContract`, `TriggerSmartContract`, `TransferAssetContract`.
+- Improve simulation accuracy for contract transactions ([#186](https://github.com/MetaMask/snap-tron-wallet/pull/186))
+  - Supported transactions are those single-contract interaction transactions of the following types: `TransferContract`, `CreateSmartContract`, `TriggerSmartContract`.
+  - Unsupported transactions will show empty estimated changes and allow the user to proceed without blocking the confirmation.
 
 ## [1.22.0]
 
