@@ -16,7 +16,7 @@ import type { SnapClient } from '../../clients/snap/SnapClient';
 import {
   asStrictKeyringAccount,
   type TronKeyringAccount,
-} from '../../entities';
+} from '../../entities/keyring-account';
 import { sanitizeSensitiveError } from '../../utils/errors';
 import { getLowestUnusedIndex } from '../../utils/getLowestUnusedIndex';
 import { createPrefixedLogger, type ILogger } from '../../utils/logger';
@@ -111,8 +111,8 @@ export class AccountsService {
       const privateKeyHex = node.privateKey.slice(2);
 
       // Derive address from public key (cheaper than from private key)
-      const ethAddress = computeAddress(node.publicKey);
-      const address = TronWeb.address.fromHex(ethAddress);
+      const hexAddress = computeAddress(node.publicKey);
+      const address = TronWeb.address.fromHex(hexAddress);
 
       if (!address) {
         throw new Error('Unable to derive address');
@@ -289,10 +289,10 @@ export class AccountsService {
     return account;
   }
 
-  async findByIds(ids: string[]): Promise<TronKeyringAccount[] | null> {
+  async findByIds(ids: string[]): Promise<TronKeyringAccount[]> {
     const accounts = await this.#accountsRepository.findByIds(ids);
 
-    if (!accounts || ids.length !== accounts.length) {
+    if (ids.length !== accounts.length) {
       this.#logger.error('[findByIds] Some accounts not found');
     }
 
