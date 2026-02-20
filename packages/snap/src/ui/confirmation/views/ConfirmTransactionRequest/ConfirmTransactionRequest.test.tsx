@@ -49,6 +49,7 @@ describe('ConfirmTransactionRequest', () => {
       reason: null,
     },
     error: null,
+    simulationAccurate: true,
   };
 
   const baseContext: ConfirmTransactionRequestContext = {

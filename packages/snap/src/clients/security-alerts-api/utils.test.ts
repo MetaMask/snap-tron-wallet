@@ -2,10 +2,13 @@
 import { Types } from 'tronweb';
 
 import {
+  buildTransactionRawData,
   extractScanParametersFromTransactionData,
   isTransactionSupported,
   SUPPORTED_CONTRACT_TYPES,
 } from './utils';
+import { Network } from '../../constants';
+import type { AssetEntity } from '../../entities/assets';
 import type { TransferContractParameter } from '../trongrid/types';
 
 describe('SecurityAlertsApiClient utils', () => {
@@ -205,4 +208,102 @@ describe('SecurityAlertsApiClient utils', () => {
       expect(result).toBe(true);
     },
   );
+
+  describe('buildTransactionRawData', () => {
+    const nativeAsset: AssetEntity = {
+      assetType: `${Network.Mainnet}/slip44:195`,
+      keyringAccountId: 'account-1',
+      network: Network.Mainnet,
+      symbol: 'TRX',
+      decimals: 6,
+      rawAmount: '0',
+      uiAmount: '0',
+      iconUrl: '',
+    };
+
+    const trc20Asset: AssetEntity = {
+      assetType: `${Network.Mainnet}/trc20:TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t`,
+      keyringAccountId: 'account-1',
+      network: Network.Mainnet,
+      symbol: 'USDT',
+      decimals: 6,
+      rawAmount: '0',
+      uiAmount: '0',
+      iconUrl: '',
+    };
+
+    it('builds TransferContract raw data for native TRX sends', () => {
+      const rawData = buildTransactionRawData(
+        {
+          from: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+          to: 'TPFmm695uHPTn8wNmQbF8yMiZxfCeUdXkJ',
+          data: null,
+          value: 500000,
+        },
+        nativeAsset,
+      );
+
+      expect(rawData.contract).toHaveLength(1);
+      expect(rawData.contract[0]?.type).toBe(
+        Types.ContractType.TransferContract,
+      );
+      expect(rawData.contract[0]?.parameter.value).toStrictEqual(
+        expect.objectContaining({
+          amount: 500000,
+        }),
+      );
+    });
+
+    it('builds TriggerSmartContract raw data for TRC20 sends', () => {
+      const rawData = buildTransactionRawData(
+        {
+          from: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+          to: 'TPFmm695uHPTn8wNmQbF8yMiZxfCeUdXkJ',
+          data: null,
+          value: null,
+        },
+        trc20Asset,
+      );
+
+      expect(rawData.contract).toHaveLength(1);
+      expect(rawData.contract[0]?.type).toBe(
+        Types.ContractType.TriggerSmartContract,
+      );
+    });
+
+    it('produces raw data that isTransactionSupported accepts', () => {
+      const rawData = buildTransactionRawData(
+        {
+          from: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+          to: 'TPFmm695uHPTn8wNmQbF8yMiZxfCeUdXkJ',
+          data: null,
+          value: 1000,
+        },
+        nativeAsset,
+      );
+
+      expect(isTransactionSupported(rawData)).toBe(true);
+    });
+
+    it('produces raw data that extractScanParametersFromTransactionData can process', () => {
+      const rawData = buildTransactionRawData(
+        {
+          from: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+          to: 'TPFmm695uHPTn8wNmQbF8yMiZxfCeUdXkJ',
+          data: null,
+          value: 500000,
+        },
+        nativeAsset,
+      );
+
+      const extracted = extractScanParametersFromTransactionData(rawData);
+
+      expect(extracted).toStrictEqual({
+        from: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+        to: 'TPFmm695uHPTn8wNmQbF8yMiZxfCeUdXkJ',
+        data: null,
+        value: 500000,
+      });
+    });
+  });
 });

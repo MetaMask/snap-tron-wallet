@@ -1,7 +1,9 @@
-import { add0x } from '@metamask/utils';
+/* eslint-disable @typescript-eslint/naming-convention */
+import { add0x, parseCaipAssetType } from '@metamask/utils';
 import { TronWeb, Types } from 'tronweb';
 
 import type { SecurityScanPayload } from './types';
+import type { AssetEntity } from '../../entities/assets';
 
 export const SUPPORTED_CONTRACT_TYPES: Types.ContractType[] = [
   Types.ContractType.TransferContract,
@@ -75,4 +77,67 @@ export const isTransactionSupported = (
   }
 
   return true;
+};
+
+/**
+ * Builds a minimal `Transaction['raw_data']` from the Send flow's scan
+ * parameters and asset metadata. The resulting object carries just enough
+ * structure for `isTransactionSupported` and
+ * `extractScanParametersFromTransactionData` to work correctly.
+ *
+ * @param scanPayload - The scan payload with from/to/data/value.
+ * @param asset - The asset being sent (used to determine contract type).
+ * @returns A minimal Transaction raw_data suitable for the scan pipeline.
+ */
+export const buildTransactionRawData = (
+  scanPayload: SecurityScanPayload,
+  asset: AssetEntity,
+): Types.Transaction['raw_data'] => {
+  const { assetNamespace } = parseCaipAssetType(asset.assetType);
+  const isTrc20 = assetNamespace === 'trc20';
+
+  const ownerAddressHex = TronWeb.address.toHex(scanPayload.from ?? '');
+
+  if (isTrc20) {
+    return {
+      contract: [
+        {
+          type: Types.ContractType.TriggerSmartContract,
+          parameter: {
+            type_url: 'type.googleapis.com/protocol.TriggerSmartContract',
+            value: {
+              owner_address: ownerAddressHex,
+              contract_address: TronWeb.address.toHex(scanPayload.to ?? ''),
+              call_value: scanPayload.value ?? 0,
+              data: scanPayload.data ?? '',
+            },
+          },
+        },
+      ],
+      ref_block_bytes: '',
+      ref_block_hash: '',
+      expiration: 0,
+      timestamp: 0,
+    };
+  }
+
+  return {
+    contract: [
+      {
+        type: Types.ContractType.TransferContract,
+        parameter: {
+          type_url: 'type.googleapis.com/protocol.TransferContract',
+          value: {
+            owner_address: ownerAddressHex,
+            to_address: TronWeb.address.toHex(scanPayload.to ?? ''),
+            amount: scanPayload.value ?? 0,
+          },
+        },
+      },
+    ],
+    ref_block_bytes: '',
+    ref_block_hash: '',
+    expiration: 0,
+    timestamp: 0,
+  };
 };

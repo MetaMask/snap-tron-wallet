@@ -2,6 +2,7 @@ import type { JsonRpcRequest } from '@metamask/snaps-sdk';
 import { type Types, utils } from 'tronweb';
 
 import type { PriceApiClient } from '../clients/price-api/PriceApiClient';
+import { buildTransactionRawData } from '../clients/security-alerts-api/utils';
 import type { SnapClient } from '../clients/snap/SnapClient';
 import type { TronHttpClient } from '../clients/tron-http/TronHttpClient';
 import type { Network } from '../constants';
@@ -378,7 +379,7 @@ export class CronHandler {
       return;
     }
 
-    const { preferences, scope, fromAddress, origin, scanParameters } =
+    const { preferences, scope, fromAddress, origin, scanParameters, asset } =
       interfaceContext;
 
     try {
@@ -412,14 +413,19 @@ export class CronHandler {
       let { scanFetchStatus } = interfaceContext;
 
       try {
+        if (!scanParameters) {
+          this.#logger.info('No scan parameters available, skipping scan');
+          return;
+        }
+
+        const transactionRawData = buildTransactionRawData(
+          scanParameters,
+          asset,
+        );
+
         scan = await this.#transactionScanService.scanTransaction({
           accountAddress: fromAddress,
-          parameters: {
-            from: scanParameters?.from ?? undefined,
-            to: scanParameters?.to ?? undefined,
-            data: scanParameters?.data ?? undefined,
-            value: scanParameters?.value ?? undefined,
-          },
+          transactionRawData,
           origin,
           scope,
           options,

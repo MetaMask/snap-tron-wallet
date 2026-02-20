@@ -7,6 +7,7 @@ import {
   CONFIRM_TRANSACTION_INTERFACE_NAME,
   type ConfirmTransactionRequestContext,
 } from './types';
+import { buildTransactionRawData } from '../../../../clients/security-alerts-api/utils';
 import type { SnapClient } from '../../../../clients/snap/SnapClient';
 import { Network } from '../../../../constants';
 import snapContext from '../../../../context';
@@ -164,12 +165,13 @@ export async function render(
   });
 
   // Build scan parameters from transaction details
-  context.scanParameters = buildScanParameters(
+  const scanParameters = buildScanParameters(
     incomingContext.fromAddress,
     incomingContext.toAddress,
     incomingContext.amount,
     incomingContext.asset,
   );
+  context.scanParameters = scanParameters;
 
   // 2. Initial render with loading skeleton (always show loading if pricing enabled)
   const id = await snapClient.createInterface(
@@ -201,14 +203,14 @@ export async function render(
     } as TronKeyringAccount;
 
     try {
+      const transactionRawData = buildTransactionRawData(
+        scanParameters,
+        incomingContext.asset,
+      );
+
       const scan = await transactionScanService.scanTransaction({
         accountAddress: incomingContext.fromAddress,
-        parameters: {
-          from: context.scanParameters?.from ?? undefined,
-          to: context.scanParameters?.to ?? undefined,
-          data: context.scanParameters?.data ?? undefined,
-          value: context.scanParameters?.value ?? undefined,
-        },
+        transactionRawData,
         origin: incomingContext.origin,
         scope: incomingContext.scope,
         options,

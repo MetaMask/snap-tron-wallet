@@ -70,6 +70,7 @@ function buildMockScanResult(
     },
     validation: { type: 'Benign', reason: null },
     error: null,
+    simulationAccurate: true,
     ...overrides,
   };
 }
