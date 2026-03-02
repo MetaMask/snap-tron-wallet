@@ -8,8 +8,6 @@ export type StakedCaipAssetType =
   `${TrxScope}/slip44:195-staked-for-${'energy' | 'bandwidth'}`;
 export type ReadyForWithdrawalCaipAssetType =
   `${TrxScope}/slip44:195-ready-for-withdrawal`;
-export type StakingRewardsCaipAssetType =
-  `${TrxScope}/slip44:195-staking-rewards`;
 export type ResourceCaipAssetType =
   `${TrxScope}/slip44:${'energy' | 'bandwidth'}`;
 export type TokenCaipAssetType = `${TrxScope}/${'trc10' | 'trc20'}:${string}`;
@@ -24,7 +22,7 @@ export const NativeCaipAssetTypeStruct = pattern(
 );
 
 /**
- * Validates a TRON staked CAIP-19 ID (e.g., "tron:728126428/slip44:195-staked-for-energy")
+ * Validates a TRON native CAIP-19 ID (e.g., "tron:728126428/slip44:195")
  */
 export const StakedCaipAssetTypeStruct = pattern(
   CaipAssetTypeStruct,
@@ -37,14 +35,6 @@ export const StakedCaipAssetTypeStruct = pattern(
 export const ReadyForWithdrawalCaipAssetTypeStruct = pattern(
   CaipAssetTypeStruct,
   /^tron:(728126428|3448148188|2494104990)\/slip44:195-ready-for-withdrawal$/u,
-);
-
-/**
- * Validates a TRON staking rewards CAIP-19 ID (e.g., "tron:728126428/slip44:195-staking-rewards")
- */
-export const StakingRewardsCaipAssetTypeStruct = pattern(
-  CaipAssetTypeStruct,
-  /^tron:(728126428|3448148188|2494104990)\/slip44:195-staking-rewards$/u,
 );
 
 /**
