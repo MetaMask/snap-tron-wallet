@@ -47,13 +47,6 @@ export enum KnownCaip19Id {
   TrxStakingRewardsShasta = `${Network.Shasta}/slip44:195-staking-rewards`,
 
   /**
-   * TRX in Lock Period (unstaked but waiting for lock period to end)
-   */
-  TrxInLockPeriodMainnet = `${Network.Mainnet}/slip44:195-in-lock-period`,
-  TrxInLockPeriodNile = `${Network.Nile}/slip44:195-in-lock-period`,
-  TrxInLockPeriodShasta = `${Network.Shasta}/slip44:195-in-lock-period`,
-
-  /**
    * Tron Resource Assets
    */
   EnergyMainnet = `${Network.Mainnet}/slip44:energy`,
@@ -112,15 +105,6 @@ export const TRX_READY_FOR_WITHDRAWAL_METADATA = {
 export const TRX_STAKING_REWARDS_METADATA = {
   name: 'Staking Rewards',
   symbol: 'srTRX',
-  fungible: true as const,
-  decimals: 6,
-  iconUrl:
-    'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
-};
-
-export const TRX_IN_LOCK_PERIOD_METADATA = {
-  name: 'In Lock Period',
-  symbol: 'ilpTRX',
   fungible: true as const,
   decimals: 6,
   iconUrl:
@@ -237,21 +221,6 @@ export const TokenMetadata = {
     ...TRX_STAKING_REWARDS_METADATA,
   },
   /**
-   * TRX In Lock Period Metadata
-   */
-  [KnownCaip19Id.TrxInLockPeriodMainnet]: {
-    id: KnownCaip19Id.TrxInLockPeriodMainnet,
-    ...TRX_IN_LOCK_PERIOD_METADATA,
-  },
-  [KnownCaip19Id.TrxInLockPeriodNile]: {
-    id: KnownCaip19Id.TrxInLockPeriodNile,
-    ...TRX_IN_LOCK_PERIOD_METADATA,
-  },
-  [KnownCaip19Id.TrxInLockPeriodShasta]: {
-    id: KnownCaip19Id.TrxInLockPeriodShasta,
-    ...TRX_IN_LOCK_PERIOD_METADATA,
-  },
-  /**
    * Bandwidth Resource Metadata
    */
   [KnownCaip19Id.BandwidthMainnet]: {
@@ -325,7 +294,6 @@ export const Networks = {
     readyForWithdrawal:
       TokenMetadata[KnownCaip19Id.TrxReadyForWithdrawalMainnet],
     stakingRewards: TokenMetadata[KnownCaip19Id.TrxStakingRewardsMainnet],
-    inLockPeriod: TokenMetadata[KnownCaip19Id.TrxInLockPeriodMainnet],
     bandwidth: TokenMetadata[KnownCaip19Id.BandwidthMainnet],
     maximumBandwidth: TokenMetadata[KnownCaip19Id.MaximumBandwidthMainnet],
     energy: TokenMetadata[KnownCaip19Id.EnergyMainnet],
@@ -340,7 +308,6 @@ export const Networks = {
     stakedForEnergy: TokenMetadata[KnownCaip19Id.TrxStakedForEnergyNile],
     readyForWithdrawal: TokenMetadata[KnownCaip19Id.TrxReadyForWithdrawalNile],
     stakingRewards: TokenMetadata[KnownCaip19Id.TrxStakingRewardsNile],
-    inLockPeriod: TokenMetadata[KnownCaip19Id.TrxInLockPeriodNile],
     bandwidth: TokenMetadata[KnownCaip19Id.BandwidthNile],
     maximumBandwidth: TokenMetadata[KnownCaip19Id.MaximumBandwidthNile],
     energy: TokenMetadata[KnownCaip19Id.EnergyNile],
@@ -357,7 +324,6 @@ export const Networks = {
     readyForWithdrawal:
       TokenMetadata[KnownCaip19Id.TrxReadyForWithdrawalShasta],
     stakingRewards: TokenMetadata[KnownCaip19Id.TrxStakingRewardsShasta],
-    inLockPeriod: TokenMetadata[KnownCaip19Id.TrxInLockPeriodShasta],
     bandwidth: TokenMetadata[KnownCaip19Id.BandwidthShasta],
     maximumBandwidth: TokenMetadata[KnownCaip19Id.MaximumBandwidthShasta],
     energy: TokenMetadata[KnownCaip19Id.EnergyShasta],
@@ -378,9 +344,6 @@ export const SPECIAL_ASSETS: string[] = [
   KnownCaip19Id.TrxStakingRewardsMainnet,
   KnownCaip19Id.TrxStakingRewardsNile,
   KnownCaip19Id.TrxStakingRewardsShasta,
-  KnownCaip19Id.TrxInLockPeriodMainnet,
-  KnownCaip19Id.TrxInLockPeriodNile,
-  KnownCaip19Id.TrxInLockPeriodShasta,
   KnownCaip19Id.BandwidthMainnet,
   KnownCaip19Id.BandwidthNile,
   KnownCaip19Id.BandwidthShasta,
