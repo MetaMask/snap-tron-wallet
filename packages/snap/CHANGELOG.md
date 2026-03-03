@@ -9,11 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.22.1]
 
-### Uncategorized
-
-- chore: rollback `package.json` version ([#224](https://github.com/MetaMask/snap-tron-wallet/pull/224))
-- Revert staking improvements special assets ([#222](https://github.com/MetaMask/snap-tron-wallet/pull/222))
-
 ### Fixed
 
 - Correct account discovery by using address-based activity checks instead of account IDs ([#206](https://github.com/MetaMask/snap-tron-wallet/pull/206))
