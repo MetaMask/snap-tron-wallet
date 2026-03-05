@@ -221,6 +221,36 @@ export const OnConfirmUnstakeRequestStruct = object({
 });
 
 /**
+ * claimUnstakedTrx request validation.
+ */
+export const ClaimUnstakedTrxRequestParamsStruct = object({
+  fromAccountId: UuidStruct,
+  assetId: NativeCaipAssetTypeStruct,
+});
+
+export const ClaimUnstakedTrxRequestStruct = object({
+  jsonrpc: JsonRpcVersionStruct,
+  id: JsonRpcIdStruct,
+  method: literal(ClientRequestMethod.ClaimUnstakedTrx),
+  params: ClaimUnstakedTrxRequestParamsStruct,
+});
+
+/**
+ * claimTrxStakingRewards request validation.
+ */
+export const ClaimTrxStakingRewardsRequestParamsStruct = object({
+  fromAccountId: UuidStruct,
+  assetId: NativeCaipAssetTypeStruct,
+});
+
+export const ClaimTrxStakingRewardsRequestStruct = object({
+  jsonrpc: JsonRpcVersionStruct,
+  id: JsonRpcIdStruct,
+  method: literal(ClientRequestMethod.ClaimTrxStakingRewards),
+  params: ClaimTrxStakingRewardsRequestParamsStruct,
+});
+
+/**
  * Parses a base64-encoded rewards message.
  * Expected format: 'rewards,{address},{timestamp}'
  *

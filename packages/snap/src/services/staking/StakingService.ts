@@ -191,4 +191,66 @@ export class StakingService {
       duration: 'PT5S',
     });
   }
+
+  async claimUnstakedTrx({
+    account,
+    scope,
+  }: {
+    account: TronKeyringAccount;
+    scope: Network;
+  }): Promise<void> {
+    this.#logger.info(
+      `Claiming unstaked TRX for ${account.address} on ${scope}...`,
+    );
+
+    const { privateKeyHex } = await this.#accountsService.deriveTronKeypair({
+      entropySource: account.entropySource,
+      derivationPath: account.derivationPath,
+    });
+
+    const tronWeb = this.#tronWebFactory.createClient(scope, privateKeyHex);
+
+    const transaction = await tronWeb.transactionBuilder.withdrawExpireUnfreeze(
+      account.address,
+    );
+    const signedTx = await tronWeb.trx.sign(transaction);
+    await tronWeb.trx.sendRawTransaction(signedTx);
+
+    await this.#snapClient.scheduleBackgroundEvent({
+      method: BackgroundEventMethod.SynchronizeAccount,
+      params: { accountId: account.id },
+      duration: 'PT5S',
+    });
+  }
+
+  async claimTrxStakingRewards({
+    account,
+    scope,
+  }: {
+    account: TronKeyringAccount;
+    scope: Network;
+  }): Promise<void> {
+    this.#logger.info(
+      `Claiming staking rewards for ${account.address} on ${scope}...`,
+    );
+
+    const { privateKeyHex } = await this.#accountsService.deriveTronKeypair({
+      entropySource: account.entropySource,
+      derivationPath: account.derivationPath,
+    });
+
+    const tronWeb = this.#tronWebFactory.createClient(scope, privateKeyHex);
+
+    const transaction = await tronWeb.transactionBuilder.withdrawBlockRewards(
+      account.address,
+    );
+    const signedTx = await tronWeb.trx.sign(transaction);
+    await tronWeb.trx.sendRawTransaction(signedTx);
+
+    await this.#snapClient.scheduleBackgroundEvent({
+      method: BackgroundEventMethod.SynchronizeAccount,
+      params: { accountId: account.id },
+      duration: 'PT5S',
+    });
+  }
 }
