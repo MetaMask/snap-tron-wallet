@@ -4,7 +4,7 @@ import type { PriceApiClient } from '../clients/price-api/PriceApiClient';
 import type { SnapClient } from '../clients/snap/SnapClient';
 import type { TronHttpClient } from '../clients/tron-http/TronHttpClient';
 import type { Network } from '../constants';
-import type { TronKeyringAccount } from '../entities';
+import type { TronKeyringAccount } from '../entities/keyring-account';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { State, UnencryptedStateValue } from '../services/state/State';
 import type { TransactionScanService } from '../services/transaction-scan/TransactionScanService';
@@ -144,7 +144,7 @@ export class CronHandler {
 
     const accounts = await this.#accountsService.findByIds(accountIds);
 
-    if (!accounts) {
+    if (accounts.length === 0) {
       return;
     }
 
@@ -711,6 +711,14 @@ export class CronHandler {
       `[Attempt ${attempt + 1} of ${maxAttempts}] Tracking transaction ${txId} on ${scope}...`,
     );
 
+    if (accountIds.length === 0) {
+      this.#logger.error(
+        { txId, scope },
+        'Cannot track transaction: accountIds is empty',
+      );
+      return;
+    }
+
     // Check if we've exceeded maximum attempts
     if (attempt >= maxAttempts) {
       this.#logger.warn(
@@ -720,7 +728,7 @@ export class CronHandler {
 
       // Fallback: sync accounts anyway to update final status
       const accounts = await this.#accountsService.findByIds(accountIds);
-      if (accounts && accounts.length > 0) {
+      if (accounts.length > 0) {
         await this.#accountsService.synchronize(accounts);
       }
       return;
@@ -760,21 +768,23 @@ export class CronHandler {
         '✅ Transaction confirmed on-chain',
       );
 
-      // Get the sender account to determine account type
-      const accounts = await this.#accountsService.findByIds(accountIds);
-      const senderAccount = accounts?.[0];
-
-      if (!senderAccount) {
-        this.#logger.error({ txId }, 'Sender account not found');
-        return;
-      }
-
       // Synchronize accounts to get the full transaction details and update state
       // Scheduled in the background to avoid blocking the main thread
       await this.#snapClient.scheduleBackgroundEvent({
         method: BackgroundEventMethod.SynchronizeSelectedAccounts,
         duration: 'PT1S',
       });
+
+      // Get the sender account to determine account type
+      const accounts = await this.#accountsService.findByIds(accountIds);
+      const senderAccount = accounts.find(
+        (account) => account.id === accountIds[0],
+      );
+
+      if (!senderAccount) {
+        this.#logger.error({ txId }, 'Sender account not found');
+        return;
+      }
 
       // Track Transaction Finalized event now that transaction is confirmed
       await this.#snapClient.trackTransactionFinalized({
@@ -807,7 +817,7 @@ export class CronHandler {
           'Max tracking attempts reached with errors - falling back to account sync',
         );
         const accounts = await this.#accountsService.findByIds(accountIds);
-        if (accounts && accounts.length > 0) {
+        if (accounts.length > 0) {
           await this.#accountsService.synchronize(accounts);
         }
       }

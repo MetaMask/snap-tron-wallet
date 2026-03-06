@@ -1,4 +1,4 @@
-import type { KeyringAccount, Transaction } from '@metamask/keyring-api';
+import type { Transaction } from '@metamask/keyring-api';
 import { KeyringEvent } from '@metamask/keyring-api';
 import { emitSnapKeyringEvent } from '@metamask/keyring-snap-sdk';
 import { groupBy } from 'lodash';
@@ -14,7 +14,7 @@ import type {
   TransferAssetContractInfo,
 } from '../../clients/trongrid/types';
 import type { Network } from '../../constants';
-import type { TronKeyringAccount } from '../../entities';
+import type { TronKeyringAccount } from '../../entities/keyring-account';
 import { hexToString } from '../../utils/hex';
 import type { ILogger } from '../../utils/logger';
 import { createPrefixedLogger } from '../../utils/logger';
@@ -188,12 +188,14 @@ export class TransactionsService {
    * via `saveMany()`, which will merge them with existing transactions.
    *
    * @param scope - The network scope.
-   * @param account - The account to fetch transactions for.
+   * @param account - The account to fetch transactions for. Must be a persisted
+   * TronKeyringAccount with a valid `id` so that existing confirmed transactions
+   * in state can be looked up for incremental sync.
    * @returns Only NEW transactions (not already in state). Empty array if none.
    */
   async fetchNewTransactionsForAccount(
     scope: Network,
-    account: KeyringAccount,
+    account: TronKeyringAccount,
   ): Promise<Transaction[]> {
     this.#logger.info(
       `Fetching new transactions for account ${account.address} on network ${scope}...`,
@@ -277,7 +279,7 @@ export class TransactionsService {
 
     const mappedTransactions = TransactionMapper.mapTransactions({
       scope,
-      account: account as TronKeyringAccount,
+      account,
       rawTransactions: enrichedRawTransactions,
       trc20Transactions: relevantTrc20Transactions,
       trc10TokenMetadata,
@@ -359,6 +361,30 @@ export class TransactionsService {
     ]);
 
     return { enrichedRawTransactions, trc10TokenMetadata };
+  }
+
+  /**
+   * Checks whether a given address has any transaction activity on the network.
+   * This is a lightweight check intended for account discovery - it queries
+   * with limit=1 to avoid downloading full transaction history.
+   *
+   * @param scope - The network scope.
+   * @param address - The TRON address to check.
+   * @returns True if the address has at least one transaction.
+   */
+  async checkAddressActivity(
+    scope: Network,
+    address: string,
+  ): Promise<boolean> {
+    const transactions =
+      await this.#trongridApiClient.getTransactionInfoByAddress(
+        scope,
+        address,
+        {
+          limit: 1,
+        },
+      );
+    return transactions.length > 0;
   }
 
   async findByAccounts(accounts: TronKeyringAccount[]): Promise<Transaction[]> {
