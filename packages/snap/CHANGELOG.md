@@ -12,6 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implement `claimUnstakedTrx` client request method ([#231](https://github.com/MetaMask/snap-tron-wallet/pull/231))
 - Implement `claimTrxStakingRewards` client request method ([#232](https://github.com/MetaMask/snap-tron-wallet/pull/232))
 
+### Changed
+
+- Optimize account discovery by using a lightweight activity check (`limit=1`) instead of fetching full transaction history
+
+### Fixed
+
+- Add early return guard for empty `accountIds` in transaction tracking to prevent unnecessary API calls
+- Fix null-safety checks in cronjob handler by checking `accounts.length === 0` instead of falsy `accounts`
+- Reorder transaction tracking to schedule account synchronization before sender account lookup
+
 ## [1.23.1]
 
 ### Changed

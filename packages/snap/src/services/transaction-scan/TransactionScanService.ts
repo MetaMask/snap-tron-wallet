@@ -5,7 +5,7 @@ import type { SecurityAlertsApiClient } from '../../clients/security-alerts-api/
 import type { SecurityAlertSimulationValidationResponse } from '../../clients/security-alerts-api/types';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { Network } from '../../constants';
-import type { TronKeyringAccount } from '../../entities';
+import type { TronKeyringAccount } from '../../entities/keyring-account';
 import type { ILogger } from '../../utils/logger';
 
 const METAMASK_ORIGIN = 'metamask';

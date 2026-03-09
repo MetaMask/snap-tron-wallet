@@ -11,7 +11,7 @@ import type { ConfirmSignTransactionContext } from './types';
 import { extractScanParametersFromTransactionData } from '../../../../clients/security-alerts-api/utils';
 import { Network, Networks, ZERO } from '../../../../constants';
 import snapContext from '../../../../context';
-import type { TronKeyringAccount } from '../../../../entities';
+import type { TronKeyringAccount } from '../../../../entities/keyring-account';
 import { BackgroundEventMethod } from '../../../../handlers/cronjob';
 import { TRX_IMAGE_SVG } from '../../../../static/tron-logo';
 import { SignTransactionRequestStruct } from '../../../../validation/structs';
