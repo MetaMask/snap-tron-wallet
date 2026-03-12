@@ -102,6 +102,7 @@ const defaultScanResult: TransactionScanResult = {
     reason: null,
   },
   error: null,
+  simulationAccurate: true,
 };
 
 const defaultIncomingContext = {
@@ -240,12 +241,13 @@ describe('ConfirmTransactionRequest render', () => {
         expect(mockTransactionScanService.scanTransaction).toHaveBeenCalledWith(
           expect.objectContaining({
             accountAddress: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
-            parameters: {
-              from: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
-              to: 'TQkE4s6hQqxym4fYvtVLNEGPsaAChFqxPk',
-              data: undefined,
-              value: 1000000, // 1 TRX = 1000000 sun
-            },
+            transactionRawData: expect.objectContaining({
+              contract: expect.arrayContaining([
+                expect.objectContaining({
+                  type: 'TransferContract',
+                }),
+              ]),
+            }),
             origin: 'MetaMask',
             scope: Network.Mainnet,
             options: ['simulation', 'validation'],
@@ -386,11 +388,12 @@ describe('ConfirmTransactionRequest render', () => {
 
       expect(mockTransactionScanService.scanTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
-          parameters: expect.objectContaining({
-            from: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
-            to: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', // contract address
-            data: undefined,
-            value: undefined, // null → undefined
+          transactionRawData: expect.objectContaining({
+            contract: expect.arrayContaining([
+              expect.objectContaining({
+                type: 'TriggerSmartContract',
+              }),
+            ]),
           }),
         }),
       );
