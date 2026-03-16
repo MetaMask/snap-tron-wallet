@@ -4,6 +4,7 @@ import { ConfirmTransactionRequest } from './ConfirmTransactionRequest';
 import type { ConfirmTransactionRequestContext } from './types';
 import { Network } from '../../../../constants';
 import type { TransactionScanResult } from '../../../../services/transaction-scan/types';
+import { SimulationStatus } from '../../../../services/transaction-scan/types';
 import type { Preferences } from '../../../../types/snap';
 
 /* eslint-disable @typescript-eslint/naming-convention */
@@ -73,7 +74,7 @@ describe('ConfirmTransactionRequest', () => {
       reason: null,
     },
     error: null,
-    simulationAccurate: true,
+    simulationStatus: SimulationStatus.Completed,
   };
 
   const baseContext: ConfirmTransactionRequestContext = {
@@ -172,6 +173,7 @@ describe('ConfirmTransactionRequest', () => {
     const errorScanResult: TransactionScanResult = {
       ...mockScanResult,
       status: 'ERROR',
+      simulationStatus: SimulationStatus.Failed,
     };
 
     const context: ConfirmTransactionRequestContext = {

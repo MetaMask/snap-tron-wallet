@@ -3,6 +3,7 @@ import { SnapError } from '@metamask/snaps-sdk';
 import type { Json, JsonRpcRequest } from '@metamask/snaps-sdk';
 import { bytesToHex, hexToBytes, sha256 } from '@metamask/utils';
 
+import { assertTransactionStructure } from '../../clients/security-alerts-api/utils';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
 import type { Network } from '../../constants';
 import type { TronKeyringAccount } from '../../entities';
@@ -218,6 +219,8 @@ export class WalletService {
         type,
         rawDataHex,
       );
+      assertTransactionStructure(rawData);
+
       const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);
       const transaction = {
         visible: false,

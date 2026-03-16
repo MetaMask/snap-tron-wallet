@@ -9,6 +9,7 @@ import type { AccountsService } from '../services/accounts/AccountsService';
 import type { State, UnencryptedStateValue } from '../services/state/State';
 import type { TransactionScanService } from '../services/transaction-scan/TransactionScanService';
 import type { TransactionScanResult } from '../services/transaction-scan/types';
+import { SimulationStatus } from '../services/transaction-scan/types';
 import type { ConfirmTransactionRequestContext } from '../ui/confirmation/views/ConfirmTransactionRequest/types';
 import type { ILogger } from '../utils/logger';
 
@@ -94,7 +95,7 @@ function buildMockScanResult(
     },
     validation: { type: 'Benign', reason: null },
     error: null,
-    simulationAccurate: true,
+    simulationStatus: SimulationStatus.Completed,
     ...overrides,
   };
 }

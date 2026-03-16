@@ -130,6 +130,8 @@ describe('ClientRequestHandler', () => {
                   contract_address: '419946f55aa08cfe8363959ce9930ebd567e2c14f',
                   data: 'a9059cbb000000000000000000000000a614f803b6fd780986a42c78ec9c7f77e6ded13c0000000000000000000000000000000000000000000000000000000000000000',
                 },
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                type_url: 'type.googleapis.com/protocol.TriggerSmartContract',
               },
             },
           ],
@@ -269,6 +271,8 @@ describe('ClientRequestHandler', () => {
                   to_address: '419946f55aa08cfe8363959ce9930ebd567e2c14f',
                   amount: 1000000,
                 },
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                type_url: 'type.googleapis.com/protocol.TransferContract',
               },
             },
           ],
@@ -366,17 +370,45 @@ describe('ClientRequestHandler', () => {
           privateKeyHex: 'test-private-key',
         } as any);
 
-        mockTronWeb.utils.deserializeTx.deserializeTransaction.mockReturnValue(
-          {},
-        );
+        /* eslint-disable @typescript-eslint/naming-convention */
+        mockTronWeb.utils.deserializeTx.deserializeTransaction.mockReturnValue({
+          contract: [
+            {
+              type: 'TriggerSmartContract',
+              parameter: {
+                value: {
+                  owner_address: '41045d01eb63374da930ee0da30d58516ac14ce04c79',
+                  contract_address: '419946f55aa08cfe8363959ce9930ebd567e2c14f',
+                  data: 'a9059cbb',
+                },
+                type_url: 'type.googleapis.com/protocol.TriggerSmartContract',
+              },
+            },
+          ],
+        });
         mockTronWeb.trx.sign.mockResolvedValue({
           txID: 'test-tx-id-3',
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          raw_data: {},
-          // eslint-disable-next-line @typescript-eslint/naming-convention
+          raw_data: {
+            contract: [
+              {
+                type: 'TriggerSmartContract',
+                parameter: {
+                  value: {
+                    owner_address:
+                      '41045d01eb63374da930ee0da30d58516ac14ce04c79',
+                    contract_address:
+                      '419946f55aa08cfe8363959ce9930ebd567e2c14f',
+                    data: 'a9059cbb',
+                  },
+                  type_url: 'type.googleapis.com/protocol.TriggerSmartContract',
+                },
+              },
+            ],
+          },
           raw_data_hex: 'test-hex-3',
           signature: [],
         });
+        /* eslint-enable @typescript-eslint/naming-convention */
 
         // No resources available
         mockAssetsService.getAssetsByAccountId.mockResolvedValue([

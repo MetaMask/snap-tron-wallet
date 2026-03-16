@@ -2,10 +2,10 @@
 import type { Types } from 'tronweb';
 
 import type { TransactionScanResult, TransactionScanValidation } from './types';
-import { ScanStatus, SecurityAlertResponse } from './types';
-import type { SecurityAlertsApiClient } from '../../clients/security-alerts-api/SecurityAlertsApiClient';
+import { ScanStatus, SecurityAlertResponse, SimulationStatus } from './types';
+import { SecurityAlertsApiClient } from '../../clients/security-alerts-api/SecurityAlertsApiClient';
 import type { SecurityAlertSimulationValidationResponse } from '../../clients/security-alerts-api/types';
-import { isTransactionSupported } from '../../clients/security-alerts-api/utils';
+import { isTransactionWellFormed } from '../../clients/security-alerts-api/utils';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { Network } from '../../constants';
 import type { TronKeyringAccount } from '../../entities';
@@ -58,11 +58,27 @@ export class TransactionScanService {
     options?: string[] | undefined;
     account?: TronKeyringAccount;
   }): Promise<TransactionScanResult | null> {
-    const simulationAccurate = isTransactionSupported(transactionRawData);
+    if (!isTransactionWellFormed(transactionRawData)) {
+      this.#logger.warn(
+        'Malformed transaction: Tron transactions must contain exactly one contract',
+      );
 
-    if (!simulationAccurate) {
+      return {
+        status: 'ERROR',
+        estimatedChanges: { assets: [] },
+        validation: { type: null, reason: null },
+        error: {
+          type: 'MALFORMED_TRANSACTION',
+          code: null,
+          message: 'Tron transactions must contain exactly one contract entry.',
+        },
+        simulationStatus: SimulationStatus.Failed,
+      };
+    }
+
+    if (!SecurityAlertsApiClient.isContractTypeSupported(transactionRawData)) {
       this.#logger.info(
-        'Transaction is not supported for scanning, returning inaccurate simulation result',
+        'Transaction contract type is not supported for simulation, skipping scan',
       );
 
       return {
@@ -70,7 +86,7 @@ export class TransactionScanService {
         estimatedChanges: { assets: [] },
         validation: { type: null, reason: null },
         error: null,
-        simulationAccurate: false,
+        simulationStatus: SimulationStatus.Skipped,
       };
     }
 
@@ -211,11 +227,11 @@ export class TransactionScanService {
 
     // Determine status: ERROR only if explicitly marked as Error
     // SUCCESS if either is Success or if statuses are missing
-    const simulationStatus = result.simulation?.status;
-    const validationStatus = result.validation?.status;
+    const apiSimulationStatus = result.simulation?.status;
+    const apiValidationStatus = result.validation?.status;
 
     const status =
-      simulationStatus === 'Error' || validationStatus === 'Error'
+      apiSimulationStatus === 'Error' || apiValidationStatus === 'Error'
         ? 'ERROR'
         : 'SUCCESS';
 
@@ -268,7 +284,10 @@ export class TransactionScanService {
               message: result.simulation?.error ?? null,
             }
           : null,
-      simulationAccurate: true,
+      simulationStatus:
+        status === 'ERROR'
+          ? SimulationStatus.Failed
+          : SimulationStatus.Completed,
     };
   }
 }

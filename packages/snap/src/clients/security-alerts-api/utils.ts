@@ -1,27 +1,30 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { InvalidParamsError } from '@metamask/snaps-sdk';
 import { add0x } from '@metamask/utils';
 import { TronWeb, Types } from 'tronweb';
 
 import type { SecurityScanPayload } from './types';
-
-export const SUPPORTED_CONTRACT_TYPES: Types.ContractType[] = [
-  Types.ContractType.TransferContract,
-  Types.ContractType.CreateSmartContract,
-  Types.ContractType.TriggerSmartContract,
-];
 
 /**
  * Extracts scan parameters from the raw transaction data. This function
  * can be used as adapter between a Tron transaction and the payload
  * supported by SecurityAlertsApiClient.
  *
+ * Only the first contract in `raw_data.contract` is used because
+ * the Tron protocol currently only executes one contract per
+ * transaction. The array exists in TronWeb's type definition for
+ * forward-compatibility, but any transaction with more than one
+ * contract is considered malformed.
+ *
+ * @see https://developers.tron.network/docs/tron-protocol-transaction
  * @param rawData - The raw transaction data.
  * @returns The extracted scan parameters.
  */
-export const extractScanParametersFromTransactionData = (
+export function extractScanParametersFromTransactionData(
   rawData: Types.Transaction['raw_data'],
-): SecurityScanPayload | null => {
+): SecurityScanPayload | null {
   const contractParam = rawData.contract[0]?.parameter.value;
+
   if (!contractParam) {
     return null;
   }
@@ -48,7 +51,7 @@ export const extractScanParametersFromTransactionData = (
   }
 
   return { from, to, data, value };
-};
+}
 
 /**
  * Builds a minimal `Transaction['raw_data']` suitable for security scanning
@@ -63,7 +66,7 @@ export const extractScanParametersFromTransactionData = (
  * @param params.contractType - The Tron contract type to build.
  * @returns A minimal raw transaction data object.
  */
-export const buildTransactionRawData = ({
+export function buildTransactionRawData({
   from,
   to,
   amount,
@@ -75,7 +78,7 @@ export const buildTransactionRawData = ({
   amount: number;
   data?: string | null;
   contractType: Types.ContractType;
-}): Types.Transaction['raw_data'] => {
+}): Types.Transaction['raw_data'] {
   const ownerAddressHex = TronWeb.address.toHex(from);
 
   if (contractType === Types.ContractType.TriggerSmartContract) {
@@ -120,19 +123,26 @@ export const buildTransactionRawData = ({
     expiration: 0,
     timestamp: 0,
   };
-};
+}
 
 /**
- * Checks if the given transaction is supported for scanning.
+ * Checks whether the transaction structure is well-formed for scanning.
  *
+ * A well-formed transaction has exactly one contract entry with a
+ * non-empty parameter value whose `type_url` is consistent with the
+ * contract-level `type`. The Tron protocol only executes one contract
+ * per transaction; the array in TronWeb's type definition exists for
+ * forward-compatibility. Transactions with more than one contract, a
+ * missing parameter, or mismatched types are considered malformed.
+ *
+ * @see https://developers.tron.network/docs/tron-protocol-transaction
  * @param rawData - The raw transaction data.
- * @returns True if the transaction is supported, false otherwise.
+ * @returns True if the transaction has a valid single-contract structure.
  */
-export const isTransactionSupported = (
+export function isTransactionWellFormed(
   rawData: Types.Transaction['raw_data'],
-): boolean => {
-  if (rawData.contract.length > 1) {
-    // We only support transactions with a single contract interaction for now
+): boolean {
+  if (rawData.contract.length !== 1) {
     return false;
   }
 
@@ -141,9 +151,30 @@ export const isTransactionSupported = (
     return false;
   }
 
-  if (!SUPPORTED_CONTRACT_TYPES.includes(contractInteraction.type)) {
+  const { type, parameter } = contractInteraction;
+  if (!parameter.type_url?.endsWith(type)) {
     return false;
   }
 
   return true;
-};
+}
+
+/**
+ * Asserts that the transaction is well-formed, throwing if it is not.
+ *
+ * Use as a one-liner after deserializing an external transaction
+ * to reject malformed payloads before they reach signing or confirmation.
+ *
+ * @param rawData - The raw transaction data.
+ * @throws {InvalidParamsError} If the transaction is malformed.
+ */
+export function assertTransactionStructure(
+  rawData: Types.Transaction['raw_data'],
+): void {
+  if (!isTransactionWellFormed(rawData)) {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
+    throw new InvalidParamsError(
+      'Malformed transaction: Tron transactions must contain exactly one contract with a valid parameter.',
+    );
+  }
+}

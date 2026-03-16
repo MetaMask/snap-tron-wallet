@@ -1,5 +1,6 @@
 import { assert } from '@metamask/superstruct';
 
+import { assertTransactionStructure } from '../../clients/security-alerts-api/utils';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
 import type { Network } from '../../constants';
@@ -104,6 +105,7 @@ export class ConfirmationHandler {
       type,
       rawDataHex,
     );
+    assertTransactionStructure(rawData);
 
     const result = await renderConfirmSignTransaction(
       request,

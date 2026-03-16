@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Improve simulation accuracy for contract transactions ([#186](https://github.com/MetaMask/snap-tron-wallet/pull/186))
+  - Supported transactions are those single-contract interaction transactions of the following types: `TransferContract`, `CreateSmartContract`, `TriggerSmartContract`.
+  - Unsupported transactions will show empty estimated changes and allow the user to proceed without blocking the confirmation.
 - Always extract special assets to prevent stale balances when amounts drop to zero ([#234](https://github.com/MetaMask/snap-tron-wallet/pull/234))
 
 ## [1.23.1]
@@ -35,12 +38,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Correct account discovery by using address-based activity checks instead of account IDs ([#206](https://github.com/MetaMask/snap-tron-wallet/pull/206))
-
-### Fixed
-
-- Improve simulation accuracy for contract transactions ([#186](https://github.com/MetaMask/snap-tron-wallet/pull/186))
-  - Supported transactions are those single-contract interaction transactions of the following types: `TransferContract`, `CreateSmartContract`, `TriggerSmartContract`.
-  - Unsupported transactions will show empty estimated changes and allow the user to proceed without blocking the confirmation.
 
 ## [1.22.0]
 

@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 
-import type { Types } from 'tronweb';
+import { Types } from 'tronweb';
 
 import type { SecurityAlertSimulationValidationResponse } from './types';
 import {
   extractScanParametersFromTransactionData,
-  isTransactionSupported,
+  isTransactionWellFormed,
 } from './utils';
 import type { ConfigProvider } from '../../services/config';
 import logger, { createPrefixedLogger, type ILogger } from '../../utils/logger';
@@ -19,6 +19,35 @@ import logger, { createPrefixedLogger, type ILogger } from '../../utils/logger';
  * ```
  */
 export class SecurityAlertsApiClient {
+  /**
+   * Contract types for which the Security Alerts API can produce reliable
+   * simulation results.
+   */
+  static readonly SUPPORTED_CONTRACT_TYPES: Types.ContractType[] = [
+    Types.ContractType.TransferContract,
+    Types.ContractType.CreateSmartContract,
+    Types.ContractType.TriggerSmartContract,
+  ];
+
+  /**
+   * Checks whether the first contract type in the transaction is supported
+   * by the Security Alerts API simulation.
+   *
+   * @param rawData - The raw transaction data.
+   * @returns True if the contract type is supported for simulation.
+   */
+  static isContractTypeSupported(
+    rawData: Types.Transaction['raw_data'],
+  ): boolean {
+    const [contractInteraction] = rawData.contract;
+    if (!contractInteraction) {
+      return false;
+    }
+    return SecurityAlertsApiClient.SUPPORTED_CONTRACT_TYPES.includes(
+      contractInteraction.type,
+    );
+  }
+
   readonly #fetch: typeof globalThis.fetch;
 
   readonly #logger: ILogger;
@@ -60,8 +89,11 @@ export class SecurityAlertsApiClient {
   }): Promise<SecurityAlertSimulationValidationResponse> {
     this.#logger.info('Scanning Tron transaction with Security Alerts API');
 
-    if (!isTransactionSupported(transactionRawData)) {
-      throw new Error('The transaction is not supported for scanning.');
+    if (
+      !isTransactionWellFormed(transactionRawData) ||
+      !SecurityAlertsApiClient.isContractTypeSupported(transactionRawData)
+    ) {
+      throw new Error('Transaction is not supported for scanning.');
     }
 
     const headers: Record<string, string> = {
@@ -69,7 +101,12 @@ export class SecurityAlertsApiClient {
       accept: 'application/json',
     };
 
-    const data = extractScanParametersFromTransactionData(transactionRawData);
+    const scanParameters =
+      extractScanParametersFromTransactionData(transactionRawData);
+
+    if (!scanParameters) {
+      throw new Error('Could not extract scan parameters from transaction.');
+    }
 
     const response = await this.#fetch(
       `${this.#baseUrl}/tron/transaction/scan`,
@@ -81,22 +118,23 @@ export class SecurityAlertsApiClient {
           metadata: {
             domain: origin,
           },
-          data,
+          data: scanParameters,
           options,
         }),
       },
     );
 
+    const data = await response.json();
+
     if (!response.ok) {
-      const errorResponse = await response.json();
       this.#logger.error(
-        `Security Alerts API error: ${response.status} - ${JSON.stringify(errorResponse)}`,
+        `Security Alerts API error: ${response.status} - ${JSON.stringify(data)}`,
       );
       throw new Error(
-        `Security Alerts API error: ${response.status} - ${JSON.stringify(errorResponse)}`,
+        `Security Alerts API error: ${response.status} - ${JSON.stringify(data)}`,
       );
     }
 
-    return await response.json();
+    return data;
   }
 }

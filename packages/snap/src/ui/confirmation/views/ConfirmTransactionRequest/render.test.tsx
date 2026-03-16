@@ -9,6 +9,7 @@ import type {
 } from '../../../../services/state/State';
 import type { TransactionScanService } from '../../../../services/transaction-scan/TransactionScanService';
 import type { TransactionScanResult } from '../../../../services/transaction-scan/types';
+import { SimulationStatus } from '../../../../services/transaction-scan/types';
 import type { Preferences } from '../../../../types/snap';
 
 // Mock the context module
@@ -102,7 +103,7 @@ const defaultScanResult: TransactionScanResult = {
     reason: null,
   },
   error: null,
-  simulationAccurate: true,
+  simulationStatus: SimulationStatus.Completed,
 };
 
 const defaultIncomingContext = {

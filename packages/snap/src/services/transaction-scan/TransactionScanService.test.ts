@@ -2,15 +2,11 @@
 import { Types } from 'tronweb';
 
 import { TransactionScanService } from './TransactionScanService';
+import { SimulationStatus } from './types';
 import type { SecurityAlertSimulationValidationResponse } from '../../clients/security-alerts-api/types';
 import { Network } from '../../constants';
 import { mockLogger } from '../../utils/mockLogger';
 
-/**
- *
- * @param contractType
- * @param count
- */
 /**
  * Builds mock raw transaction data for testing.
  *
@@ -31,7 +27,7 @@ function buildRawData(
           to_address: '4191bba2f3f6e1c4d5c8e8f5b6a7c8d9e0f1a2b3c4',
           amount: 1000000,
         },
-        type_url: 'type.googleapis.com/protocol.TransferContract',
+        type_url: `type.googleapis.com/protocol.${contractType}`,
       },
     })),
     ref_block_bytes: '',
@@ -41,10 +37,6 @@ function buildRawData(
   };
 }
 
-/**
- *
- * @param overrides
- */
 /**
  * Builds a mock Security Alerts API response for testing.
  *
@@ -118,7 +110,7 @@ describe('TransactionScanService', () => {
   });
 
   describe('scanTransaction', () => {
-    it('returns inaccurate result without calling API for unsupported contract types', async () => {
+    it('returns skipped result without calling API for unsupported contract types', async () => {
       const rawData = buildRawData(Types.ContractType.FreezeBalanceContract);
 
       const result = await service.scanTransaction({
@@ -136,11 +128,11 @@ describe('TransactionScanService', () => {
         estimatedChanges: { assets: [] },
         validation: { type: null, reason: null },
         error: null,
-        simulationAccurate: false,
+        simulationStatus: SimulationStatus.Skipped,
       });
     });
 
-    it('returns inaccurate result for transactions with multiple contracts', async () => {
+    it('returns error result for malformed transactions with multiple contracts', async () => {
       const rawData = buildRawData(Types.ContractType.TransferContract, 2);
 
       const result = await service.scanTransaction({
@@ -153,7 +145,9 @@ describe('TransactionScanService', () => {
       expect(
         mockSecurityAlertsApiClient.scanTransaction,
       ).not.toHaveBeenCalled();
-      expect(result?.simulationAccurate).toBe(false);
+      expect(result?.status).toBe('ERROR');
+      expect(result?.simulationStatus).toBe(SimulationStatus.Failed);
+      expect(result?.error?.type).toBe('MALFORMED_TRANSACTION');
     });
 
     it('calls the API for supported single-contract TransferContract', async () => {
@@ -172,7 +166,7 @@ describe('TransactionScanService', () => {
       expect(mockSecurityAlertsApiClient.scanTransaction).toHaveBeenCalledTimes(
         1,
       );
-      expect(result?.simulationAccurate).toBe(true);
+      expect(result?.simulationStatus).toBe(SimulationStatus.Completed);
       expect(result?.status).toBe('SUCCESS');
     });
 
@@ -192,7 +186,7 @@ describe('TransactionScanService', () => {
       expect(mockSecurityAlertsApiClient.scanTransaction).toHaveBeenCalledTimes(
         1,
       );
-      expect(result?.simulationAccurate).toBe(true);
+      expect(result?.simulationStatus).toBe(SimulationStatus.Completed);
     });
 
     it('replaces metamask origin with URL', async () => {
@@ -259,7 +253,7 @@ describe('TransactionScanService', () => {
       });
 
       expect(result?.status).toBe('ERROR');
-      expect(result?.simulationAccurate).toBe(true);
+      expect(result?.simulationStatus).toBe(SimulationStatus.Failed);
     });
 
     it('maps asset diffs with in changes', async () => {

@@ -8,6 +8,7 @@ import type { TronKeyringAccount } from '../../../../entities';
 import { TronMultichainMethod } from '../../../../handlers/keyring-types';
 import type { TransactionScanService } from '../../../../services/transaction-scan/TransactionScanService';
 import type { TransactionScanResult } from '../../../../services/transaction-scan/types';
+import { SimulationStatus } from '../../../../services/transaction-scan/types';
 import type { Preferences } from '../../../../types/snap';
 
 // Mock the context module
@@ -79,7 +80,7 @@ describe('ConfirmSignTransaction render', () => {
       reason: null,
     },
     error: null,
-    simulationAccurate: true,
+    simulationStatus: SimulationStatus.Completed,
   };
 
   let mockSnapClient: jest.Mocked<SnapClient>;

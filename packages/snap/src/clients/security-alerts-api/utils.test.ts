@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Types } from 'tronweb';
 
+import { SecurityAlertsApiClient } from './SecurityAlertsApiClient';
 import {
+  assertTransactionStructure,
   buildTransactionRawData,
   extractScanParametersFromTransactionData,
-  isTransactionSupported,
-  SUPPORTED_CONTRACT_TYPES,
+  isTransactionWellFormed,
 } from './utils';
 import type { TransferContractParameter } from '../trongrid/types';
 
@@ -91,8 +92,8 @@ describe('SecurityAlertsApiClient utils', () => {
     });
   });
 
-  describe('isTransactionSupported', () => {
-    it('returns false for transactions with multiple contract interactions', () => {
+  describe('isTransactionWellFormed', () => {
+    it('returns false for transactions with multiple contract entries (malformed)', () => {
       const rawData: Types.Transaction['raw_data'] = {
         contract: [
           {
@@ -100,11 +101,10 @@ describe('SecurityAlertsApiClient utils', () => {
             parameter: {
               value: {
                 owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
-                contract_address: '4191bba2f3f6e1c4d5c8e8f5b6a7c8d9e0f1a2b3c4',
-                call_value: 200000,
-                data: 'abcdef',
+                to_address: '4191bba2f3f6e1c4d5c8e8f5b6a7c8d9e0f1a2b3c4',
+                amount: 200000,
               },
-              type_url: 'type.googleapis.com/protocol.TriggerSmartContract',
+              type_url: 'type.googleapis.com/protocol.TransferContract',
             },
           },
           {
@@ -126,87 +126,68 @@ describe('SecurityAlertsApiClient utils', () => {
         timestamp: 0,
       };
 
-      const result = isTransactionSupported(rawData);
-
-      expect(result).toBe(false);
+      expect(isTransactionWellFormed(rawData)).toBe(false);
     });
 
-    it.each([
-      Types.ContractType.AccountUpdateContract,
-      Types.ContractType.FreezeBalanceContract,
-      Types.ContractType.UnfreezeBalanceContract,
-      Types.ContractType.WithdrawBalanceContract,
-      Types.ContractType.UpdateAssetContract,
-      Types.ContractType.ParticipateAssetIssueContract,
-      Types.ContractType.AccountPermissionUpdateContract,
-      Types.ContractType.ExchangeCreateContract,
-      Types.ContractType.ExchangeInjectContract,
-      Types.ContractType.ExchangeWithdrawContract,
-      Types.ContractType.ExchangeTransactionContract,
-      Types.ContractType.TransferAssetContract,
-    ])(
-      'returns false for transactions with unsupported contract types',
-      (contractType) => {
-        const rawData: Types.Transaction['raw_data'] = {
-          contract: [
-            {
-              type: contractType,
-              parameter: {
-                value: {
-                  owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
-                  contract_address:
-                    '4191bba2f3f6e1c4d5c8e8f5b6a7c8d9e0f1a2b3c4',
-                  call_value: 200000,
-                  data: 'abcdef',
-                },
-                // This is here only to make TypeScript happy; the actual type_url is irrelevant for the test
-                type_url: 'type.googleapis.com/protocol.UnknownContract',
+    it('returns false for transactions with no contract entries', () => {
+      const rawData: Types.Transaction['raw_data'] = {
+        contract: [],
+        ref_block_bytes: '',
+        ref_block_hash: '',
+        expiration: 0,
+        timestamp: 0,
+      };
+
+      expect(isTransactionWellFormed(rawData)).toBe(false);
+    });
+
+    it('returns false when contract type does not match type_url', () => {
+      const rawData: Types.Transaction['raw_data'] = {
+        contract: [
+          {
+            type: Types.ContractType.TransferContract,
+            parameter: {
+              value: {
+                owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
+                to_address: '4191bba2f3f6e1c4d5c8e8f5b6a7c8d9e0f1a2b3c4',
+                amount: 1000000,
               },
+              type_url: 'type.googleapis.com/protocol.TriggerSmartContract',
             },
-          ],
-          ref_block_bytes: '',
-          ref_block_hash: '',
-          expiration: 0,
-          timestamp: 0,
-        };
+          },
+        ],
+        ref_block_bytes: '',
+        ref_block_hash: '',
+        expiration: 0,
+        timestamp: 0,
+      };
 
-        const result = isTransactionSupported(rawData);
+      expect(isTransactionWellFormed(rawData)).toBe(false);
+    });
 
-        expect(result).toBe(false);
-      },
-    );
-
-    it.each(SUPPORTED_CONTRACT_TYPES)(
-      'returns true for transactions with a single supported contract type',
-      (contractType) => {
-        const rawData: Types.Transaction['raw_data'] = {
-          contract: [
-            {
-              type: contractType,
-              parameter: {
-                value: {
-                  owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
-                  contract_address:
-                    '4191bba2f3f6e1c4d5c8e8f5b6a7c8d9e0f1a2b3c4',
-                  call_value: 200000,
-                  data: 'abcdef',
-                },
-                // This is here only to make TypeScript happy; the actual type_url is irrelevant for the test
-                type_url: 'type.googleapis.com/protocol.UnknownContract',
+    it('returns true for a single contract entry with a valid parameter', () => {
+      const rawData: Types.Transaction['raw_data'] = {
+        contract: [
+          {
+            type: Types.ContractType.TransferContract,
+            parameter: {
+              value: {
+                owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
+                to_address: '4191bba2f3f6e1c4d5c8e8f5b6a7c8d9e0f1a2b3c4',
+                amount: 1000000,
               },
+              type_url: 'type.googleapis.com/protocol.TransferContract',
             },
-          ],
-          ref_block_bytes: '',
-          ref_block_hash: '',
-          expiration: 0,
-          timestamp: 0,
-        };
+          },
+        ],
+        ref_block_bytes: '',
+        ref_block_hash: '',
+        expiration: 0,
+        timestamp: 0,
+      };
 
-        const result = isTransactionSupported(rawData);
-
-        expect(result).toBe(true);
-      },
-    );
+      expect(isTransactionWellFormed(rawData)).toBe(true);
+    });
   });
 
   describe('buildTransactionRawData', () => {
@@ -310,6 +291,198 @@ describe('SecurityAlertsApiClient utils', () => {
         data: '0xabcdef',
         value: 300000,
       });
+    });
+  });
+
+  describe('assertTransactionStructure', () => {
+    it('does not throw for a well-formed transaction', () => {
+      const rawData: Types.Transaction['raw_data'] = {
+        contract: [
+          {
+            type: Types.ContractType.TransferContract,
+            parameter: {
+              value: {
+                owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
+                to_address: '4191bba2f3f6e1c4d5c8e8f5b6a7c8d9e0f1a2b3c4',
+                amount: 1000000,
+              },
+              type_url: 'type.googleapis.com/protocol.TransferContract',
+            },
+          },
+        ],
+        ref_block_bytes: '',
+        ref_block_hash: '',
+        expiration: 0,
+        timestamp: 0,
+      };
+
+      expect(() => assertTransactionStructure(rawData)).not.toThrow();
+    });
+
+    it('throws for a transaction with multiple contracts', () => {
+      const rawData: Types.Transaction['raw_data'] = {
+        contract: [
+          {
+            type: Types.ContractType.TransferContract,
+            parameter: {
+              value: {
+                owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
+                to_address: '4191bba2f3f6e1c4d5c8e8f5b6a7c8d9e0f1a2b3c4',
+                amount: 1000000,
+              },
+              type_url: 'type.googleapis.com/protocol.TransferContract',
+            },
+          },
+          {
+            type: Types.ContractType.TransferContract,
+            parameter: {
+              value: {
+                owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
+                to_address: '4191bba2f3f6e1c4d5c8e8f5b6a7c8d9e0f1a2b3c4',
+                amount: 500000,
+              },
+              type_url: 'type.googleapis.com/protocol.TransferContract',
+            },
+          },
+        ],
+        ref_block_bytes: '',
+        ref_block_hash: '',
+        expiration: 0,
+        timestamp: 0,
+      };
+
+      expect(() => assertTransactionStructure(rawData)).toThrow(
+        'Malformed transaction',
+      );
+    });
+
+    it('throws for a transaction with empty contracts', () => {
+      const rawData: Types.Transaction['raw_data'] = {
+        contract: [],
+        ref_block_bytes: '',
+        ref_block_hash: '',
+        expiration: 0,
+        timestamp: 0,
+      };
+
+      expect(() => assertTransactionStructure(rawData)).toThrow(
+        'Malformed transaction',
+      );
+    });
+
+    it('throws for a transaction with mismatched contract type and type_url', () => {
+      const rawData: Types.Transaction['raw_data'] = {
+        contract: [
+          {
+            type: Types.ContractType.TransferContract,
+            parameter: {
+              value: {
+                owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
+                to_address: '4191bba2f3f6e1c4d5c8e8f5b6a7c8d9e0f1a2b3c4',
+                amount: 1000000,
+              },
+              type_url: 'type.googleapis.com/protocol.TriggerSmartContract',
+            },
+          },
+        ],
+        ref_block_bytes: '',
+        ref_block_hash: '',
+        expiration: 0,
+        timestamp: 0,
+      };
+
+      expect(() => assertTransactionStructure(rawData)).toThrow(
+        'Malformed transaction',
+      );
+    });
+  });
+});
+
+describe('SecurityAlertsApiClient', () => {
+  describe('isContractTypeSupported', () => {
+    it.each([
+      Types.ContractType.AccountUpdateContract,
+      Types.ContractType.FreezeBalanceContract,
+      Types.ContractType.UnfreezeBalanceContract,
+      Types.ContractType.WithdrawBalanceContract,
+      Types.ContractType.UpdateAssetContract,
+      Types.ContractType.ParticipateAssetIssueContract,
+      Types.ContractType.AccountPermissionUpdateContract,
+      Types.ContractType.ExchangeCreateContract,
+      Types.ContractType.ExchangeInjectContract,
+      Types.ContractType.ExchangeWithdrawContract,
+      Types.ContractType.ExchangeTransactionContract,
+      Types.ContractType.TransferAssetContract,
+    ])('returns false for unsupported contract type: %s', (contractType) => {
+      const rawData: Types.Transaction['raw_data'] = {
+        contract: [
+          {
+            type: contractType,
+            parameter: {
+              value: {
+                owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
+                contract_address: '4191bba2f3f6e1c4d5c8e8f5b6a7c8d9e0f1a2b3c4',
+                call_value: 200000,
+                data: 'abcdef',
+              },
+              type_url: `type.googleapis.com/protocol.${contractType}`,
+            },
+          },
+        ],
+        ref_block_bytes: '',
+        ref_block_hash: '',
+        expiration: 0,
+        timestamp: 0,
+      };
+
+      expect(SecurityAlertsApiClient.isContractTypeSupported(rawData)).toBe(
+        false,
+      );
+    });
+
+    it.each(SecurityAlertsApiClient.SUPPORTED_CONTRACT_TYPES)(
+      'returns true for supported contract type: %s',
+      (contractType) => {
+        const rawData: Types.Transaction['raw_data'] = {
+          contract: [
+            {
+              type: contractType,
+              parameter: {
+                value: {
+                  owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
+                  contract_address:
+                    '4191bba2f3f6e1c4d5c8e8f5b6a7c8d9e0f1a2b3c4',
+                  call_value: 200000,
+                  data: 'abcdef',
+                },
+                type_url: `type.googleapis.com/protocol.${contractType}`,
+              },
+            },
+          ],
+          ref_block_bytes: '',
+          ref_block_hash: '',
+          expiration: 0,
+          timestamp: 0,
+        };
+
+        expect(SecurityAlertsApiClient.isContractTypeSupported(rawData)).toBe(
+          true,
+        );
+      },
+    );
+
+    it('returns false when there are no contract entries', () => {
+      const rawData: Types.Transaction['raw_data'] = {
+        contract: [],
+        ref_block_bytes: '',
+        ref_block_hash: '',
+        expiration: 0,
+        timestamp: 0,
+      };
+
+      expect(SecurityAlertsApiClient.isContractTypeSupported(rawData)).toBe(
+        false,
+      );
     });
   });
 });

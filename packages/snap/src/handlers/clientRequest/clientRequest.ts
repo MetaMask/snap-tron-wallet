@@ -14,6 +14,7 @@ import {
 } from '@metamask/utils';
 import { BigNumber } from 'bignumber.js';
 
+import { assertTransactionStructure } from '../../clients/security-alerts-api/utils';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
 import { Network, Networks, NULL_ADDRESS, ZERO } from '../../constants';
@@ -221,6 +222,8 @@ export class ClientRequestHandler {
       type,
       rawDataHex,
     );
+    assertTransactionStructure(rawData);
+
     const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);
     const transaction = {
       /**
@@ -591,6 +594,8 @@ export class ClientRequestHandler {
       type,
       rawDataHex,
     );
+    assertTransactionStructure(rawData);
+
     const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);
     const transaction = {
       visible: false,
