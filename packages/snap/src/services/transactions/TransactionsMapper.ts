@@ -361,10 +361,6 @@ export class TransactionMapper {
       to,
     });
 
-    if (type === TransactionType.Receive) {
-      return null;
-    }
-
     const tronAsset = Networks[scope].nativeToken;
 
     return {
@@ -416,7 +412,7 @@ export class TransactionMapper {
    * @param params.account - The TronKeyringAccount for which the transaction is being mapped.
    * @param params.trongridTransaction - The raw transaction data from Trongrid.
    * @param params.trc10TokenMetadata - Optional map of TRC10 token ID to metadata (including decimals).
-   * @returns The mapped Transaction or null if the transaction is incoming.
+   * @returns The mapped Transaction.
    */
   static #mapTransferAssetContract({
     scope,
@@ -428,7 +424,7 @@ export class TransactionMapper {
     account: TronKeyringAccount;
     trongridTransaction: TransactionInfo;
     trc10TokenMetadata?: Map<string, TRC10TokenMetadata>;
-  }): Transaction | null {
+  }): Transaction {
     const firstContract = trongridTransaction.raw_data
       .contract[0] as TransferAssetContractInfo;
     const contractValue = firstContract.parameter.value;
@@ -470,10 +466,6 @@ export class TransactionMapper {
       from,
       to,
     });
-
-    if (type === TransactionType.Receive) {
-      return null;
-    }
 
     return {
       type,
@@ -518,14 +510,13 @@ export class TransactionMapper {
 
   /**
    * Maps a TRC20-only transaction (transactions not covered by raw transaction data).
-   * Examples: outbound TRC20 transfers initiated by contracts on behalf of the user.
-   * Note: Incoming/receive transactions are filtered out to prevent address poisoning.
+   * Examples: airdrops, contract withdrawals, outbound TRC20 transfers initiated by contracts.
    *
    * @param params - The parameters for mapping the transaction.
    * @param params.scope - The network scope.
    * @param params.account - The account involved.
    * @param params.trc20Transfer - The TRC20 transfer.
-   * @returns The mapped Transaction or null if not supported or incoming.
+   * @returns The mapped Transaction or null if not supported.
    */
   static #mapTrc20OnlyTransaction({
     scope,
@@ -555,10 +546,6 @@ export class TransactionMapper {
       to,
       trc20Type: trc20Transfer.type,
     });
-
-    if (type === TransactionType.Receive) {
-      return null;
-    }
 
     // TRC20-only transactions are always confirmed (they have a block timestamp)
     const status = TransactionStatus.Confirmed;
@@ -1066,10 +1053,6 @@ export class TransactionMapper {
       trc20Type: trc20AssistanceData.type,
     });
 
-    if (type === TransactionType.Receive) {
-      return null;
-    }
-
     // Calculate comprehensive fees including Energy and Bandwidth from raw transaction data
     const fees = TransactionMapper.#calculateTronFees(
       scope,
@@ -1316,6 +1299,7 @@ export class TransactionMapper {
 
   /**
    * Maps a raw transaction using the appropriate mapping method based on contract type.
+   * Incoming (receive) transactions are excluded to prevent address poisoning attacks.
    *
    * @param params - The parameters for mapping the transaction.
    * @param params.scope - The network scope (e.g., mainnet, shasta).
@@ -1323,7 +1307,7 @@ export class TransactionMapper {
    * @param params.trongridTransaction - The raw transaction data from Trongrid.
    * @param params.trc20Transfers - Optional array of TRC20 transfers for this transaction ID.
    * @param params.trc10TokenMetadata - Optional map of TRC10 token ID to metadata (including decimals).
-   * @returns The mapped Transaction or null if the transaction is not supported.
+   * @returns The mapped Transaction or null if the transaction is not supported or incoming.
    */
   static mapTransaction({
     scope,
@@ -1355,50 +1339,62 @@ export class TransactionMapper {
       return null;
     }
 
+    let mapped: Transaction | null = null;
+
     switch (contractType) {
       case 'TransferContract':
-        return this.#mapTransferContract({
+        mapped = this.#mapTransferContract({
           scope,
           account,
           trongridTransaction,
         });
+        break;
 
       case 'TransferAssetContract':
-        return this.#mapTransferAssetContract({
+        mapped = this.#mapTransferAssetContract({
           scope,
           account,
           trongridTransaction,
           trc10TokenMetadata,
         });
+        break;
 
       case 'FreezeBalanceV2Contract':
       case 'FreezeBalanceContract':
-        return this.#mapFreezeBalanceContract({
+        mapped = this.#mapFreezeBalanceContract({
           scope,
           account,
           trongridTransaction,
         });
+        break;
 
       case 'UnfreezeBalanceV2Contract':
       case 'UnfreezeBalanceContract':
-        return this.#mapUnfreezeBalanceContract({
+        mapped = this.#mapUnfreezeBalanceContract({
           scope,
           account,
           trongridTransaction,
         });
+        break;
 
       case 'TriggerSmartContract':
-        return this.#mapTriggerSmartContract({
+        mapped = this.#mapTriggerSmartContract({
           scope,
           account,
           trongridTransaction,
           trc20Transfers,
         });
+        break;
 
       default:
-        // Unsupported transaction type
         return null;
     }
+
+    if (mapped?.type === TransactionType.Receive) {
+      return null;
+    }
+
+    return mapped;
   }
 
   /**
@@ -1456,7 +1452,8 @@ export class TransactionMapper {
       }
     }
 
-    // Process TRC20-only transactions (those not covered by raw transactions)
+    // Process TRC20-only transactions (those not covered by raw transactions).
+    // Receive transactions are excluded to prevent address poisoning attacks.
     for (const trc20Tx of trc20Transactions) {
       if (!processedTxIds.has(trc20Tx.transaction_id)) {
         const mappedTx = this.#mapTrc20OnlyTransaction({
@@ -1465,7 +1462,7 @@ export class TransactionMapper {
           trc20Transfer: trc20Tx,
         });
 
-        if (mappedTx) {
+        if (mappedTx && mappedTx.type !== TransactionType.Receive) {
           transactions.push(mappedTx);
           processedTxIds.add(trc20Tx.transaction_id);
         }
