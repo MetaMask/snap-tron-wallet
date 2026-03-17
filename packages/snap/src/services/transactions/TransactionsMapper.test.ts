@@ -93,6 +93,26 @@ describe('TransactionMapper', () => {
       });
     });
 
+    describe('Incoming transaction filtering (address poisoning prevention)', () => {
+      it('should return null for a native TRX receive transaction', () => {
+        const rawTransaction = nativeTransferMock as TransactionInfo;
+
+        const receiverAccount: TronKeyringAccount = {
+          ...mockAccount,
+          id: 'receiver-account-id',
+          address: 'TEFik7dGm6r5Y1Af9mGwnELuJLa1jXDDUB',
+        };
+
+        const result = TransactionMapper.mapTransaction({
+          scope: Network.Mainnet,
+          account: receiverAccount,
+          trongridTransaction: rawTransaction,
+        });
+
+        expect(result).toBeNull();
+      });
+    });
+
     describe('TransferAssetContract (TRC10 transfers)', () => {
       // Use the actual address from the TRC10 transaction mock
       const trc10Account: TronKeyringAccount = {
@@ -435,7 +455,7 @@ describe('TransactionMapper', () => {
         expect(result[0]?.id).toBe('approval-tx-id-123');
       });
 
-      it('should map a TRC20-only transfer as Send/Receive type', () => {
+      it('should not map a TRC20-only receive transfer (address poisoning prevention)', () => {
         const transferTrc20: ContractTransactionInfo = {
           transaction_id: 'transfer-tx-id-456',
           token_info: {
@@ -458,9 +478,7 @@ describe('TransactionMapper', () => {
           trc20Transactions: [transferTrc20],
         });
 
-        expect(result).toHaveLength(1);
-        // Account is the receiver
-        expect(result[0]?.type).toBe(TransactionType.Receive);
+        expect(result).toHaveLength(0);
       });
     });
 
@@ -701,10 +719,10 @@ describe('TransactionMapper', () => {
 
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
-      // All transactions map successfully:
-      // 3 raw transactions (native TRX + TRC10 + TRC20 send)
-      // + 2 TRC20-only transactions (USDDOLD receive + USDT receive)
-      expect(result.filter((tx) => tx !== null)).toHaveLength(5);
+      // Only outbound transactions are mapped (incoming filtered for address poisoning prevention):
+      // 3 raw transactions (native TRX send + TRC10 send + TRC20 send)
+      // TRC20-only receives (USDDOLD + USDT) are excluded
+      expect(result.filter((tx) => tx !== null)).toHaveLength(3);
     });
 
     it('should handle empty input arrays', () => {
@@ -920,7 +938,7 @@ describe('TransactionMapper', () => {
   });
 
   describe('Non-Swap Scenarios', () => {
-    it('does not detect a swap when only receiving TRC20 (no TRX movement)', () => {
+    it('returns null when only receiving TRC20 (no TRX movement) - address poisoning prevention', () => {
       const mockTx = {
         ...swapTransactionMock,
         internal_transactions: [],
@@ -950,8 +968,7 @@ describe('TransactionMapper', () => {
         trc20Transfers,
       });
 
-      expect(result).not.toBeNull();
-      expect(result?.type).toStrictEqual(TransactionType.Receive);
+      expect(result).toBeNull();
     });
 
     it('does not detect a swap when only sending TRC20', () => {
@@ -1035,7 +1052,7 @@ describe('TransactionMapper', () => {
       expect(result?.type).not.toStrictEqual(TransactionType.Swap);
     });
 
-    it('does not detect TRX swap when there are no internal transactions', () => {
+    it('returns null for receive TRC20 when there are no internal transactions - address poisoning prevention', () => {
       const mockTx = {
         ...swapTransactionMock,
         internal_transactions: [],
@@ -1065,11 +1082,10 @@ describe('TransactionMapper', () => {
         trc20Transfers,
       });
 
-      expect(result).not.toBeNull();
-      expect(result?.type).toStrictEqual(TransactionType.Receive);
+      expect(result).toBeNull();
     });
 
-    it('handles TRX movements with zero callValue correctly', () => {
+    it('returns null for receive TRC20 with zero callValue - address poisoning prevention', () => {
       const mockTx = {
         ...swapTransactionMock,
         internal_transactions: [
@@ -1110,13 +1126,12 @@ describe('TransactionMapper', () => {
         trc20Transfers,
       });
 
-      expect(result).not.toBeNull();
-      expect(result?.type).toStrictEqual(TransactionType.Receive);
+      expect(result).toBeNull();
     });
   });
 
   describe('TRC20-Only Transactions', () => {
-    it('maps TRC20-only transactions in mapTransactions', () => {
+    it('filters out TRC20-only receive transactions (address poisoning prevention)', () => {
       const rawTransactions: TransactionInfo[] = [
         nativeTransferMock,
         trc10TransferMock,
@@ -1148,14 +1163,12 @@ describe('TransactionMapper', () => {
         trc20Transactions,
       });
 
-      // 3 raw transactions (native TRX + TRC10 + TRC20 send)
-      // + 3 TRC20-only (USDDOLD receive + USDT receive + airdrop)
-      expect(result).toHaveLength(6);
+      // Only outbound transactions are mapped:
+      // 3 raw transactions (native TRX send + TRC10 send + TRC20 send)
+      // TRC20-only receives (USDDOLD + USDT + airdrop) are excluded
+      expect(result).toHaveLength(3);
       const airdropTx = result.find((tx) => tx.id === 'trc20-only-tx-id');
-      expect(airdropTx).toBeDefined();
-      expect(airdropTx?.type).toStrictEqual(TransactionType.Receive);
-      expect(airdropTx?.from[0]?.asset).toHaveProperty('unit', 'AIRDROP');
-      expect(airdropTx?.from[0]?.asset).toHaveProperty('amount', '1');
+      expect(airdropTx).toBeUndefined();
     });
   });
 

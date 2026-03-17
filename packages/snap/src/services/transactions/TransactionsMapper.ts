@@ -361,6 +361,10 @@ export class TransactionMapper {
       to,
     });
 
+    if (type === TransactionType.Receive) {
+      return null;
+    }
+
     const tronAsset = Networks[scope].nativeToken;
 
     return {
@@ -412,7 +416,7 @@ export class TransactionMapper {
    * @param params.account - The TronKeyringAccount for which the transaction is being mapped.
    * @param params.trongridTransaction - The raw transaction data from Trongrid.
    * @param params.trc10TokenMetadata - Optional map of TRC10 token ID to metadata (including decimals).
-   * @returns The mapped Transaction.
+   * @returns The mapped Transaction or null if the transaction is incoming.
    */
   static #mapTransferAssetContract({
     scope,
@@ -424,7 +428,7 @@ export class TransactionMapper {
     account: TronKeyringAccount;
     trongridTransaction: TransactionInfo;
     trc10TokenMetadata?: Map<string, TRC10TokenMetadata>;
-  }): Transaction {
+  }): Transaction | null {
     const firstContract = trongridTransaction.raw_data
       .contract[0] as TransferAssetContractInfo;
     const contractValue = firstContract.parameter.value;
@@ -466,6 +470,10 @@ export class TransactionMapper {
       from,
       to,
     });
+
+    if (type === TransactionType.Receive) {
+      return null;
+    }
 
     return {
       type,
@@ -546,6 +554,10 @@ export class TransactionMapper {
       to,
       trc20Type: trc20Transfer.type,
     });
+
+    if (type === TransactionType.Receive) {
+      return null;
+    }
 
     // TRC20-only transactions are always confirmed (they have a block timestamp)
     const status = TransactionStatus.Confirmed;
@@ -1052,6 +1064,10 @@ export class TransactionMapper {
       to,
       trc20Type: trc20AssistanceData.type,
     });
+
+    if (type === TransactionType.Receive) {
+      return null;
+    }
 
     // Calculate comprehensive fees including Energy and Bandwidth from raw transaction data
     const fees = TransactionMapper.#calculateTronFees(
