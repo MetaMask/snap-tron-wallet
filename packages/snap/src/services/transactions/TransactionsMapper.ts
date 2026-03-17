@@ -517,14 +517,15 @@ export class TransactionMapper {
   }
 
   /**
-   * Maps a TRC20-only transaction (transactions where user received tokens but wasn't the initiator).
-   * Examples: airdrops, contract withdrawals, etc.
+   * Maps a TRC20-only transaction (transactions not covered by raw transaction data).
+   * Examples: outbound TRC20 transfers initiated by contracts on behalf of the user.
+   * Note: Incoming/receive transactions are filtered out to prevent address poisoning.
    *
    * @param params - The parameters for mapping the transaction.
    * @param params.scope - The network scope.
    * @param params.account - The account involved.
    * @param params.trc20Transfer - The TRC20 transfer.
-   * @returns The mapped Transaction or null if not supported.
+   * @returns The mapped Transaction or null if not supported or incoming.
    */
   static #mapTrc20OnlyTransaction({
     scope,
