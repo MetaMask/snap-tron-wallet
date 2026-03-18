@@ -8,10 +8,8 @@ import type {
   UnencryptedStateValue,
 } from '../../../../services/state/State';
 import type { TransactionScanService } from '../../../../services/transaction-scan/TransactionScanService';
-import {
-  SimulationStatus,
-  type TransactionScanResult,
-} from '../../../../services/transaction-scan/types';
+import type { TransactionScanResult } from '../../../../services/transaction-scan/types';
+import { SimulationStatus } from '../../../../services/transaction-scan/types';
 import type { Preferences } from '../../../../types/snap';
 
 // Mock the context module
@@ -87,7 +85,6 @@ const mockAsset: AssetEntity = {
 
 const defaultScanResult: TransactionScanResult = {
   status: 'SUCCESS',
-  simulationStatus: SimulationStatus.Completed,
   estimatedChanges: {
     assets: [
       {
@@ -106,6 +103,7 @@ const defaultScanResult: TransactionScanResult = {
     reason: null,
   },
   error: null,
+  simulationStatus: SimulationStatus.Completed,
 };
 
 const defaultIncomingContext = {
@@ -244,7 +242,13 @@ describe('ConfirmTransactionRequest render', () => {
         expect(mockTransactionScanService.scanTransaction).toHaveBeenCalledWith(
           expect.objectContaining({
             accountAddress: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
-            transactionRawData: expect.any(Object),
+            transactionRawData: expect.objectContaining({
+              contract: expect.arrayContaining([
+                expect.objectContaining({
+                  type: 'TransferContract',
+                }),
+              ]),
+            }),
             origin: 'MetaMask',
             scope: Network.Mainnet,
             options: ['simulation', 'validation'],
@@ -385,7 +389,13 @@ describe('ConfirmTransactionRequest render', () => {
 
       expect(mockTransactionScanService.scanTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
-          transactionRawData: expect.any(Object),
+          transactionRawData: expect.objectContaining({
+            contract: expect.arrayContaining([
+              expect.objectContaining({
+                type: 'TriggerSmartContract',
+              }),
+            ]),
+          }),
         }),
       );
     });
