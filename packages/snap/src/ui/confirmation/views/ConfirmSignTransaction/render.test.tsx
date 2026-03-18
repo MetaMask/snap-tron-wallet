@@ -7,10 +7,8 @@ import { Network } from '../../../../constants';
 import type { TronKeyringAccount } from '../../../../entities';
 import { TronMultichainMethod } from '../../../../handlers/keyring-types';
 import type { TransactionScanService } from '../../../../services/transaction-scan/TransactionScanService';
-import {
-  SimulationStatus,
-  type TransactionScanResult,
-} from '../../../../services/transaction-scan/types';
+import type { TransactionScanResult } from '../../../../services/transaction-scan/types';
+import { SimulationStatus } from '../../../../services/transaction-scan/types';
 import type { Preferences } from '../../../../types/snap';
 
 // Mock the context module
@@ -64,7 +62,6 @@ describe('ConfirmSignTransaction render', () => {
 
   const mockScanResult: TransactionScanResult = {
     status: 'SUCCESS',
-    simulationStatus: SimulationStatus.Completed,
     estimatedChanges: {
       assets: [
         {
@@ -83,6 +80,7 @@ describe('ConfirmSignTransaction render', () => {
       reason: null,
     },
     error: null,
+    simulationStatus: SimulationStatus.Completed,
   };
 
   let mockSnapClient: jest.Mocked<SnapClient>;
@@ -187,15 +185,13 @@ describe('ConfirmSignTransaction render', () => {
     expect(mockSnapClient.showDialog).toHaveBeenCalledWith('interface-id-123');
 
     // Verify security scan was triggered with from/to addresses and value
-    expect(mockTransactionScanService.scanTransaction).toHaveBeenCalledWith(
-      expect.objectContaining({
-        accountAddress: mockAccount.address,
-        transactionRawData: mockRawData,
-        origin: testOrigin,
-        scope: Network.Mainnet,
-        options: ['simulation', 'validation'],
-      }),
-    );
+    expect(mockTransactionScanService.scanTransaction).toHaveBeenCalledWith({
+      accountAddress: mockAccount.address,
+      transactionRawData: mockRawData,
+      origin: testOrigin,
+      scope: Network.Mainnet,
+      options: ['simulation', 'validation'],
+    });
 
     // Verify interface was updated with scan results
     expect(mockSnapClient.updateInterfaceIfExists).toHaveBeenCalled();

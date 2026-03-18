@@ -1,3 +1,5 @@
+import type { Json } from '@metamask/snaps-sdk';
+
 import { BackgroundEventMethod, CronHandler } from './cronjob';
 import type { PriceApiClient } from '../clients/price-api/PriceApiClient';
 import type { SnapClient } from '../clients/snap/SnapClient';
@@ -6,12 +8,32 @@ import { Network } from '../constants';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { State, UnencryptedStateValue } from '../services/state/State';
 import type { TransactionScanService } from '../services/transaction-scan/TransactionScanService';
-import {
-  SimulationStatus,
-  type TransactionScanResult,
-} from '../services/transaction-scan/types';
+import type { TransactionScanResult } from '../services/transaction-scan/types';
+import { SimulationStatus } from '../services/transaction-scan/types';
 import type { ConfirmTransactionRequestContext } from '../ui/confirmation/views/ConfirmTransactionRequest/types';
 import type { ILogger } from '../utils/logger';
+
+/* eslint-disable @typescript-eslint/naming-convention */
+const MOCK_TRANSACTION_RAW_DATA: Json = {
+  contract: [
+    {
+      type: 'TransferContract',
+      parameter: {
+        value: {
+          owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
+          to_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13d',
+          amount: 1000000,
+        },
+        type_url: 'type.googleapis.com/protocol.TransferContract',
+      },
+    },
+  ],
+  ref_block_bytes: '',
+  ref_block_hash: '',
+  expiration: 0,
+  timestamp: 0,
+};
+/* eslint-enable @typescript-eslint/naming-convention */
 
 /**
  * Subset of SnapClient methods exercised by `refreshConfirmationSend`.
@@ -58,7 +80,6 @@ function buildMockScanResult(
 ): TransactionScanResult {
   return {
     status: 'SUCCESS',
-    simulationStatus: SimulationStatus.Completed,
     estimatedChanges: {
       assets: [
         {
@@ -74,6 +95,7 @@ function buildMockScanResult(
     },
     validation: { type: 'Benign', reason: null },
     error: null,
+    simulationStatus: SimulationStatus.Completed,
     ...overrides,
   };
 }
@@ -121,26 +143,7 @@ function buildMockInterfaceContext(
     tokenPricesFetchStatus: 'fetched',
     scan: null,
     scanFetchStatus: 'initial',
-
-    transactionRawData: {
-      contract: [
-        {
-          type: 'TransferContract',
-          parameter: {
-            type_url: 'type.googleapis.com/protocol.TransferContract', // eslint-disable-line @typescript-eslint/naming-convention
-            value: {
-              owner_address: '41a2155e688b2baebdfdacd073ba79f5b22946aacf', // eslint-disable-line @typescript-eslint/naming-convention
-              to_address: '4132f9c0c487f21716b7a8f12906b752889902655', // eslint-disable-line @typescript-eslint/naming-convention
-              amount: 1000000,
-            },
-          },
-        },
-      ],
-      ref_block_bytes: '', // eslint-disable-line @typescript-eslint/naming-convention
-      ref_block_hash: '', // eslint-disable-line @typescript-eslint/naming-convention
-      expiration: 0,
-      timestamp: 0,
-    } as any,
+    transactionRawData: MOCK_TRANSACTION_RAW_DATA,
     accountType: 'tron:eoa',
     ...overrides,
   };

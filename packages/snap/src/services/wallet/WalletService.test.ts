@@ -32,6 +32,28 @@ function toHex(str: string): string {
   return bytesToHex(stringToBytes(str)).slice(2);
 }
 
+/* eslint-disable @typescript-eslint/naming-convention */
+const WELL_FORMED_DESERIALIZED_TRANSACTION = {
+  contract: [
+    {
+      type: 'TransferContract',
+      parameter: {
+        value: {
+          owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
+          to_address: '4191bba2f3f6e1c4d5c8e8f5b6a7c8d9e0f1a2b3c4',
+          amount: 1000000,
+        },
+        type_url: 'type.googleapis.com/protocol.TransferContract',
+      },
+    },
+  ],
+  ref_block_bytes: '',
+  ref_block_hash: '',
+  expiration: 0,
+  timestamp: 0,
+};
+/* eslint-enable @typescript-eslint/naming-convention */
+
 describe('WalletService', () => {
   const mockTronKeypair = {
     privateKeyBytes: new Uint8Array(32),
@@ -67,24 +89,9 @@ describe('WalletService', () => {
       },
       utils: {
         deserializeTx: {
-          deserializeTransaction: jest.fn().mockReturnValue({
-            contract: [
-              {
-                type: 'TransferContract',
-                parameter: {
-                  // eslint-disable-next-line @typescript-eslint/naming-convention
-                  type_url: 'type.googleapis.com/protocol.TransferContract',
-                  value: {
-                    // eslint-disable-next-line @typescript-eslint/naming-convention
-                    owner_address: '41abcdef',
-                    // eslint-disable-next-line @typescript-eslint/naming-convention
-                    to_address: '41123456',
-                    amount: 1000000,
-                  },
-                },
-              },
-            ],
-          }),
+          deserializeTransaction: jest
+            .fn()
+            .mockReturnValue(WELL_FORMED_DESERIALIZED_TRANSACTION),
         },
       },
       isAddress: jest.fn().mockReturnValue(true),
