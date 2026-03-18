@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Stop mapping incoming/received transactions to prevent address poisoning attacks ([#240](https://github.com/MetaMask/snap-tron-wallet/pull/240))
+
 ## [1.24.0]
 
 ### Added
@@ -14,10 +18,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implement `claimUnstakedTrx` client request method ([#231](https://github.com/MetaMask/snap-tron-wallet/pull/231))
 - Implement `claimTrxStakingRewards` client request method ([#232](https://github.com/MetaMask/snap-tron-wallet/pull/232))
 - Add confirmation dialog to `claimUnstakedTrx` method ([#236](https://github.com/MetaMask/snap-tron-wallet/pull/236))
-
-### Changed
-
-- Stop mapping incoming/received transactions to prevent address poisoning attacks ([#240](https://github.com/MetaMask/snap-tron-wallet/pull/240))
 
 ### Fixed
 
