@@ -12,7 +12,7 @@ import {
   SimulationStatus,
   type TransactionScanResult,
 } from '../../../../services/transaction-scan/types';
-import type { Preferences } from '../../../../types/snap';
+import { FetchStatus, type Preferences } from '../../../../types/snap';
 
 // Mock the context module
 jest.mock('../../../../context', () => ({
@@ -283,11 +283,11 @@ describe('ConfirmTransactionRequest render', () => {
     );
   });
 
-  it('handles security scan failure gracefully', async () => {
+  it('handles security scan fetch error gracefully', async () => {
     await withRender(
       async ({ callRender, mockSnapClient, mockTransactionScanService }) => {
         mockTransactionScanService.scanTransaction.mockRejectedValue(
-          new Error('Scan failed'),
+          new Error('Failed to reach Security Alerts API'),
         );
 
         await callRender();
@@ -297,8 +297,8 @@ describe('ConfirmTransactionRequest render', () => {
 
         const updateCall = mockSnapClient.updateInterfaceIfExists.mock.calls[0];
         const contextArg = updateCall?.[2] as any;
-        expect(contextArg?.scanFetchStatus).toBe('error');
-        expect(contextArg?.scan).toBeNull();
+        expect(contextArg?.securityScan?.status).toBe(FetchStatus.Error);
+        expect(contextArg?.securityScan?.result).toBeNull();
       },
     );
   });

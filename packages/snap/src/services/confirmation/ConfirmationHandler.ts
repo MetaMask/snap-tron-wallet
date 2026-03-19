@@ -9,6 +9,7 @@ import type { TronKeyringAccount } from '../../entities';
 import type { AssetEntity } from '../../entities/assets';
 import { TronMultichainMethod } from '../../handlers/keyring-types';
 import { TRX_IMAGE_SVG } from '../../static/tron-logo';
+import { FetchStatus } from '../../types/snap';
 import { getIconUrlForKnownAsset } from '../../ui/confirmation/utils/getIconUrlForKnownAsset';
 import { render as renderConfirmSignMessage } from '../../ui/confirmation/views/ConfirmSignMessage/render';
 import { ConfirmSignTransaction } from '../../ui/confirmation/views/ConfirmSignTransaction/ConfirmSignTransaction';
@@ -252,12 +253,14 @@ export class ConfirmationHandler {
       origin: 'MetaMask',
       preferences,
       networkImage: TRX_IMAGE_SVG,
-      scan: null,
-      scanFetchStatus: 'fetched',
+      securityScan: {
+        status: FetchStatus.Fetched,
+        result: null,
+      },
       tokenPrices: {},
-      tokenPricesFetchStatus: 'fetched',
+      tokenPricesFetchStatus: FetchStatus.Fetched,
       fees,
-      feesFetchStatus: 'fetched',
+      feesFetchStatus: FetchStatus.Fetched,
     };
 
     const ui = ConfirmSignTransaction({ context });

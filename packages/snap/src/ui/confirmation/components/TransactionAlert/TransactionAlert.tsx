@@ -14,7 +14,7 @@ import type {
   TransactionScanError,
   TransactionScanValidation,
 } from '../../../../services/transaction-scan/types';
-import type { FetchStatus, Preferences } from '../../../../types/snap';
+import { FetchStatus, type Preferences } from '../../../../types/snap';
 import { i18n } from '../../../../utils/i18n';
 
 export type TransactionAlertProps = {
@@ -42,10 +42,7 @@ export const TransactionAlert = ({
 }: TransactionAlertProps): ComponentOrElement => {
   const translate = i18n(preferences.locale);
 
-  /**
-   * Display a loading skeleton while fetching.
-   */
-  if (scanFetchStatus === 'fetching') {
+  if (scanFetchStatus === FetchStatus.Fetching) {
     return (
       <Box>
         <Skeleton height="40px" />
@@ -53,61 +50,23 @@ export const TransactionAlert = ({
     );
   }
 
-  /**
-   * Displays a warning banner if the transaction scan fails.
-   */
-  if (scanFetchStatus === 'error') {
+  if (scanFetchStatus === FetchStatus.Error) {
     return (
       <Banner
-        title={translate('confirmation.simulationTitleAPIError')}
-        severity="danger"
-      >
-        <SnapText>
-          {translate('confirmation.simulationMessageAPIError')}
-        </SnapText>
-      </Banner>
-    );
-  }
-
-  /**
-   * Displays nothing if there is no error or validation.
-   */
-  if (!error && !validation) {
-    return <Box>{null}</Box>;
-  }
-
-  /**
-   * Displays a warning banner if the transaction scan has an error.
-   */
-  if (error) {
-    return (
-      <Banner
-        title={translate('confirmation.simulationErrorTitle')}
+        title={translate('confirmation.simulationFetchErrorTitle')}
         severity="warning"
       >
         <SnapText>
-          {translate('confirmation.simulationErrorSubtitle', {
-            reason: getErrorMessage(error, preferences),
-          })}
+          {translate('confirmation.simulationFetchErrorSubtitle')}
         </SnapText>
       </Banner>
     );
-  }
-
-  /**
-   * Displays nothing if there is no validation.
-   */
-  if (!validation) {
-    return <Box>{null}</Box>;
   }
 
   const severity = validation?.type
     ? VALIDATION_TYPE_TO_SEVERITY[validation.type]
     : undefined;
 
-  /**
-   * Displays a banner if the validation there is a validation.
-   */
   if (severity) {
     return (
       <Banner
@@ -129,8 +88,20 @@ export const TransactionAlert = ({
     );
   }
 
-  /**
-   * Displays nothing by default.
-   */
+  if (error) {
+    return (
+      <Banner
+        title={translate('confirmation.simulationErrorTitle')}
+        severity="warning"
+      >
+        <SnapText>
+          {translate('confirmation.simulationErrorSubtitle', {
+            reason: getErrorMessage(error, preferences),
+          })}
+        </SnapText>
+      </Banner>
+    );
+  }
+
   return <Box>{null}</Box>;
 };

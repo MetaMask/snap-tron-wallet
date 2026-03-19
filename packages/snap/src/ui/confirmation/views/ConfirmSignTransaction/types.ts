@@ -17,8 +17,10 @@ export type ConfirmSignTransactionContext = {
   origin: string;
   preferences: Preferences;
   networkImage: string;
-  scan: TransactionScanResult | null;
-  scanFetchStatus: FetchStatus;
+  securityScan: {
+    status: FetchStatus;
+    result: TransactionScanResult | null;
+  };
   tokenPrices: SpotPrices;
   tokenPricesFetchStatus: FetchStatus;
   fees: ComputeFeeResult;

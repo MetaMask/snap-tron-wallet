@@ -4,7 +4,7 @@ import type { Types } from 'tronweb';
 import type { TransactionScanResult, TransactionScanValidation } from './types';
 import { ScanStatus, SecurityAlertResponse, SimulationStatus } from './types';
 import { SecurityAlertsApiClient } from '../../clients/security-alerts-api/SecurityAlertsApiClient';
-import type { SecurityAlertSimulationValidationResponse } from '../../clients/security-alerts-api/types';
+import type { SecurityAlertSimulationValidationResponse } from '../../clients/security-alerts-api/structs';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { Network } from '../../constants';
 import type { TronKeyringAccount } from '../../entities';
@@ -41,7 +41,7 @@ export class TransactionScanService {
    * @param params.scope - The network scope.
    * @param params.options - The options for the scan (simulation, validation).
    * @param params.account - The account for analytics tracking.
-   * @returns The result of the scan, or null if the scan failed.
+   * @returns The result of the scan.
    */
   async scanTransaction({
     accountAddress,
@@ -57,7 +57,7 @@ export class TransactionScanService {
     scope: Network;
     options?: string[] | undefined;
     account?: TronKeyringAccount;
-  }): Promise<TransactionScanResult | null> {
+  }): Promise<TransactionScanResult> {
     if (!isTransactionWellFormed(transactionRawData)) {
       this.#logger.warn(
         'Malformed transaction: Tron transactions must contain exactly one contract',
@@ -99,24 +99,8 @@ export class TransactionScanService {
       });
 
       const scan = this.#mapScan(result);
-
-      if (!scan?.status) {
-        this.#logger.warn(
-          'Invalid scan result received from security alerts API',
-        );
-
-        // Track error if account is provided
-        if (account) {
-          await this.#snapClient.trackSecurityScanCompleted({
-            origin,
-            accountType: account.type,
-            chainIdCaip: scope,
-            scanStatus: ScanStatus.ERROR,
-            hasSecurityAlerts: false,
-          });
-        }
-
-        return null;
+      if (!scan) {
+        throw new Error('Invalid response from Security Alerts API');
       }
 
       // Track security scan completion
@@ -133,7 +117,6 @@ export class TransactionScanService {
           scan.validation.type !== SecurityAlertResponse.Benign,
         );
 
-        // Track scan completed
         await this.#snapClient.trackSecurityScanCompleted({
           origin,
           accountType: account.type,
@@ -142,7 +125,6 @@ export class TransactionScanService {
           hasSecurityAlerts: hasSecurityAlert,
         });
 
-        // Track security alert if detected
         if (hasSecurityAlert) {
           const isValidSecurityAlertType = Object.values(
             SecurityAlertResponse,
@@ -168,7 +150,6 @@ export class TransactionScanService {
     } catch (error) {
       this.#logger.error(error);
 
-      // Track error if account is provided
       if (account) {
         await this.#snapClient.trackSecurityScanCompleted({
           origin,
@@ -179,7 +160,7 @@ export class TransactionScanService {
         });
       }
 
-      return null;
+      throw error;
     }
   }
 
@@ -225,8 +206,6 @@ export class TransactionScanService {
       return null;
     }
 
-    // Determine status: ERROR only if explicitly marked as Error
-    // SUCCESS if either is Success or if statuses are missing
     const apiSimulationStatus = result.simulation?.status;
     const apiValidationStatus = result.validation?.status;
 
@@ -235,13 +214,17 @@ export class TransactionScanService {
         ? 'ERROR'
         : 'SUCCESS';
 
+    const errorDetails = result.simulation?.error_details;
+    const errorCode =
+      errorDetails && 'code' in errorDetails ? errorDetails.code : null;
+    const errorType =
+      errorDetails && 'type' in errorDetails ? errorDetails.type : null;
+
     return {
       status,
       estimatedChanges: {
         assets:
           result.simulation?.account_summary?.assets_diffs
-            // Filter out assets without a displayable value (e.g., NONERC tokens
-            // that only have raw_value but no human-readable value from the API)
             ?.filter((asset) => {
               const inChange = asset.in?.[0];
               const outChange = asset.out?.[0];
@@ -249,23 +232,15 @@ export class TransactionScanService {
               return change?.value !== undefined;
             })
             .map((asset) => {
-              // Get the first in/out change value (arrays now)
               const inChange = asset.in?.[0];
               const outChange = asset.out?.[0];
               const change = inChange ?? outChange;
 
               return {
                 type: inChange ? ('in' as const) : ('out' as const),
-                symbol:
-                  'symbol' in asset.asset
-                    ? asset.asset.symbol
-                    : asset.asset_type,
-                name:
-                  'name' in asset.asset ? asset.asset.name : asset.asset_type,
-                logo:
-                  'logo_url' in asset.asset
-                    ? (asset.asset.logo_url ?? null)
-                    : null,
+                symbol: asset.asset.symbol ?? asset.asset_type,
+                name: asset.asset.name ?? asset.asset_type,
+                logo: asset.asset.logo_url ?? null,
                 value: change?.value ?? '0',
                 price: change?.usd_price ?? null,
                 assetType: asset.asset_type,
@@ -279,15 +254,12 @@ export class TransactionScanService {
       error:
         result.simulation?.error || result.simulation?.error_details
           ? {
-              type: result.simulation?.error_details?.type ?? null,
-              code: result.simulation?.error_details?.code ?? null,
+              type: errorType ?? null,
+              code: errorCode ?? null,
               message: result.simulation?.error ?? null,
             }
           : null,
-      simulationStatus:
-        status === 'ERROR'
-          ? SimulationStatus.Failed
-          : SimulationStatus.Completed,
+      simulationStatus: SimulationStatus.Completed,
     };
   }
 }

@@ -5,7 +5,7 @@ import {
   SimulationStatus,
   type TransactionScanResult,
 } from '../../../../services/transaction-scan/types';
-import type { Preferences } from '../../../../types/snap';
+import { FetchStatus, type Preferences } from '../../../../types/snap';
 
 // Mock i18n
 jest.mock('../../../../utils/i18n', () => ({
@@ -75,9 +75,11 @@ describe('ConfirmTransactionRequest', () => {
     preferences: mockPreferences,
     networkImage: '',
     tokenPrices: {},
-    tokenPricesFetchStatus: 'fetched',
-    scan: mockScanResult,
-    scanFetchStatus: 'fetched',
+    tokenPricesFetchStatus: FetchStatus.Fetched,
+    securityScan: {
+      status: FetchStatus.Fetched,
+      result: mockScanResult,
+    },
     transactionRawData: null,
     accountType: 'tron:eoa',
   };
@@ -96,7 +98,7 @@ describe('ConfirmTransactionRequest', () => {
     );
   });
 
-  it('renders without TransactionAlert when useSecurityAlerts is false', () => {
+  it('renders without TransactionAlert when useSecurityAlerts is false and scan is benign', () => {
     const context: ConfirmTransactionRequestContext = {
       ...baseContext,
       preferences: {
@@ -107,6 +109,33 @@ describe('ConfirmTransactionRequest', () => {
 
     const result = ConfirmTransactionRequest({ context });
     expect(result).toBeDefined();
+  });
+
+  it('shows TransactionAlert for Malicious validation when useSecurityAlerts is false', () => {
+    const maliciousScan: TransactionScanResult = {
+      ...mockScanResult,
+      validation: {
+        type: 'Malicious',
+        reason: 'known_attacker',
+      },
+    };
+
+    const context: ConfirmTransactionRequestContext = {
+      ...baseContext,
+      preferences: {
+        ...mockPreferences,
+        useSecurityAlerts: false,
+      },
+      securityScan: {
+        status: FetchStatus.Fetched,
+        result: maliciousScan,
+      },
+    };
+
+    const result = ConfirmTransactionRequest({ context });
+    const serialized = JSON.stringify(result);
+    expect(serialized).toContain('confirmation.validationErrorTitle');
+    expect(serialized).toContain('"severity":"danger"');
   });
 
   it('renders EstimatedChanges when simulateOnChainActions is true', () => {
@@ -136,8 +165,10 @@ describe('ConfirmTransactionRequest', () => {
   it('disables confirm button when scanFetchStatus is fetching', () => {
     const context: ConfirmTransactionRequestContext = {
       ...baseContext,
-      scanFetchStatus: 'fetching',
-      scan: null,
+      securityScan: {
+        status: FetchStatus.Fetching,
+        result: null,
+      },
     };
 
     const result = ConfirmTransactionRequest({ context });
@@ -147,24 +178,71 @@ describe('ConfirmTransactionRequest', () => {
     expect(serialized).toContain('"disabled":true');
   });
 
-  it('disables confirm button when scan status is ERROR', () => {
+  it('enables confirm button when scan status is ERROR (non-blocking)', () => {
     const errorScanResult: TransactionScanResult = {
       ...mockScanResult,
       status: 'ERROR',
-      simulationStatus: SimulationStatus.Failed,
+      simulationStatus: SimulationStatus.Completed,
     };
 
     const context: ConfirmTransactionRequestContext = {
       ...baseContext,
-      scan: errorScanResult,
-      scanFetchStatus: 'fetched',
+      securityScan: {
+        status: FetchStatus.Fetched,
+        result: errorScanResult,
+      },
     };
 
     const result = ConfirmTransactionRequest({ context });
     const serialized = JSON.stringify(result);
 
-    // The confirm button should have disabled=true
+    expect(serialized).not.toContain('"disabled":true');
+  });
+
+  it('disables confirm button when validation is Malicious', () => {
+    const maliciousScan: TransactionScanResult = {
+      ...mockScanResult,
+      validation: {
+        type: 'Malicious',
+        reason: 'known_attacker',
+      },
+    };
+
+    const context: ConfirmTransactionRequestContext = {
+      ...baseContext,
+      securityScan: {
+        status: FetchStatus.Fetched,
+        result: maliciousScan,
+      },
+    };
+
+    const result = ConfirmTransactionRequest({ context });
+    const serialized = JSON.stringify(result);
+
     expect(serialized).toContain('"disabled":true');
+  });
+
+  it('enables confirm button when validation is Warning (non-blocking)', () => {
+    const warningScan: TransactionScanResult = {
+      ...mockScanResult,
+      validation: {
+        type: 'Warning',
+        reason: 'unfair_trade',
+      },
+    };
+
+    const context: ConfirmTransactionRequestContext = {
+      ...baseContext,
+      securityScan: {
+        status: FetchStatus.Fetched,
+        result: warningScan,
+      },
+    };
+
+    const result = ConfirmTransactionRequest({ context });
+    const serialized = JSON.stringify(result);
+
+    expect(serialized).not.toContain('"disabled":true');
   });
 
   it('enables confirm button when scan is successful', () => {
@@ -180,8 +258,10 @@ describe('ConfirmTransactionRequest', () => {
   it('renders with scan error state', () => {
     const context: ConfirmTransactionRequestContext = {
       ...baseContext,
-      scan: null,
-      scanFetchStatus: 'error',
+      securityScan: {
+        status: FetchStatus.Error,
+        result: null,
+      },
     };
 
     const result = ConfirmTransactionRequest({ context });
@@ -199,7 +279,10 @@ describe('ConfirmTransactionRequest', () => {
 
     const context: ConfirmTransactionRequestContext = {
       ...baseContext,
-      scan: maliciousScanResult,
+      securityScan: {
+        ...baseContext.securityScan,
+        result: maliciousScanResult,
+      },
     };
 
     const result = ConfirmTransactionRequest({ context });

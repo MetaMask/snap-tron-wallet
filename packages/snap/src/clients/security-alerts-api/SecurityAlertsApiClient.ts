@@ -1,8 +1,12 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 
+import { assert } from '@metamask/superstruct';
 import { Types } from 'tronweb';
 
-import type { SecurityAlertSimulationValidationResponse } from './types';
+import {
+  SecurityAlertResponseStruct,
+  type SecurityAlertSimulationValidationResponse,
+} from './structs';
 import { extractScanParametersFromTransactionData } from './utils';
 import type { ConfigProvider } from '../../services/config';
 import logger, { createPrefixedLogger, type ILogger } from '../../utils/logger';
@@ -132,6 +136,8 @@ export class SecurityAlertsApiClient {
         `Security Alerts API error: ${response.status} - ${JSON.stringify(data)}`,
       );
     }
+
+    assert(data, SecurityAlertResponseStruct);
 
     return data;
   }

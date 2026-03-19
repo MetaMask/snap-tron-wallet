@@ -9,6 +9,7 @@ import type { TronKeyringAccount } from '../entities';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { State, UnencryptedStateValue } from '../services/state/State';
 import type { TransactionScanService } from '../services/transaction-scan/TransactionScanService';
+import { FetchStatus } from '../types/snap';
 import { ConfirmSignTransaction } from '../ui/confirmation/views/ConfirmSignTransaction/ConfirmSignTransaction';
 import {
   CONFIRM_SIGN_TRANSACTION_INTERFACE_NAME,
@@ -242,7 +243,7 @@ export class CronHandler {
       // First, update UI to show loading skeletons (Solana pattern)
       const fetchingContext: ConfirmTransactionRequestContext = {
         ...interfaceContext,
-        tokenPricesFetchStatus: 'fetching' as const,
+        tokenPricesFetchStatus: FetchStatus.Fetching,
       };
 
       // Update interface (silently ignores if interface was dismissed)
@@ -285,7 +286,7 @@ export class CronHandler {
       const updatedContext: ConfirmTransactionRequestContext = {
         ...latestContext,
         tokenPrices: prices,
-        tokenPricesFetchStatus: 'fetched' as const,
+        tokenPricesFetchStatus: FetchStatus.Fetched,
       };
 
       // Update the interface with new UI and context (silently ignores if dismissed)
@@ -314,7 +315,7 @@ export class CronHandler {
       if (currentContext) {
         const errorContext: ConfirmTransactionRequestContext = {
           ...currentContext,
-          tokenPricesFetchStatus: 'error' as const,
+          tokenPricesFetchStatus: FetchStatus.Error,
         };
 
         await this.#snapClient.updateInterfaceIfExists(
@@ -398,7 +399,10 @@ export class CronHandler {
       // Update UI to show fetching state for scan
       const fetchingContext: ConfirmTransactionRequestContext = {
         ...interfaceContext,
-        scanFetchStatus: 'fetching',
+        securityScan: {
+          ...interfaceContext.securityScan,
+          status: FetchStatus.Fetching,
+        },
       };
 
       // Update interface (silently ignores if interface was dismissed)
@@ -421,25 +425,15 @@ export class CronHandler {
         address: fromAddress,
       } as TronKeyringAccount;
 
-      let { scan } = interfaceContext;
-      let { scanFetchStatus } = interfaceContext;
-
-      try {
-        scan = await this.#transactionScanService.scanTransaction({
-          accountAddress: fromAddress,
-          transactionRawData,
-          origin,
-          scope,
-          options,
-          account: scanAccount,
-        });
-        scanFetchStatus = scan ? 'fetched' : 'error';
-        this.#logger.info('Successfully refreshed send confirmation scan');
-      } catch (error) {
-        this.#logger.error('Error refreshing send confirmation scan:', error);
-        scan = null;
-        scanFetchStatus = 'error';
-      }
+      const scan = await this.#transactionScanService.scanTransaction({
+        accountAddress: fromAddress,
+        transactionRawData,
+        origin,
+        scope,
+        options,
+        account: scanAccount,
+      });
+      this.#logger.info('Successfully refreshed send confirmation scan');
 
       // Get the latest context (returns null if dismissed during scan)
       const latestContext =
@@ -460,8 +454,7 @@ export class CronHandler {
       // Update with scan results
       const updatedContext: ConfirmTransactionRequestContext = {
         ...latestContext,
-        scan,
-        scanFetchStatus,
+        securityScan: { status: FetchStatus.Fetched, result: scan },
       };
 
       // Update the interface with new UI and context (silently ignores if dismissed)
@@ -473,11 +466,17 @@ export class CronHandler {
 
       this.#logger.info('Successfully refreshed send confirmation');
 
-      // Schedule the next refresh (20 seconds matching Solana pattern)
-      await this.#snapClient.scheduleBackgroundEvent({
-        method: BackgroundEventMethod.RefreshConfirmationSend,
-        duration: 'PT20S',
-      });
+      try {
+        await this.#snapClient.scheduleBackgroundEvent({
+          method: BackgroundEventMethod.RefreshConfirmationSend,
+          duration: 'PT20S',
+        });
+      } catch (scheduleError) {
+        this.#logger.error(
+          'Failed to schedule next send confirmation refresh:',
+          scheduleError,
+        );
+      }
     } catch (error) {
       this.#logger.error('Error refreshing send confirmation:', error);
 
@@ -490,7 +489,10 @@ export class CronHandler {
       if (currentContext) {
         const errorContext: ConfirmTransactionRequestContext = {
           ...currentContext,
-          scanFetchStatus: 'error',
+          securityScan: {
+            status: FetchStatus.Error,
+            result: null,
+          },
         };
 
         await this.#snapClient.updateInterfaceIfExists(
@@ -572,9 +574,12 @@ export class CronHandler {
       // Update UI to show fetching state for scan
       const fetchingContext: ConfirmSignTransactionContext = {
         ...interfaceContext,
-        scanFetchStatus: shouldRefreshScan
-          ? 'fetching'
-          : interfaceContext.scanFetchStatus,
+        securityScan: {
+          ...interfaceContext.securityScan,
+          status: shouldRefreshScan
+            ? FetchStatus.Fetching
+            : interfaceContext.securityScan.status,
+        },
       };
 
       // Update interface (silently ignores if interface was dismissed)
@@ -585,7 +590,8 @@ export class CronHandler {
       );
 
       // Perform security scan if enabled
-      let { scan, scanFetchStatus } = interfaceContext;
+      let scan = interfaceContext.securityScan.result;
+      let scanFetchStatus = interfaceContext.securityScan.status;
 
       if (shouldRefreshScan) {
         // Build options based on preferences
@@ -612,12 +618,11 @@ export class CronHandler {
             options,
             account,
           });
-          scanFetchStatus = scan ? 'fetched' : 'error';
+          scanFetchStatus = FetchStatus.Fetched;
           this.#logger.info('Successfully refreshed signTransaction scan');
-        } catch (error) {
-          this.#logger.error('Error refreshing signTransaction scan:', error);
+        } catch {
           scan = null;
-          scanFetchStatus = 'error';
+          scanFetchStatus = FetchStatus.Error;
         }
       }
 
@@ -640,8 +645,7 @@ export class CronHandler {
       // Update with scan results
       const updatedContext: ConfirmSignTransactionContext = {
         ...latestContext,
-        scan,
-        scanFetchStatus,
+        securityScan: { status: scanFetchStatus, result: scan },
       };
 
       // Update interface (silently ignores if interface was dismissed)
@@ -653,11 +657,17 @@ export class CronHandler {
 
       this.#logger.info('Successfully refreshed signTransaction confirmation');
 
-      // Schedule the next refresh (20 seconds like Solana)
-      await this.#snapClient.scheduleBackgroundEvent({
-        method: BackgroundEventMethod.RefreshSignTransaction,
-        duration: 'PT20S',
-      });
+      try {
+        await this.#snapClient.scheduleBackgroundEvent({
+          method: BackgroundEventMethod.RefreshSignTransaction,
+          duration: 'PT20S',
+        });
+      } catch (scheduleError) {
+        this.#logger.error(
+          'Failed to schedule next signTransaction confirmation refresh:',
+          scheduleError,
+        );
+      }
     } catch (error) {
       this.#logger.error('Error refreshing signTransaction:', error);
 
@@ -670,9 +680,9 @@ export class CronHandler {
       if (currentContext) {
         const errorContext: ConfirmSignTransactionContext = {
           ...currentContext,
-          scanFetchStatus: shouldRefreshScan
-            ? 'error'
-            : currentContext.scanFetchStatus,
+          securityScan: shouldRefreshScan
+            ? { status: FetchStatus.Error, result: null }
+            : currentContext.securityScan,
         };
 
         await this.#snapClient.updateInterfaceIfExists(

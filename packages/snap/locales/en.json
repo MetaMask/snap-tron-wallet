@@ -70,6 +70,12 @@
     "confirmation.simulationMessageAPIError": {
       "message": "Only continue if you trust every address involved."
     },
+    "confirmation.simulationFetchErrorTitle": {
+      "message": "Unable to verify transaction security"
+    },
+    "confirmation.simulationFetchErrorSubtitle": {
+      "message": "Security check unavailable. You may proceed, but exercise caution."
+    },
     "confirmation.simulationErrorTitle": {
       "message": "This transaction was reverted during simulation."
     },
