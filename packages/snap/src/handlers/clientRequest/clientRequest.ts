@@ -307,7 +307,7 @@ export class ClientRequestHandler {
     try {
       assert(request, OnAmountInputRequestStruct);
 
-      const { accountId, assetId, value } = request.params;
+      const { accountId, assetId, value, toAddress } = request.params;
 
       const account = await this.#accountsService.findById(accountId);
 
@@ -359,7 +359,7 @@ export class ClientRequestHandler {
        */
       const sendTransaction = await this.#sendService.buildTransaction({
         fromAccountId: accountId,
-        toAddress: NULL_ADDRESS,
+        toAddress: toAddress ?? NULL_ADDRESS,
         asset,
         amount: valueBN.toNumber(),
       });
