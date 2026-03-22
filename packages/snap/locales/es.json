@@ -71,10 +71,10 @@
       "message": "Solo continúe si confía en cada dirección involucrada."
     },
     "confirmation.simulationFetchErrorTitle": {
-      "message": "Unable to verify transaction security"
+      "message": "No se puede verificar la seguridad de la transacción"
     },
     "confirmation.simulationFetchErrorSubtitle": {
-      "message": "Security check unavailable. You may proceed, but exercise caution."
+      "message": "Verificación de seguridad no disponible. Puede continuar, pero proceda con cautela."
     },
     "confirmation.simulationErrorTitle": {
       "message": "Esta transacción se revirtió durante la simulación."
