@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Remove snap-side confirmation dialog for `claimUnstakedTrx` (confirmation handled by the extension)
+- Remove snap-side confirmation dialog for `claimUnstakedTrx` (confirmation handled by the extension) ([#256](https://github.com/MetaMask/snap-tron-wallet/pull/256))
 
 ### Fixed
 
