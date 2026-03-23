@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Supported transactions are those single-contract interaction transactions of the following types: `TransferContract`, `CreateSmartContract`, `TriggerSmartContract`.
   - Unsupported transactions will show empty estimated changes and allow the user to proceed without blocking the confirmation.
 - Correctly fetch and return staking rewards ([#242](https://github.com/MetaMask/snap-tron-wallet/pull/242))
-- Allow users to always proceed with transactions by default; only block when Security Alerts API validation explicitly detects a malicious transaction ([#244](https://github.com/MetaMask/snap-tron-wallet/pull/244))
+- Allow users to always proceed with transactions by default; only block when Security Alerts API validation explicitly detects a malicious transaction ([#248](https://github.com/MetaMask/snap-tron-wallet/pull/248))
 
 ## [1.24.0]
 
