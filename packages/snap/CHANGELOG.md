@@ -9,12 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Security scan requests now send extracted transaction fields (`from`, `to`, `data`, `value`) to the Security Alerts API instead of full raw transaction data; confirmation contexts store `scanParameters` for background refresh.
+- Security scan requests now send extracted transaction fields (`from`, `to`, `data`, `value`) to the Security Alerts API instead of full raw transaction data; confirmation contexts store `scanParameters` for background refresh ([#255](https://github.com/MetaMask/snap-tron-wallet/pull/255))
 
 ### Fixed
 
-- Removed client-side transaction structure assertions and contract-type gating that could reject or skip scanning for otherwise valid transactions; the API owns validation of scan payloads.
-- Removed `SimulationStatus` from scan results and the confirmation UI; confirm is disabled while a scan is in flight or when the scan result status is `ERROR`.
+- Removed client-side transaction structure assertions and contract-type gating that could reject or skip scanning for otherwise valid transactions; the API owns validation of scan payloads ([#255](https://github.com/MetaMask/snap-tron-wallet/pull/255))
+- Removed `SimulationStatus` from scan results and the confirmation UI; confirm is disabled while a scan is in flight or when the scan result status is `ERROR` ([#255](https://github.com/MetaMask/snap-tron-wallet/pull/255))
 - Correctly fetch and return staking rewards ([#242](https://github.com/MetaMask/snap-tron-wallet/pull/242))
 
 ## [1.24.0]
