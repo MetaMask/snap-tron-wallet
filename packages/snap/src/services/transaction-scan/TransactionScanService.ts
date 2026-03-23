@@ -111,37 +111,40 @@ export class TransactionScanService {
 
         const hasSecurityAlert = Boolean(
           scan.validation?.type &&
-          scan.validation.type !== SecurityAlertResponse.Benign,
+          scan.validation.type !== SecurityAlertResponse.Benign &&
+          scan.validation.type !== 'Error',
         );
 
-        // Track scan completed
-        await this.#snapClient.trackSecurityScanCompleted({
-          origin,
-          accountType: account.type,
-          chainIdCaip: scope,
-          scanStatus,
-          hasSecurityAlerts: hasSecurityAlert,
-        });
-
-        // Track security alert if detected
-        if (hasSecurityAlert) {
-          const isValidSecurityAlertType = Object.values(
-            SecurityAlertResponse,
-          ).includes(scan.validation.type as SecurityAlertResponse);
-          const securityAlertType = isValidSecurityAlertType
-            ? (scan.validation.type as SecurityAlertResponse)
-            : SecurityAlertResponse.Warning;
-
-          await this.#snapClient.trackSecurityAlertDetected({
+        try {
+          await this.#snapClient.trackSecurityScanCompleted({
             origin,
             accountType: account.type,
             chainIdCaip: scope,
-            securityAlertResponse: securityAlertType,
-            securityAlertReason: scan.validation.reason ?? null,
-            securityAlertDescription: this.getSecurityAlertDescription(
-              scan.validation,
-            ),
+            scanStatus,
+            hasSecurityAlerts: hasSecurityAlert,
           });
+
+          if (hasSecurityAlert) {
+            const isValidSecurityAlertType = Object.values(
+              SecurityAlertResponse,
+            ).includes(scan.validation.type as SecurityAlertResponse);
+            const securityAlertType = isValidSecurityAlertType
+              ? (scan.validation.type as SecurityAlertResponse)
+              : SecurityAlertResponse.Warning;
+
+            await this.#snapClient.trackSecurityAlertDetected({
+              origin,
+              accountType: account.type,
+              chainIdCaip: scope,
+              securityAlertResponse: securityAlertType,
+              securityAlertReason: scan.validation.reason ?? null,
+              securityAlertDescription: this.getSecurityAlertDescription(
+                scan.validation,
+              ),
+            });
+          }
+        } catch (trackingError) {
+          this.#logger.error('Failed to track security scan:', trackingError);
         }
       }
 
@@ -150,13 +153,20 @@ export class TransactionScanService {
       this.#logger.error(error);
 
       if (account) {
-        await this.#snapClient.trackSecurityScanCompleted({
-          origin,
-          accountType: account.type,
-          chainIdCaip: scope,
-          scanStatus: ScanStatus.ERROR,
-          hasSecurityAlerts: false,
-        });
+        try {
+          await this.#snapClient.trackSecurityScanCompleted({
+            origin,
+            accountType: account.type,
+            chainIdCaip: scope,
+            scanStatus: ScanStatus.ERROR,
+            hasSecurityAlerts: false,
+          });
+        } catch (trackingError) {
+          this.#logger.error(
+            'Failed to track security scan error:',
+            trackingError,
+          );
+        }
       }
 
       throw error;

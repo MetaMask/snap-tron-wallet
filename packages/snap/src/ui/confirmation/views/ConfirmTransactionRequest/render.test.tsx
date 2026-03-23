@@ -259,7 +259,7 @@ describe('ConfirmTransactionRequest render', () => {
     );
   });
 
-  it('always triggers scan even when security preferences are disabled', async () => {
+  it('skips scan when both useSecurityAlerts and simulateOnChainActions are disabled', async () => {
     await withRender(
       async ({ callRender, mockSnapClient, mockTransactionScanService }) => {
         mockSnapClient.getPreferences.mockResolvedValue({
@@ -270,15 +270,14 @@ describe('ConfirmTransactionRequest render', () => {
 
         await callRender();
 
-        expect(mockTransactionScanService.scanTransaction).toHaveBeenCalledWith(
+        expect(
+          mockTransactionScanService.scanTransaction,
+        ).not.toHaveBeenCalled();
+        expect(mockSnapClient.scheduleBackgroundEvent).not.toHaveBeenCalledWith(
           expect.objectContaining({
-            options: ['simulation'],
+            method: BackgroundEventMethod.RefreshConfirmationSend,
           }),
         );
-        expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith({
-          method: BackgroundEventMethod.RefreshConfirmationSend,
-          duration: 'PT20S',
-        });
       },
     );
   });
@@ -352,7 +351,7 @@ describe('ConfirmTransactionRequest render', () => {
     );
   });
 
-  it('includes both simulation and validation when useSecurityAlerts is true', async () => {
+  it('requests only validation when simulateOnChainActions is false but useSecurityAlerts is true', async () => {
     await withRender(
       async ({ callRender, mockSnapClient, mockTransactionScanService }) => {
         mockSnapClient.getPreferences.mockResolvedValue({
@@ -365,7 +364,7 @@ describe('ConfirmTransactionRequest render', () => {
 
         expect(mockTransactionScanService.scanTransaction).toHaveBeenCalledWith(
           expect.objectContaining({
-            options: ['simulation', 'validation'],
+            options: ['validation'],
           }),
         );
       },

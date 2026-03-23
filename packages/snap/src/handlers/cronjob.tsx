@@ -412,9 +412,10 @@ export class CronHandler {
         fetchingContext,
       );
 
-      // Always request simulation for estimated changes;
-      // conditionally add validation based on user preference
-      const options: string[] = ['simulation'];
+      const options: string[] = [];
+      if (preferences.simulateOnChainActions) {
+        options.push('simulation');
+      }
       if (preferences.useSecurityAlerts) {
         options.push('validation');
       }
@@ -466,11 +467,17 @@ export class CronHandler {
 
       this.#logger.info('Successfully refreshed send confirmation');
 
-      // Schedule the next refresh (20 seconds)
-      await this.#snapClient.scheduleBackgroundEvent({
-        method: BackgroundEventMethod.RefreshConfirmationSend,
-        duration: 'PT20S',
-      });
+      try {
+        await this.#snapClient.scheduleBackgroundEvent({
+          method: BackgroundEventMethod.RefreshConfirmationSend,
+          duration: 'PT20S',
+        });
+      } catch (scheduleError) {
+        this.#logger.error(
+          'Failed to schedule next send confirmation refresh:',
+          scheduleError,
+        );
+      }
     } catch (error) {
       this.#logger.error('Error refreshing send confirmation:', error);
 
@@ -588,8 +595,11 @@ export class CronHandler {
       let scanFetchStatus = interfaceContext.securityScan.status;
 
       if (shouldRefreshScan) {
-        // Always request simulation; conditionally add validation
-        const options: string[] = ['simulation'];
+        // Build options based on preferences
+        const options: string[] = [];
+        if (preferences.simulateOnChainActions) {
+          options.push('simulation');
+        }
         if (preferences.useSecurityAlerts) {
           options.push('validation');
         }
@@ -648,11 +658,17 @@ export class CronHandler {
 
       this.#logger.info('Successfully refreshed signTransaction confirmation');
 
-      // Schedule the next refresh (20 seconds)
-      await this.#snapClient.scheduleBackgroundEvent({
-        method: BackgroundEventMethod.RefreshSignTransaction,
-        duration: 'PT20S',
-      });
+      try {
+        await this.#snapClient.scheduleBackgroundEvent({
+          method: BackgroundEventMethod.RefreshSignTransaction,
+          duration: 'PT20S',
+        });
+      } catch (scheduleError) {
+        this.#logger.error(
+          'Failed to schedule next signTransaction confirmation refresh:',
+          scheduleError,
+        );
+      }
     } catch (error) {
       this.#logger.error('Error refreshing signTransaction:', error);
 
