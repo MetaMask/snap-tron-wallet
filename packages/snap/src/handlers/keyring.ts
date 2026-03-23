@@ -242,6 +242,10 @@ export class KeyringHandler implements Keyring {
         ? transactions.findIndex((tx) => tx.id === next)
         : 0;
 
+      if (startIndex === -1) {
+        return { data: [], next: null };
+      }
+
       // Get transactions from startIndex to startIndex + limit
       const accountTransactions = transactions.slice(
         startIndex,
@@ -472,7 +476,6 @@ export class KeyringHandler implements Keyring {
 
     await this.#snapClient.scheduleBackgroundEvent({
       method: BackgroundEventMethod.SynchronizeSelectedAccounts,
-      params: { accountIds },
       duration: 'PT1S',
     });
   }
