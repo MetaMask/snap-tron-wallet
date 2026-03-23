@@ -155,7 +155,7 @@ export async function render(
     // keep defaults
   }
 
-  const { useSecurityAlerts } = context.preferences;
+  const { useSecurityAlerts, simulateOnChainActions } = context.preferences;
 
   /**
    * Resolve icon URLs for fee assets from known asset metadata.
@@ -186,11 +186,13 @@ export async function render(
     id,
   );
 
-  // 3. Perform security scan (always needed for estimated changes simulation)
-  if (transactionScanService) {
-    // Always request simulation for estimated changes;
-    // conditionally add validation based on user preference
-    const options: string[] = ['simulation'];
+  // 3. Perform security scan when at least one scan option is enabled
+  if (transactionScanService && (useSecurityAlerts || simulateOnChainActions)) {
+    const options: string[] = [];
+
+    if (simulateOnChainActions) {
+      options.push('simulation');
+    }
 
     if (useSecurityAlerts) {
       options.push('validation');
@@ -250,7 +252,7 @@ export async function render(
   }
 
   // Schedule security scan background refresh (every 20 seconds)
-  if (transactionScanService) {
+  if (transactionScanService && (useSecurityAlerts || simulateOnChainActions)) {
     await snapClient.scheduleBackgroundEvent({
       method: BackgroundEventMethod.RefreshConfirmationSend,
       duration: 'PT20S',

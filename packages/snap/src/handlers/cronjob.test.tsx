@@ -409,6 +409,21 @@ describe('CronHandler', () => {
       );
     });
 
+    it('keeps successful scan state when scheduling next refresh fails', async () => {
+      await withCronHandler(async ({ cronHandler, mockSnapClient }) => {
+        mockSnapClient.scheduleBackgroundEvent.mockRejectedValue(
+          new Error('schedule failed'),
+        );
+
+        await cronHandler.refreshConfirmationSend();
+
+        const updates = mockSnapClient.updateInterfaceIfExists.mock.calls;
+        const lastContext = updates[updates.length - 1]?.[2] as any;
+        expect(lastContext?.securityScan?.status).toBe(FetchStatus.Fetched);
+        expect(lastContext?.securityScan?.result).not.toBeNull();
+      });
+    });
+
     it('exits gracefully when interface closes during refresh', async () => {
       const context = buildMockInterfaceContext();
       await withCronHandler(
