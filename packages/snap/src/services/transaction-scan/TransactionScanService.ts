@@ -259,6 +259,10 @@ export class TransactionScanService {
               message: result.simulation?.error ?? null,
             }
           : null,
+      // Always Completed here: API-level errors cause scanTransaction to throw
+      // rather than return a result, so every value that reaches this return
+      // path is a successful simulation response. SimulationStatus.Failed is
+      // reserved for the malformed-transaction early-return above.
       simulationStatus: SimulationStatus.Completed,
     };
   }

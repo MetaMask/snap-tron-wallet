@@ -55,7 +55,7 @@ export const ConfirmSignTransaction = ({
   return (
     <Container>
       <Box>
-        {/* Security Alert — show when alerts are on, or when Malicious blocks confirm */}
+        {/* Security Alert — show when alerts are on, or always when Malicious (to surface the block reason) */}
         {preferences.useSecurityAlerts ||
         securityScanResult?.validation?.type ===
           SecurityAlertResponse.Malicious ? (
