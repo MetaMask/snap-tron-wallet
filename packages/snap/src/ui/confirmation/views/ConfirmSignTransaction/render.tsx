@@ -26,8 +26,10 @@ export const DEFAULT_CONTEXT: ConfirmSignTransactionContext = {
   },
   origin: '',
   networkImage: TRX_IMAGE_SVG,
-  scan: null,
-  scanFetchStatus: FetchStatus.Initial,
+  securityScan: {
+    status: FetchStatus.Initial,
+    result: null,
+  },
   tokenPrices: {},
   tokenPricesFetchStatus: FetchStatus.Initial,
   fees: [],
@@ -77,7 +79,10 @@ export async function render(
     account,
     transaction,
     origin: origin ?? 'Unknown',
-    scanFetchStatus: FetchStatus.Fetching,
+    securityScan: {
+      status: FetchStatus.Fetching,
+      result: null,
+    },
     tokenPricesFetchStatus: FetchStatus.Initial,
     feesFetchStatus: FetchStatus.Initial,
   };
@@ -191,13 +196,12 @@ export async function render(
         origin,
         scope: scope as Network,
         options,
+        account,
       });
 
-      context.scan = scan;
-      context.scanFetchStatus = scan ? FetchStatus.Fetched : FetchStatus.Error;
+      context.securityScan = { status: FetchStatus.Fetched, result: scan };
     } catch {
-      context.scan = null;
-      context.scanFetchStatus = FetchStatus.Error;
+      context.securityScan = { status: FetchStatus.Error, result: null };
     }
 
     // Ensure interface ID is stored before updating
@@ -220,8 +224,10 @@ export async function render(
       duration: 'PT20S',
     });
   } else {
-    // No scanning, mark as fetched immediately
-    context.scanFetchStatus = FetchStatus.Fetched;
+    context.securityScan = {
+      status: FetchStatus.Fetched,
+      result: null,
+    };
 
     // Ensure interface ID is stored before updating
     await storeIdPromise;

@@ -21,8 +21,10 @@ export type ConfirmTransactionRequestContext = {
   networkImage: string;
   tokenPrices: SpotPrices;
   tokenPricesFetchStatus: FetchStatus;
-  scan: TransactionScanResult | null;
-  scanFetchStatus: FetchStatus;
+  securityScan: {
+    status: FetchStatus;
+    result: TransactionScanResult | null;
+  };
   transactionRawData: Json;
   accountType: string;
 };

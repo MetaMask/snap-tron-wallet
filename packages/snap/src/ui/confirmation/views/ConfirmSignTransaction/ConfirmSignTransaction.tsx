@@ -16,12 +16,15 @@ import {
 import { ConfirmSignTransactionFormNames } from './events';
 import type { ConfirmSignTransactionContext } from './types';
 import { Networks } from '../../../../constants';
-import { SimulationStatus } from '../../../../services/transaction-scan/types';
+import { SecurityAlertResponse } from '../../../../services/transaction-scan/types';
 import { TRX_IMAGE_SVG } from '../../../../static/tron-logo';
 import { FetchStatus } from '../../../../types/snap';
 import { formatOrigin } from '../../../../utils/formatOrigin';
 import { i18n } from '../../../../utils/i18n';
-import { EstimatedChanges } from '../../components/EstimatedChanges/EstimatedChanges';
+import {
+  EstimatedChanges,
+  resolveEstimatedChangesVariant,
+} from '../../components/EstimatedChanges/EstimatedChanges';
 import { Fees } from '../../components/Fees';
 import { TransactionAlert } from '../../components/TransactionAlert/TransactionAlert';
 
@@ -37,59 +40,29 @@ export const ConfirmSignTransaction = ({
     origin,
     networkImage,
     preferences,
-    scan,
-    scanFetchStatus,
+    securityScan: { status: securityScanStatus, result: securityScanResult },
     fees,
     tokenPrices,
     tokenPricesFetchStatus,
   } = context;
 
   const shouldDisableConfirmButton =
-    scanFetchStatus === FetchStatus.Fetching ||
-    scan?.simulationStatus === SimulationStatus.Failed;
+    securityScanStatus === FetchStatus.Fetching ||
+    securityScanResult?.validation?.type === SecurityAlertResponse.Malicious;
 
   const addressCaip10 = account ? `${scope}:${account.address}` : null;
-
-  let estimatedChangesSection: ComponentOrElement | null = null;
-  if (preferences.simulateOnChainActions) {
-    if (scan?.simulationStatus === SimulationStatus.Skipped) {
-      estimatedChangesSection = (
-        <Section direction="vertical">
-          <Box direction="horizontal" alignment="start">
-            <SnapText fontWeight="medium">
-              {translate('confirmation.estimatedChanges.title')}
-            </SnapText>
-            <Tooltip
-              content={translate('confirmation.estimatedChanges.tooltip')}
-            >
-              <Icon name="info" />
-            </Tooltip>
-          </Box>
-          <SnapText color="alternative">
-            {translate('confirmation.estimatedChanges.unsupportedContract')}
-          </SnapText>
-        </Section>
-      );
-    } else {
-      estimatedChangesSection = (
-        <EstimatedChanges
-          scanFetchStatus={scanFetchStatus}
-          changes={scan?.estimatedChanges ?? null}
-          preferences={preferences}
-        />
-      );
-    }
-  }
 
   return (
     <Container>
       <Box>
-        {/* Security Alert */}
-        {preferences.useSecurityAlerts ? (
+        {/* Security Alert — show when alerts are on, or always when Malicious (to surface the block reason) */}
+        {preferences.useSecurityAlerts ||
+        securityScanResult?.validation?.type ===
+          SecurityAlertResponse.Malicious ? (
           <TransactionAlert
-            scanFetchStatus={scanFetchStatus}
-            validation={scan?.validation ?? null}
-            error={scan?.error ?? null}
+            scanFetchStatus={securityScanStatus}
+            validation={securityScanResult?.validation ?? null}
+            error={securityScanResult?.error ?? null}
             preferences={preferences}
           />
         ) : null}
@@ -104,7 +77,15 @@ export const ConfirmSignTransaction = ({
         </Box>
 
         {/* Estimated Changes from Security Scan */}
-        {estimatedChangesSection}
+        <EstimatedChanges
+          variant={resolveEstimatedChangesVariant({
+            simulateOnChainActions: preferences.simulateOnChainActions,
+            scanFetchStatus: securityScanStatus,
+            simulationStatus: securityScanResult?.simulationStatus ?? null,
+          })}
+          changes={securityScanResult?.estimatedChanges ?? null}
+          preferences={preferences}
+        />
 
         {/* Transaction Details */}
         <Section>

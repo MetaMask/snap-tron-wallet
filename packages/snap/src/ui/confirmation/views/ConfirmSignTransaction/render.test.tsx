@@ -194,6 +194,7 @@ describe('ConfirmSignTransaction render', () => {
         origin: testOrigin,
         scope: Network.Mainnet,
         options: ['simulation', 'validation'],
+        account: mockAccount,
       }),
     );
 
@@ -237,9 +238,9 @@ describe('ConfirmSignTransaction render', () => {
     expect(mockSnapClient.updateInterfaceIfExists).toHaveBeenCalled();
   });
 
-  it('handles security scan failure gracefully', async () => {
+  it('handles security scan fetch error gracefully', async () => {
     mockTransactionScanService.scanTransaction.mockRejectedValue(
-      new Error('Scan failed'),
+      new Error('Failed to reach Security Alerts API'),
     );
 
     const request: KeyringRequest = {
@@ -265,7 +266,6 @@ describe('ConfirmSignTransaction render', () => {
 
     await render(request, mockAccount, mockRawData as any);
 
-    // Should still render with error state
     expect(mockSnapClient.createInterface).toHaveBeenCalledTimes(1);
     expect(mockSnapClient.updateInterfaceIfExists).toHaveBeenCalled();
   });
