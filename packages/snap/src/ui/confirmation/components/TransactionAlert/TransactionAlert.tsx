@@ -32,6 +32,7 @@ const VALIDATION_TYPE_TO_SEVERITY: Partial<
 > = {
   Malicious: 'danger',
   Warning: 'warning',
+  Error: 'warning',
 };
 
 export const TransactionAlert = ({

@@ -99,9 +99,6 @@ export class TransactionScanService {
       });
 
       const scan = this.#mapScan(result);
-      if (!scan) {
-        throw new Error('Invalid response from Security Alerts API');
-      }
 
       // Track security scan completion
       if (account) {
@@ -114,35 +111,40 @@ export class TransactionScanService {
 
         const hasSecurityAlert = Boolean(
           scan.validation?.type &&
-          scan.validation.type !== SecurityAlertResponse.Benign,
+          scan.validation.type !== SecurityAlertResponse.Benign &&
+          scan.validation.type !== 'Error',
         );
 
-        await this.#snapClient.trackSecurityScanCompleted({
-          origin,
-          accountType: account.type,
-          chainIdCaip: scope,
-          scanStatus,
-          hasSecurityAlerts: hasSecurityAlert,
-        });
-
-        if (hasSecurityAlert) {
-          const isValidSecurityAlertType = Object.values(
-            SecurityAlertResponse,
-          ).includes(scan.validation.type as SecurityAlertResponse);
-          const securityAlertType = isValidSecurityAlertType
-            ? (scan.validation.type as SecurityAlertResponse)
-            : SecurityAlertResponse.Warning;
-
-          await this.#snapClient.trackSecurityAlertDetected({
+        try {
+          await this.#snapClient.trackSecurityScanCompleted({
             origin,
             accountType: account.type,
             chainIdCaip: scope,
-            securityAlertResponse: securityAlertType,
-            securityAlertReason: scan.validation.reason ?? null,
-            securityAlertDescription: this.getSecurityAlertDescription(
-              scan.validation,
-            ),
+            scanStatus,
+            hasSecurityAlerts: hasSecurityAlert,
           });
+
+          if (hasSecurityAlert) {
+            const isValidSecurityAlertType = Object.values(
+              SecurityAlertResponse,
+            ).includes(scan.validation.type as SecurityAlertResponse);
+            const securityAlertType = isValidSecurityAlertType
+              ? (scan.validation.type as SecurityAlertResponse)
+              : SecurityAlertResponse.Warning;
+
+            await this.#snapClient.trackSecurityAlertDetected({
+              origin,
+              accountType: account.type,
+              chainIdCaip: scope,
+              securityAlertResponse: securityAlertType,
+              securityAlertReason: scan.validation.reason ?? null,
+              securityAlertDescription: this.getSecurityAlertDescription(
+                scan.validation,
+              ),
+            });
+          }
+        } catch (trackingError) {
+          this.#logger.error('Failed to track security scan:', trackingError);
         }
       }
 
@@ -151,13 +153,20 @@ export class TransactionScanService {
       this.#logger.error(error);
 
       if (account) {
-        await this.#snapClient.trackSecurityScanCompleted({
-          origin,
-          accountType: account.type,
-          chainIdCaip: scope,
-          scanStatus: ScanStatus.ERROR,
-          hasSecurityAlerts: false,
-        });
+        try {
+          await this.#snapClient.trackSecurityScanCompleted({
+            origin,
+            accountType: account.type,
+            chainIdCaip: scope,
+            scanStatus: ScanStatus.ERROR,
+            hasSecurityAlerts: false,
+          });
+        } catch (trackingError) {
+          this.#logger.error(
+            'Failed to track security scan error:',
+            trackingError,
+          );
+        }
       }
 
       throw error;
@@ -201,20 +210,16 @@ export class TransactionScanService {
    */
   #mapScan(
     result: SecurityAlertSimulationValidationResponse,
-  ): TransactionScanResult | null {
-    if (!result) {
-      return null;
-    }
-
-    const apiSimulationStatus = result.simulation?.status;
-    const apiValidationStatus = result.validation?.status;
+  ): TransactionScanResult {
+    const apiSimulationStatus = result.simulation.status;
+    const apiValidationStatus = result.validation.status;
 
     const status =
       apiSimulationStatus === 'Error' || apiValidationStatus === 'Error'
         ? 'ERROR'
         : 'SUCCESS';
 
-    const errorDetails = result.simulation?.error_details;
+    const errorDetails = result.simulation.error_details;
     const errorCode =
       errorDetails && 'code' in errorDetails ? errorDetails.code : null;
     const errorType =
@@ -224,7 +229,7 @@ export class TransactionScanService {
       status,
       estimatedChanges: {
         assets:
-          result.simulation?.account_summary?.assets_diffs
+          result.simulation.account_summary?.assets_diffs
             ?.filter((asset) => {
               const inChange = asset.in?.[0];
               const outChange = asset.out?.[0];
@@ -248,15 +253,15 @@ export class TransactionScanService {
             }) ?? [],
       },
       validation: {
-        type: result.validation?.result_type ?? null,
-        reason: result.validation?.reason ?? null,
+        type: result.validation.result_type ?? null,
+        reason: result.validation.reason ?? null,
       },
       error:
-        result.simulation?.error || result.simulation?.error_details
+        result.simulation.error || result.simulation.error_details
           ? {
               type: errorType ?? null,
               code: errorCode ?? null,
-              message: result.simulation?.error ?? null,
+              message: result.simulation.error ?? null,
             }
           : null,
       // Always Completed here: API-level errors cause scanTransaction to throw

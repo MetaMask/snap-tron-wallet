@@ -412,9 +412,10 @@ export class CronHandler {
         fetchingContext,
       );
 
-      // Always request simulation for estimated changes;
-      // conditionally add validation based on user preference
-      const options: string[] = ['simulation'];
+      const options: string[] = [];
+      if (preferences.simulateOnChainActions) {
+        options.push('simulation');
+      }
       if (preferences.useSecurityAlerts) {
         options.push('validation');
       }

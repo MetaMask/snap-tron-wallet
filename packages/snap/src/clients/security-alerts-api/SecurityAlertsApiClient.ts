@@ -9,7 +9,7 @@ import {
 } from './structs';
 import { extractScanParametersFromTransactionData } from './utils';
 import type { ConfigProvider } from '../../services/config';
-import logger, { createPrefixedLogger, type ILogger } from '../../utils/logger';
+import { createPrefixedLogger, type ILogger } from '../../utils/logger';
 import { isTransactionWellFormed } from '../../validation/transaction';
 
 /**
@@ -17,7 +17,7 @@ import { isTransactionWellFormed } from '../../validation/transaction';
  *
  * @example
  * ```typescript
- * const client = new SecurityAlertsApiClient(globalThis.fetch, logger);
+ * const client = new SecurityAlertsApiClient(configProvider, logger);
  * ```
  */
 export class SecurityAlertsApiClient {
@@ -60,9 +60,9 @@ export class SecurityAlertsApiClient {
    * Creates a new SecurityAlertsApiClient instance.
    *
    * @param configProvider - The configuration provider.
-   * @param _logger - Logger instance for logging.
+   * @param logger - Logger instance for logging.
    */
-  constructor(configProvider: ConfigProvider, _logger: ILogger) {
+  constructor(configProvider: ConfigProvider, logger: ILogger) {
     this.#fetch = fetch;
     this.#logger = createPrefixedLogger(logger, '[🔒 SecurityAlertsApiClient]');
     this.#baseUrl = configProvider.get().securityAlertsApi.baseUrl;
@@ -126,17 +126,17 @@ export class SecurityAlertsApiClient {
       },
     );
 
-    const data = await response.json();
-
     if (!response.ok) {
+      const errorBody = await response.text();
       this.#logger.error(
-        `Security Alerts API error: ${response.status} - ${JSON.stringify(data)}`,
+        `Security Alerts API error: ${response.status} - ${errorBody}`,
       );
       throw new Error(
-        `Security Alerts API error: ${response.status} - ${JSON.stringify(data)}`,
+        `Security Alerts API error: ${response.status} - ${errorBody}`,
       );
     }
 
+    const data = await response.json();
     assert(data, SecurityAlertResponseStruct);
 
     return data;
