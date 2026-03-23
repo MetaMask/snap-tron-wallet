@@ -120,8 +120,10 @@ function buildMockInterfaceContext(
     networkImage: '',
     tokenPrices: {},
     tokenPricesFetchStatus: FetchStatus.Fetched,
-    scan: null,
-    scanFetchStatus: FetchStatus.Initial,
+    securityScan: {
+      status: FetchStatus.Initial,
+      result: null,
+    },
 
     transactionRawData: {
       contract: [
@@ -397,11 +399,12 @@ describe('CronHandler', () => {
             2,
           );
 
-          // The final update should have scanFetchStatus: FetchStatus.Error
+          // The final update should have securityScan.status: 'error'
           const lastUpdateCall =
             mockSnapClient.updateInterfaceIfExists.mock.calls[1];
           const contextArg = lastUpdateCall?.[2] as any;
-          expect(contextArg?.scanFetchStatus).toBe(FetchStatus.Error);
+          expect(contextArg?.securityScan?.status).toBe(FetchStatus.Error);
+          expect(contextArg?.securityScan?.result).toBeNull();
         },
       );
     });

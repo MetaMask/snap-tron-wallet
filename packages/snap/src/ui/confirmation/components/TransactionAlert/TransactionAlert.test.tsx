@@ -20,10 +20,10 @@ jest.mock('./getErrorMessage', () => ({
 jest.mock('../../../../utils/i18n', () => ({
   i18n: (_locale: string) => (key: string, params?: any) => {
     const translations: Record<string, string> = {
-      'confirmation.simulationTitleAPIError':
-        "Because of an error, we couldn't check for security alerts.",
-      'confirmation.simulationMessageAPIError':
-        'Only continue if you trust every address involved.',
+      'confirmation.simulationFetchErrorTitle':
+        'Unable to verify transaction security',
+      'confirmation.simulationFetchErrorSubtitle':
+        'Security check unavailable. You may proceed, but exercise caution.',
       'confirmation.simulationErrorTitle':
         'This transaction was reverted during simulation.',
       'confirmation.simulationErrorSubtitle': params?.reason ?? '{reason}',
@@ -58,7 +58,7 @@ describe('TransactionAlert', () => {
     scanFetchStatus: FetchStatus.Initial,
   };
 
-  it('renders without crashing when fetching', () => {
+  it('renders loading skeleton while fetching', () => {
     const props: TransactionAlertProps = {
       ...baseProps,
       scanFetchStatus: FetchStatus.Fetching,
@@ -68,7 +68,7 @@ describe('TransactionAlert', () => {
     expect(result).toBeDefined();
   });
 
-  it('renders without crashing on API error', () => {
+  it('renders fetch error banner when scanFetchStatus is error', () => {
     const props: TransactionAlertProps = {
       ...baseProps,
       scanFetchStatus: FetchStatus.Error,
@@ -76,9 +76,12 @@ describe('TransactionAlert', () => {
 
     const result = TransactionAlert(props);
     expect(result).toBeDefined();
+    const serialized = JSON.stringify(result);
+    expect(serialized).toContain('Unable to verify transaction security');
+    expect(serialized).toContain('"severity":"warning"');
   });
 
-  it('renders without crashing with no error or validation', () => {
+  it('renders nothing when no error or validation', () => {
     const props: TransactionAlertProps = {
       ...baseProps,
       scanFetchStatus: FetchStatus.Fetched,
@@ -90,7 +93,7 @@ describe('TransactionAlert', () => {
     expect(result).toBeDefined();
   });
 
-  it('renders without crashing with simulation error', () => {
+  it('renders simulation error banner with warning severity', () => {
     const mockError: TransactionScanError = {
       type: 'validation_error',
       code: 'InsufficientBalance',
@@ -105,9 +108,11 @@ describe('TransactionAlert', () => {
 
     const result = TransactionAlert(props);
     expect(result).toBeDefined();
+    const serialized = JSON.stringify(result);
+    expect(serialized).toContain('"severity":"warning"');
   });
 
-  it('renders without crashing with Malicious validation', () => {
+  it('renders danger banner for Malicious validation', () => {
     const mockValidation: TransactionScanValidation = {
       type: 'Malicious',
       reason: 'known_attacker',
@@ -121,9 +126,11 @@ describe('TransactionAlert', () => {
 
     const result = TransactionAlert(props);
     expect(result).toBeDefined();
+    const serialized = JSON.stringify(result);
+    expect(serialized).toContain('"severity":"danger"');
   });
 
-  it('renders without crashing with Warning validation', () => {
+  it('renders warning banner for Warning validation', () => {
     const mockValidation: TransactionScanValidation = {
       type: 'Warning',
       reason: 'unfair_trade',
@@ -137,9 +144,11 @@ describe('TransactionAlert', () => {
 
     const result = TransactionAlert(props);
     expect(result).toBeDefined();
+    const serialized = JSON.stringify(result);
+    expect(serialized).toContain('"severity":"warning"');
   });
 
-  it('renders without crashing with Benign validation', () => {
+  it('renders nothing for Benign validation', () => {
     const mockValidation: TransactionScanValidation = {
       type: 'Benign',
       reason: null,
@@ -153,9 +162,11 @@ describe('TransactionAlert', () => {
 
     const result = TransactionAlert(props);
     expect(result).toBeDefined();
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain('"severity"');
   });
 
-  it('prioritizes API error over simulation error', () => {
+  it('prioritizes fetch error over response-level errors', () => {
     const mockError: TransactionScanError = {
       type: 'validation_error',
       code: 'InsufficientBalance',
@@ -170,9 +181,11 @@ describe('TransactionAlert', () => {
 
     const result = TransactionAlert(props);
     expect(result).toBeDefined();
+    const serialized = JSON.stringify(result);
+    expect(serialized).toContain('Unable to verify transaction security');
   });
 
-  it('prioritizes simulation error over validation error', () => {
+  it('prioritizes Malicious validation over simulation error', () => {
     const mockError: TransactionScanError = {
       type: 'validation_error',
       code: 'InsufficientBalance',
@@ -193,6 +206,9 @@ describe('TransactionAlert', () => {
 
     const result = TransactionAlert(props);
     expect(result).toBeDefined();
+    const serialized = JSON.stringify(result);
+    expect(serialized).toContain('"severity":"danger"');
+    expect(serialized).toContain('This is a deceptive request');
   });
 
   it('works with different locales', () => {

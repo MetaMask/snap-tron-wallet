@@ -41,7 +41,7 @@ export class TransactionScanService {
    * @param params.scope - The network scope.
    * @param params.options - The options for the scan (simulation, validation).
    * @param params.account - The account for analytics tracking.
-   * @returns The result of the scan, or null if the scan failed.
+   * @returns The result of the scan.
    */
   async scanTransaction({
     accountAddress,
@@ -57,7 +57,7 @@ export class TransactionScanService {
     scope: Network;
     options?: string[] | undefined;
     account?: TronKeyringAccount;
-  }): Promise<TransactionScanResult | null> {
+  }): Promise<TransactionScanResult> {
     if (!isTransactionWellFormed(transactionRawData)) {
       this.#logger.warn(
         'Malformed transaction: Tron transactions must contain exactly one contract',
@@ -99,25 +99,6 @@ export class TransactionScanService {
       });
 
       const scan = this.#mapScan(result);
-
-      if (!scan?.status) {
-        this.#logger.warn(
-          'Invalid scan result received from security alerts API',
-        );
-
-        // Track error if account is provided
-        if (account) {
-          await this.#snapClient.trackSecurityScanCompleted({
-            origin,
-            accountType: account.type,
-            chainIdCaip: scope,
-            scanStatus: ScanStatus.ERROR,
-            hasSecurityAlerts: false,
-          });
-        }
-
-        return null;
-      }
 
       // Track security scan completion
       if (account) {
@@ -168,7 +149,6 @@ export class TransactionScanService {
     } catch (error) {
       this.#logger.error(error);
 
-      // Track error if account is provided
       if (account) {
         await this.#snapClient.trackSecurityScanCompleted({
           origin,
@@ -179,7 +159,7 @@ export class TransactionScanService {
         });
       }
 
-      return null;
+      throw error;
     }
   }
 
@@ -220,28 +200,26 @@ export class TransactionScanService {
    */
   #mapScan(
     result: SecurityAlertSimulationValidationResponse,
-  ): TransactionScanResult | null {
-    if (!result) {
-      return null;
-    }
-
-    // Determine status: ERROR only if explicitly marked as Error
-    // SUCCESS if either is Success or if statuses are missing
-    const apiSimulationStatus = result.simulation?.status;
-    const apiValidationStatus = result.validation?.status;
+  ): TransactionScanResult {
+    const apiSimulationStatus = result.simulation.status;
+    const apiValidationStatus = result.validation.status;
 
     const status =
       apiSimulationStatus === 'Error' || apiValidationStatus === 'Error'
         ? 'ERROR'
         : 'SUCCESS';
 
+    const errorDetails = result.simulation.error_details;
+    const errorCode =
+      errorDetails && 'code' in errorDetails ? errorDetails.code : null;
+    const errorType =
+      errorDetails && 'type' in errorDetails ? errorDetails.type : null;
+
     return {
       status,
       estimatedChanges: {
         assets:
-          result.simulation?.account_summary?.assets_diffs
-            // Filter out assets without a displayable value (e.g., NONERC tokens
-            // that only have raw_value but no human-readable value from the API)
+          result.simulation.account_summary?.assets_diffs
             ?.filter((asset) => {
               const inChange = asset.in?.[0];
               const outChange = asset.out?.[0];
@@ -249,7 +227,6 @@ export class TransactionScanService {
               return change?.value !== undefined;
             })
             .map((asset) => {
-              // Get the first in/out change value (arrays now)
               const inChange = asset.in?.[0];
               const outChange = asset.out?.[0];
               const change = inChange ?? outChange;
@@ -266,29 +243,22 @@ export class TransactionScanService {
             }) ?? [],
       },
       validation: {
-        type: result.validation?.result_type ?? null,
-        reason: result.validation?.reason ?? null,
+        type: result.validation.result_type ?? null,
+        reason: result.validation.reason ?? null,
       },
       error:
-        result.simulation?.error || result.simulation?.error_details
+        result.simulation.error || result.simulation.error_details
           ? {
-              type:
-                result.simulation?.error_details &&
-                'type' in result.simulation.error_details
-                  ? result.simulation.error_details.type
-                  : null,
-              code:
-                result.simulation?.error_details &&
-                'code' in result.simulation.error_details
-                  ? result.simulation.error_details.code
-                  : null,
-              message: result.simulation?.error ?? null,
+              type: errorType ?? null,
+              code: errorCode ?? null,
+              message: result.simulation.error ?? null,
             }
           : null,
-      simulationStatus:
-        status === 'ERROR'
-          ? SimulationStatus.Failed
-          : SimulationStatus.Completed,
+      // Always Completed here: API-level errors cause scanTransaction to throw
+      // rather than return a result, so every value that reaches this return
+      // path is a successful simulation response. SimulationStatus.Failed is
+      // reserved for the malformed-transaction early-return above.
+      simulationStatus: SimulationStatus.Completed,
     };
   }
 }

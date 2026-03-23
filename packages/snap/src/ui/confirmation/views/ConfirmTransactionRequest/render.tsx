@@ -44,8 +44,10 @@ export const DEFAULT_CONFIRMATION_CONTEXT: ConfirmTransactionRequestContext = {
   networkImage: TRX_IMAGE_SVG,
   tokenPrices: {},
   tokenPricesFetchStatus: FetchStatus.Initial,
-  scan: null,
-  scanFetchStatus: FetchStatus.Initial,
+  securityScan: {
+    status: FetchStatus.Initial,
+    result: null,
+  },
   transactionRawData: null,
   accountType: '',
   preferences: {
@@ -140,8 +142,11 @@ export async function render(
   const context: ConfirmTransactionRequestContext = {
     ...DEFAULT_CONFIRMATION_CONTEXT,
     ...incomingContext,
-    tokenPricesFetchStatus: FetchStatus.Fetching, // Start as fetching
-    scanFetchStatus: FetchStatus.Fetching, // Start as fetching
+    tokenPricesFetchStatus: FetchStatus.Fetching,
+    securityScan: {
+      status: FetchStatus.Fetching,
+      result: null,
+    },
   };
 
   try {
@@ -207,15 +212,12 @@ export async function render(
         account: scanAccount,
       });
 
-      context.scan = scan;
-      context.scanFetchStatus = scan ? FetchStatus.Fetched : FetchStatus.Error;
+      context.securityScan = { status: FetchStatus.Fetched, result: scan };
     } catch {
-      context.scan = null;
-      context.scanFetchStatus = FetchStatus.Error;
+      context.securityScan = { status: FetchStatus.Error, result: null };
     }
   } else {
-    // No scan service available, mark as fetched immediately
-    context.scanFetchStatus = FetchStatus.Fetched;
+    context.securityScan = { status: FetchStatus.Fetched, result: null };
   }
 
   // Ensure interface ID is stored before updating
