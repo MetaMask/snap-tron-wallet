@@ -253,8 +253,10 @@ export class ConfirmationHandler {
       origin: 'MetaMask',
       preferences,
       networkImage: TRX_IMAGE_SVG,
-      scan: null,
-      scanFetchStatus: FetchStatus.Fetched,
+      securityScan: {
+        status: FetchStatus.Fetched,
+        result: null,
+      },
       tokenPrices: {},
       tokenPricesFetchStatus: FetchStatus.Fetched,
       fees,
