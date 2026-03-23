@@ -51,7 +51,6 @@ import { assertOrThrow } from '../../utils/assertOrThrow';
 import { trxToSun } from '../../utils/conversion';
 import type { ILogger } from '../../utils/logger';
 import { createPrefixedLogger } from '../../utils/logger';
-import { assertTransactionStructure } from '../../validation/transaction';
 import { BackgroundEventMethod } from '../cronjob';
 
 export class ClientRequestHandler {
@@ -222,7 +221,6 @@ export class ClientRequestHandler {
       type,
       rawDataHex,
     );
-    assertTransactionStructure(rawData);
 
     const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);
     const transaction = {
@@ -594,7 +592,6 @@ export class ClientRequestHandler {
       type,
       rawDataHex,
     );
-    assertTransactionStructure(rawData);
 
     const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);
     const transaction = {

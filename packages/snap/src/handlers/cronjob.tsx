@@ -1,5 +1,4 @@
 import type { JsonRpcRequest } from '@metamask/snaps-sdk';
-import { type Types, utils } from 'tronweb';
 
 import type { PriceApiClient } from '../clients/price-api/PriceApiClient';
 import type { SnapClient } from '../clients/snap/SnapClient';
@@ -379,18 +378,11 @@ export class CronHandler {
     }
 
     const { preferences, scope, fromAddress, origin } = interfaceContext;
-    /**
-     * We know that the `transactionRawData` object is valid JSON but Tronweb returns some
-     * fields as `unknown` so we must manually cast it to the correct type.
-     */
-    const transactionRawData = interfaceContext.transactionRawData as
-      | Types.Transaction['raw_data']
-      | null;
 
-    if (!transactionRawData) {
-      this.#logger.info(
-        'Context is missing transactionRawData for scan refresh',
-      );
+    const { scanParameters } = interfaceContext;
+
+    if (!scanParameters) {
+      this.#logger.info('Context is missing scanParameters for scan refresh');
       return;
     }
 
@@ -427,7 +419,7 @@ export class CronHandler {
       try {
         scan = await this.#transactionScanService.scanTransaction({
           accountAddress: fromAddress,
-          transactionRawData,
+          parameters: scanParameters,
           origin,
           scope,
           options,
@@ -561,8 +553,7 @@ export class CronHandler {
       return;
     }
 
-    const { preferences, scope, account, origin, transaction } =
-      interfaceContext;
+    const { preferences, scope, account, origin } = interfaceContext;
 
     // Determine what needs to be refreshed
     const shouldRefreshScan =
@@ -597,26 +588,29 @@ export class CronHandler {
           options.push('validation');
         }
 
-        const transactionRawData: Types.Transaction['raw_data'] =
-          utils.deserializeTx.deserializeTransaction(
-            transaction.type,
-            transaction.rawDataHex,
-          );
+        const { scanParameters } = interfaceContext;
 
-        try {
-          scan = await this.#transactionScanService.scanTransaction({
-            accountAddress: account.address,
-            transactionRawData,
-            origin,
-            scope,
-            options,
-            account,
-          });
-          scanFetchStatus = scan ? 'fetched' : 'error';
-          this.#logger.info('Successfully refreshed signTransaction scan');
-        } catch (error) {
-          this.#logger.error('Error refreshing signTransaction scan:', error);
-          scan = null;
+        if (scanParameters) {
+          try {
+            scan = await this.#transactionScanService.scanTransaction({
+              accountAddress: account.address,
+              parameters: scanParameters,
+              origin,
+              scope,
+              options,
+              account,
+            });
+            scanFetchStatus = scan ? 'fetched' : 'error';
+            this.#logger.info('Successfully refreshed signTransaction scan');
+          } catch (error) {
+            this.#logger.error('Error refreshing signTransaction scan:', error);
+            scan = null;
+            scanFetchStatus = 'error';
+          }
+        } else {
+          this.#logger.info(
+            'Context is missing scanParameters for sign scan refresh',
+          );
           scanFetchStatus = 'error';
         }
       }

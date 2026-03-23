@@ -1,10 +1,7 @@
 import { ConfirmTransactionRequest } from './ConfirmTransactionRequest';
 import type { ConfirmTransactionRequestContext } from './types';
 import { Network } from '../../../../constants';
-import {
-  SimulationStatus,
-  type TransactionScanResult,
-} from '../../../../services/transaction-scan/types';
+import type { TransactionScanResult } from '../../../../services/transaction-scan/types';
 import type { Preferences } from '../../../../types/snap';
 
 // Mock i18n
@@ -34,7 +31,6 @@ describe('ConfirmTransactionRequest', () => {
 
   const mockScanResult: TransactionScanResult = {
     status: 'SUCCESS',
-    simulationStatus: SimulationStatus.Completed,
     estimatedChanges: {
       assets: [
         {
@@ -78,7 +74,7 @@ describe('ConfirmTransactionRequest', () => {
     tokenPricesFetchStatus: 'fetched',
     scan: mockScanResult,
     scanFetchStatus: 'fetched',
-    transactionRawData: null,
+    scanParameters: null,
     accountType: 'tron:eoa',
   };
 
@@ -151,7 +147,6 @@ describe('ConfirmTransactionRequest', () => {
     const errorScanResult: TransactionScanResult = {
       ...mockScanResult,
       status: 'ERROR',
-      simulationStatus: SimulationStatus.Failed,
     };
 
     const context: ConfirmTransactionRequestContext = {

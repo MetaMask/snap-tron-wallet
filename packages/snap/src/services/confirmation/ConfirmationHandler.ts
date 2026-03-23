@@ -22,7 +22,6 @@ import {
   SignTransactionRequestStruct,
   type TronWalletKeyringRequest,
 } from '../../validation/structs';
-import { assertTransactionStructure } from '../../validation/transaction';
 import type { AssetsService } from '../assets/AssetsService';
 import type { FeeCalculatorService } from '../send/FeeCalculatorService';
 import type { ComputeFeeResult } from '../send/types';
@@ -121,7 +120,6 @@ export class ConfirmationHandler {
       type,
       rawDataHex,
     );
-    assertTransactionStructure(rawData);
 
     const result = await renderConfirmSignTransaction(
       request,
@@ -254,6 +252,7 @@ export class ConfirmationHandler {
       networkImage: TRX_IMAGE_SVG,
       scan: null,
       scanFetchStatus: 'fetched',
+      scanParameters: null,
       tokenPrices: {},
       tokenPricesFetchStatus: 'fetched',
       fees,

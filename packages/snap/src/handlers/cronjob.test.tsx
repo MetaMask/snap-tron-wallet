@@ -6,10 +6,7 @@ import { Network } from '../constants';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { State, UnencryptedStateValue } from '../services/state/State';
 import type { TransactionScanService } from '../services/transaction-scan/TransactionScanService';
-import {
-  SimulationStatus,
-  type TransactionScanResult,
-} from '../services/transaction-scan/types';
+import type { TransactionScanResult } from '../services/transaction-scan/types';
 import type { ConfirmTransactionRequestContext } from '../ui/confirmation/views/ConfirmTransactionRequest/types';
 import type { ILogger } from '../utils/logger';
 
@@ -58,7 +55,6 @@ function buildMockScanResult(
 ): TransactionScanResult {
   return {
     status: 'SUCCESS',
-    simulationStatus: SimulationStatus.Completed,
     estimatedChanges: {
       assets: [
         {
@@ -122,25 +118,12 @@ function buildMockInterfaceContext(
     scan: null,
     scanFetchStatus: 'initial',
 
-    transactionRawData: {
-      contract: [
-        {
-          type: 'TransferContract',
-          parameter: {
-            type_url: 'type.googleapis.com/protocol.TransferContract', // eslint-disable-line @typescript-eslint/naming-convention
-            value: {
-              owner_address: '41a2155e688b2baebdfdacd073ba79f5b22946aacf', // eslint-disable-line @typescript-eslint/naming-convention
-              to_address: '4132f9c0c487f21716b7a8f12906b752889902655', // eslint-disable-line @typescript-eslint/naming-convention
-              amount: 1000000,
-            },
-          },
-        },
-      ],
-      ref_block_bytes: '', // eslint-disable-line @typescript-eslint/naming-convention
-      ref_block_hash: '', // eslint-disable-line @typescript-eslint/naming-convention
-      expiration: 0,
-      timestamp: 0,
-    } as any,
+    scanParameters: {
+      from: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+      to: 'TQkE4s6hQqxym4fYvtVLNEGPsaAChFqxPk',
+      data: null,
+      value: 1_000_000,
+    },
     accountType: 'tron:eoa',
     ...overrides,
   };
@@ -318,6 +301,12 @@ describe('CronHandler', () => {
           ).toHaveBeenCalledWith(
             expect.objectContaining({
               accountAddress: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+              parameters: expect.objectContaining({
+                from: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+                to: 'TQkE4s6hQqxym4fYvtVLNEGPsaAChFqxPk',
+                data: null,
+                value: 1_000_000,
+              }),
               options: ['simulation', 'validation'],
             }),
           );

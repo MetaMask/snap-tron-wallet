@@ -1,12 +1,11 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 
-import { Types } from 'tronweb';
-
-import type { SecurityAlertSimulationValidationResponse } from './types';
-import { extractScanParametersFromTransactionData } from './utils';
+import type {
+  SecurityAlertSimulationValidationResponse,
+  SecurityScanPayload,
+} from './types';
 import type { ConfigProvider } from '../../services/config';
 import logger, { createPrefixedLogger, type ILogger } from '../../utils/logger';
-import { isTransactionWellFormed } from '../../validation/transaction';
 
 /**
  * Client for interacting with the Security Alerts API for security scanning.
@@ -17,35 +16,6 @@ import { isTransactionWellFormed } from '../../validation/transaction';
  * ```
  */
 export class SecurityAlertsApiClient {
-  /**
-   * Contract types for which the Security Alerts API can produce reliable
-   * simulation results.
-   */
-  static readonly SUPPORTED_CONTRACT_TYPES: Types.ContractType[] = [
-    Types.ContractType.TransferContract,
-    Types.ContractType.CreateSmartContract,
-    Types.ContractType.TriggerSmartContract,
-  ];
-
-  /**
-   * Checks whether the first contract type in the transaction is supported
-   * by the Security Alerts API simulation.
-   *
-   * @param rawData - The raw transaction data.
-   * @returns True if the contract type is supported for simulation.
-   */
-  static isContractTypeSupported(
-    rawData: Types.Transaction['raw_data'],
-  ): boolean {
-    const [contractInteraction] = rawData.contract;
-    if (!contractInteraction) {
-      return false;
-    }
-    return SecurityAlertsApiClient.SUPPORTED_CONTRACT_TYPES.includes(
-      contractInteraction.type,
-    );
-  }
-
   readonly #fetch: typeof globalThis.fetch;
 
   readonly #logger: ILogger;
@@ -69,42 +39,28 @@ export class SecurityAlertsApiClient {
    *
    * @param params - The parameters for the scan.
    * @param params.accountAddress - The account address in base58 format.
-   * @param params.transactionRawData - The raw data of the transaction.
+   * @param params.parameters - Extracted transaction fields (`from`, `to`, `data`, `value`).
    * @param params.origin - The origin URL of the request.
    * @param params.options - Optional scan options (simulation, validation).
    * @returns The security alert response from Security Alerts API.
    */
   async scanTransaction({
     accountAddress,
-    transactionRawData,
+    parameters,
     origin,
     options = ['simulation', 'validation'],
   }: {
     accountAddress: string;
-    transactionRawData: Types.Transaction['raw_data'];
+    parameters: SecurityScanPayload;
     origin: string;
     options?: string[];
   }): Promise<SecurityAlertSimulationValidationResponse> {
     this.#logger.info('Scanning Tron transaction with Security Alerts API');
 
-    if (
-      !isTransactionWellFormed(transactionRawData) ||
-      !SecurityAlertsApiClient.isContractTypeSupported(transactionRawData)
-    ) {
-      throw new Error('Transaction is not supported for scanning.');
-    }
-
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       accept: 'application/json',
     };
-
-    const scanParameters =
-      extractScanParametersFromTransactionData(transactionRawData);
-
-    if (!scanParameters) {
-      throw new Error('Could not extract scan parameters from transaction.');
-    }
 
     const response = await this.#fetch(
       `${this.#baseUrl}/tron/transaction/scan`,
@@ -116,23 +72,22 @@ export class SecurityAlertsApiClient {
           metadata: {
             domain: origin,
           },
-          data: scanParameters,
+          data: parameters,
           options,
         }),
       },
     );
 
-    const data = await response.json();
-
     if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
       this.#logger.error(
-        `Security Alerts API error: ${response.status} - ${JSON.stringify(data)}`,
+        `Security Alerts API error: ${response.status} - ${JSON.stringify(errorBody)}`,
       );
       throw new Error(
-        `Security Alerts API error: ${response.status} - ${JSON.stringify(data)}`,
+        `Security Alerts API error: ${response.status} - ${JSON.stringify(errorBody)}`,
       );
     }
 
-    return data;
+    return await response.json();
   }
 }

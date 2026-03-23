@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import { add0x } from '@metamask/utils';
-import { TronWeb, Types } from 'tronweb';
+import type { Types } from 'tronweb';
+import { TronWeb } from 'tronweb';
 
 import type { SecurityScanPayload } from './types';
 
@@ -19,9 +19,9 @@ import type { SecurityScanPayload } from './types';
  * @param rawData - The raw transaction data.
  * @returns The extracted scan parameters.
  */
-export function extractScanParametersFromTransactionData(
+export const extractScanParametersFromTransactionData = (
   rawData: Types.Transaction['raw_data'],
-): SecurityScanPayload | null {
+): SecurityScanPayload | null => {
   const contractParam = rawData.contract[0]?.parameter.value;
 
   if (!contractParam) {
@@ -50,76 +50,4 @@ export function extractScanParametersFromTransactionData(
   }
 
   return { from, to, data, value };
-}
-
-/**
- * Builds a minimal `Transaction['raw_data']` suitable for security scanning
- * from high-level send parameters. This is the inverse of
- * {@link extractScanParametersFromTransactionData}.
- *
- * @param params - The send parameters.
- * @param params.from - The sender address (base58).
- * @param params.to - The recipient or contract address (base58).
- * @param params.amount - The amount in sun (TRX value for the transaction).
- * @param params.data - Optional contract call data.
- * @param params.contractType - The Tron contract type to build.
- * @returns A minimal raw transaction data object.
- */
-export function buildTransactionRawData({
-  from,
-  to,
-  amount,
-  data,
-  contractType,
-}: {
-  from: string;
-  to: string;
-  amount: number;
-  data?: string | null;
-  contractType: Types.ContractType;
-}): Types.Transaction['raw_data'] {
-  const ownerAddressHex = TronWeb.address.toHex(from);
-
-  if (contractType === Types.ContractType.TriggerSmartContract) {
-    return {
-      contract: [
-        {
-          type: Types.ContractType.TriggerSmartContract,
-          parameter: {
-            value: {
-              owner_address: ownerAddressHex,
-              contract_address: TronWeb.address.toHex(to),
-              ...(data ? { data } : {}),
-              ...(amount ? { call_value: amount } : {}),
-            },
-            type_url: 'type.googleapis.com/protocol.TriggerSmartContract',
-          },
-        },
-      ],
-      ref_block_bytes: '',
-      ref_block_hash: '',
-      expiration: 0,
-      timestamp: 0,
-    };
-  }
-
-  return {
-    contract: [
-      {
-        type: Types.ContractType.TransferContract,
-        parameter: {
-          value: {
-            owner_address: ownerAddressHex,
-            to_address: TronWeb.address.toHex(to),
-            amount,
-          },
-          type_url: 'type.googleapis.com/protocol.TransferContract',
-        },
-      },
-    ],
-    ref_block_bytes: '',
-    ref_block_hash: '',
-    expiration: 0,
-    timestamp: 0,
-  };
-}
+};

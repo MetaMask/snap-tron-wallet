@@ -8,10 +8,7 @@ import type {
   UnencryptedStateValue,
 } from '../../../../services/state/State';
 import type { TransactionScanService } from '../../../../services/transaction-scan/TransactionScanService';
-import {
-  SimulationStatus,
-  type TransactionScanResult,
-} from '../../../../services/transaction-scan/types';
+import type { TransactionScanResult } from '../../../../services/transaction-scan/types';
 import type { Preferences } from '../../../../types/snap';
 
 // Mock the context module
@@ -87,7 +84,6 @@ const mockAsset: AssetEntity = {
 
 const defaultScanResult: TransactionScanResult = {
   status: 'SUCCESS',
-  simulationStatus: SimulationStatus.Completed,
   estimatedChanges: {
     assets: [
       {
@@ -244,7 +240,12 @@ describe('ConfirmTransactionRequest render', () => {
         expect(mockTransactionScanService.scanTransaction).toHaveBeenCalledWith(
           expect.objectContaining({
             accountAddress: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
-            transactionRawData: expect.any(Object),
+            parameters: expect.objectContaining({
+              from: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+              to: 'TQkE4s6hQqxym4fYvtVLNEGPsaAChFqxPk',
+              data: null,
+              value: 1_000_000,
+            }),
             origin: 'MetaMask',
             scope: Network.Mainnet,
             options: ['simulation', 'validation'],
@@ -385,7 +386,12 @@ describe('ConfirmTransactionRequest render', () => {
 
       expect(mockTransactionScanService.scanTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
-          transactionRawData: expect.any(Object),
+          parameters: expect.objectContaining({
+            from: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+            to: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+            data: null,
+            value: 0,
+          }),
         }),
       );
     });

@@ -8,6 +8,7 @@ import type { Transaction } from 'tronweb/lib/esm/types';
 import { ConfirmSignTransaction } from './ConfirmSignTransaction';
 import { CONFIRM_SIGN_TRANSACTION_INTERFACE_NAME } from './types';
 import type { ConfirmSignTransactionContext } from './types';
+import { extractScanParametersFromTransactionData } from '../../../../clients/security-alerts-api/utils';
 import { Network, Networks, ZERO } from '../../../../constants';
 import snapContext from '../../../../context';
 import type { TronKeyringAccount } from '../../../../entities/keyring-account';
@@ -27,6 +28,7 @@ export const DEFAULT_CONTEXT: ConfirmSignTransactionContext = {
   networkImage: TRX_IMAGE_SVG,
   scan: null,
   scanFetchStatus: 'initial',
+  scanParameters: null,
   tokenPrices: {},
   tokenPricesFetchStatus: 'initial',
   fees: [],
@@ -93,6 +95,9 @@ export async function render(
   ]);
 
   context.preferences = preferences;
+
+  const scanParameters = extractScanParametersFromTransactionData(rawData);
+  context.scanParameters = scanParameters;
 
   const { useSecurityAlerts, simulateOnChainActions, useExternalPricingData } =
     context.preferences;
@@ -172,7 +177,11 @@ export async function render(
   );
 
   // If security scanning is enabled, scan the transaction
-  if (transactionScanService && (useSecurityAlerts || simulateOnChainActions)) {
+  if (
+    transactionScanService &&
+    (useSecurityAlerts || simulateOnChainActions) &&
+    scanParameters
+  ) {
     const options: string[] = [];
 
     if (simulateOnChainActions) {
@@ -186,7 +195,7 @@ export async function render(
     try {
       const scan = await transactionScanService.scanTransaction({
         accountAddress: account.address,
-        transactionRawData: rawData,
+        parameters: scanParameters,
         origin,
         scope: scope as Network,
         options,

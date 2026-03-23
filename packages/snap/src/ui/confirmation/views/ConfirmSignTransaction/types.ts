@@ -1,4 +1,5 @@
 import type { SpotPrices } from '../../../../clients/price-api/types';
+import type { SecurityScanPayload } from '../../../../clients/security-alerts-api/types';
 import type { Network } from '../../../../constants';
 import type { TronKeyringAccount } from '../../../../entities/keyring-account';
 import type { ComputeFeeResult } from '../../../../services/send/types';
@@ -19,6 +20,7 @@ export type ConfirmSignTransactionContext = {
   networkImage: string;
   scan: TransactionScanResult | null;
   scanFetchStatus: FetchStatus;
+  scanParameters: SecurityScanPayload | null;
   tokenPrices: SpotPrices;
   tokenPricesFetchStatus: FetchStatus;
   fees: ComputeFeeResult;

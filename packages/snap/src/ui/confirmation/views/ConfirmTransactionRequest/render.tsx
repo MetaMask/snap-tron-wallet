@@ -1,14 +1,13 @@
-import type { DialogResult, Json } from '@metamask/snaps-sdk';
+import type { DialogResult } from '@metamask/snaps-sdk';
 import { parseCaipAssetType } from '@metamask/utils';
 import { BigNumber } from 'bignumber.js';
-import { Types } from 'tronweb';
 
 import { ConfirmTransactionRequest } from './ConfirmTransactionRequest';
 import {
   CONFIRM_TRANSACTION_INTERFACE_NAME,
   type ConfirmTransactionRequestContext,
 } from './types';
-import { buildTransactionRawData } from '../../../../clients/security-alerts-api/utils';
+import type { SecurityScanPayload } from '../../../../clients/security-alerts-api/types';
 import type { SnapClient } from '../../../../clients/snap/SnapClient';
 import { Network } from '../../../../constants';
 import snapContext from '../../../../context';
@@ -45,7 +44,7 @@ export const DEFAULT_CONFIRMATION_CONTEXT: ConfirmTransactionRequestContext = {
   tokenPricesFetchStatus: 'initial',
   scan: null,
   scanFetchStatus: 'initial',
-  transactionRawData: null,
+  scanParameters: null,
   accountType: '',
   preferences: {
     locale: 'en',
@@ -62,45 +61,44 @@ export const DEFAULT_CONFIRMATION_CONTEXT: ConfirmTransactionRequestContext = {
 };
 
 /**
- * Builds a minimal raw transaction data object from the send details,
- * suitable for security scanning via the Security Alerts API.
+ * Builds extracted scan parameters from send confirmation inputs for the Security Alerts API.
  *
  * @param fromAddress - The sender address (base58).
  * @param toAddress - The recipient address (base58).
  * @param amount - The amount to send (display units).
  * @param asset - The asset being sent.
- * @returns A minimal raw transaction data object.
+ * @returns Parameters for {@link TransactionScanService.scanTransaction}.
  */
-function buildScanTransactionRawData(
+function buildScanParametersFromSendContext(
   fromAddress: string,
   toAddress: string,
   amount: string,
   asset: AssetEntity,
-): ReturnType<typeof buildTransactionRawData> {
+): SecurityScanPayload {
   const { assetNamespace, assetReference } = parseCaipAssetType(
     asset.assetType,
   );
   const isTrc20 = assetNamespace === 'trc20';
 
   if (isTrc20) {
-    return buildTransactionRawData({
+    return {
       from: fromAddress,
       to: assetReference,
-      amount: 0,
-      contractType: Types.ContractType.TriggerSmartContract,
-    });
+      data: null,
+      value: 0,
+    };
   }
 
   const rawValue = new BigNumber(amount)
     .multipliedBy(new BigNumber(10).pow(asset.decimals))
     .toNumber();
 
-  return buildTransactionRawData({
+  return {
     from: fromAddress,
     to: toAddress,
-    amount: rawValue,
-    contractType: Types.ContractType.TransferContract,
-  });
+    data: null,
+    value: rawValue,
+  };
 }
 
 /**
@@ -158,14 +156,13 @@ export async function render(
     fee.asset.iconUrl = getIconUrlForKnownAsset(fee.asset.type);
   });
 
-  // Build a minimal raw transaction for security scanning
-  const transactionRawData = buildScanTransactionRawData(
+  const scanParameters = buildScanParametersFromSendContext(
     incomingContext.fromAddress,
     incomingContext.toAddress,
     incomingContext.amount,
     incomingContext.asset,
   );
-  context.transactionRawData = transactionRawData as unknown as Json;
+  context.scanParameters = scanParameters;
 
   // 2. Initial render with loading skeleton (always show loading if pricing enabled)
   const id = await snapClient.createInterface(
@@ -199,7 +196,7 @@ export async function render(
     try {
       const scan = await transactionScanService.scanTransaction({
         accountAddress: incomingContext.fromAddress,
-        transactionRawData,
+        parameters: scanParameters,
         origin: incomingContext.origin,
         scope: incomingContext.scope,
         options,

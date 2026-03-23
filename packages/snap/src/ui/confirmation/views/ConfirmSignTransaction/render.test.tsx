@@ -2,15 +2,13 @@ import type { KeyringRequest } from '@metamask/keyring-api';
 import { bytesToBase64, stringToBytes } from '@metamask/utils';
 
 import { render } from './render';
+import { extractScanParametersFromTransactionData } from '../../../../clients/security-alerts-api/utils';
 import type { SnapClient } from '../../../../clients/snap/SnapClient';
 import { Network } from '../../../../constants';
 import type { TronKeyringAccount } from '../../../../entities/keyring-account';
 import { TronMultichainMethod } from '../../../../handlers/keyring-types';
 import type { TransactionScanService } from '../../../../services/transaction-scan/TransactionScanService';
-import {
-  SimulationStatus,
-  type TransactionScanResult,
-} from '../../../../services/transaction-scan/types';
+import type { TransactionScanResult } from '../../../../services/transaction-scan/types';
 import type { Preferences } from '../../../../types/snap';
 
 // Mock the context module
@@ -64,7 +62,6 @@ describe('ConfirmSignTransaction render', () => {
 
   const mockScanResult: TransactionScanResult = {
     status: 'SUCCESS',
-    simulationStatus: SimulationStatus.Completed,
     estimatedChanges: {
       assets: [
         {
@@ -83,6 +80,24 @@ describe('ConfirmSignTransaction render', () => {
       reason: null,
     },
     error: null,
+  };
+
+  /** Minimal raw data that yields non-null {@link extractScanParametersFromTransactionData} output. */
+  const validSignRawData = {
+    contract: [
+      {
+        parameter: {
+          value: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            owner_address: '41A2155E688B2BAEBDFDACD073BA79F5B22946AACF',
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            to_address: '4132F9C0C487F21716B7A8F12906B752889902655',
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            call_value: 100000,
+          },
+        },
+      },
+    ],
   };
 
   let mockSnapClient: jest.Mocked<SnapClient>;
@@ -160,25 +175,12 @@ describe('ConfirmSignTransaction render', () => {
       },
     };
 
-    // Mock raw data with contract information
-    const mockRawData = {
-      contract: [
-        {
-          parameter: {
-            value: {
-              // eslint-disable-next-line @typescript-eslint/naming-convention
-              owner_address: '41A2155E688B2BAEBDFDACD073BA79F5B22946AACF',
-              // eslint-disable-next-line @typescript-eslint/naming-convention
-              to_address: '4132F9C0C487F21716B7A8F12906B752889902655',
-              // eslint-disable-next-line @typescript-eslint/naming-convention
-              call_value: 100000,
-            },
-          },
-        },
-      ],
-    };
+    await render(request, mockAccount, validSignRawData as any);
 
-    await render(request, mockAccount, mockRawData as any);
+    const expectedParameters = extractScanParametersFromTransactionData(
+      validSignRawData as any,
+    );
+    expect(expectedParameters).not.toBeNull();
 
     // Verify createInterface was called
     expect(mockSnapClient.createInterface).toHaveBeenCalledTimes(1);
@@ -186,11 +188,11 @@ describe('ConfirmSignTransaction render', () => {
     // Verify showDialog was called with the interface ID
     expect(mockSnapClient.showDialog).toHaveBeenCalledWith('interface-id-123');
 
-    // Verify security scan was triggered with from/to addresses and value
+    // Verify security scan was triggered with extracted parameters
     expect(mockTransactionScanService.scanTransaction).toHaveBeenCalledWith(
       expect.objectContaining({
         accountAddress: mockAccount.address,
-        transactionRawData: mockRawData,
+        parameters: expectedParameters,
         origin: testOrigin,
         scope: Network.Mainnet,
         options: ['simulation', 'validation'],
@@ -259,11 +261,7 @@ describe('ConfirmSignTransaction render', () => {
       },
     };
 
-    const mockRawData = {
-      contract: [],
-    };
-
-    await render(request, mockAccount, mockRawData as any);
+    await render(request, mockAccount, validSignRawData as any);
 
     // Should still render with error state
     expect(mockSnapClient.createInterface).toHaveBeenCalledTimes(1);
@@ -413,11 +411,7 @@ describe('ConfirmSignTransaction render', () => {
       },
     };
 
-    const mockRawData = {
-      contract: [],
-    };
-
-    await render(request, mockAccount, mockRawData as any);
+    await render(request, mockAccount, validSignRawData as any);
 
     // Security scan was called
     expect(mockTransactionScanService.scanTransaction).toHaveBeenCalled();
