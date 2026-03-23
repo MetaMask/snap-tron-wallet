@@ -941,11 +941,10 @@ export class ClientRequestHandler {
    * Claims TRX that has completed the 14-day unstaking lock period.
    * Uses the WithdrawExpireUnfreezeContract on the Tron network.
    *
-   * Shows a confirmation dialog before signing and broadcasting.
+   * User confirmation is handled by the extension before this method is invoked.
    *
    * @param request - The JSON-RPC request containing the account and asset details.
    * @returns The result indicating success or failure with errors.
-   * @throws {UserRejectedRequestError} If the user rejects the confirmation.
    */
   async #handleClaimUnstakedTrx(request: JsonRpcRequest): Promise<Json> {
     assertOrThrow(
@@ -960,15 +959,6 @@ export class ClientRequestHandler {
 
     const { chainId } = parseCaipAssetType(assetId);
     const scope = chainId as Network;
-
-    const confirmed = await this.#confirmationHandler.confirmClaimUnstakedTrx({
-      account,
-      scope,
-    });
-
-    if (!confirmed) {
-      throw new UserRejectedRequestError() as Error;
-    }
 
     await this.#stakingService.claimUnstakedTrx({ account, scope });
 
