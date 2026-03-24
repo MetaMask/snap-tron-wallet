@@ -1,19 +1,14 @@
 import { TrongridApiClient } from './TrongridApiClient';
 import type { Trc20Balance, TransactionInfo } from './types';
-import type { ICache } from '../../caching/ICache';
-import { InMemoryCache } from '../../caching/InMemoryCache';
 import { Network } from '../../constants';
 import { ConfigProvider } from '../../services/config';
 import nativeTransferMock from '../../services/transactions/mocks/native-transfer.json';
-import { mockLogger } from '../../utils/mockLogger';
-import type { Serializable } from '../../utils/serialization/types';
 import { TronHttpClient } from '../tron-http/TronHttpClient';
 
 type WithTrongridApiClientCallback<ReturnValue> = (payload: {
   client: TrongridApiClient;
   configProvider: ConfigProvider;
   tronHttpClient: TronHttpClient;
-  cache: ICache<Serializable>;
 }) => Promise<ReturnValue> | ReturnValue;
 
 type WithTrongridApiClientOptions = {
@@ -58,11 +53,9 @@ async function withTrongridApiClient<ReturnValue>(
   });
 
   const tronHttpClient = new TronHttpClient({ configProvider });
-  const cache = new InMemoryCache(mockLogger);
   const client = new TrongridApiClient({
     configProvider,
     tronHttpClient,
-    cache,
   });
 
   // eslint-disable-next-line no-restricted-globals
@@ -72,7 +65,6 @@ async function withTrongridApiClient<ReturnValue>(
       client,
       configProvider,
       tronHttpClient,
-      cache,
     });
   } finally {
     // eslint-disable-next-line no-restricted-globals

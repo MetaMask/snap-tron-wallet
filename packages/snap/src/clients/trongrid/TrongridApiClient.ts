@@ -14,15 +14,10 @@ import type {
   TronAccount,
   TrongridApiResponse,
 } from './types';
-import type { ICache } from '../../caching/ICache';
-import {
-  useCacheUntil,
-  type ResultWithExpiry,
-} from '../../caching/useCacheUntil';
+import { type ResultWithExpiry } from '../../caching/useCacheUntil';
 import type { Network } from '../../constants';
 import type { ConfigProvider } from '../../services/config';
 import { buildUrl } from '../../utils/buildUrl';
-import type { Serializable } from '../../utils/serialization/types';
 import type { TronHttpClient } from '../tron-http/TronHttpClient';
 import type { ChainParameter } from '../tron-http/types';
 
@@ -37,24 +32,12 @@ export class TrongridApiClient {
 
   readonly #tronHttpClient: TronHttpClient;
 
-  readonly #cache: ICache<Serializable>;
-
-  /**
-   * Cached version of getChainParameters that uses maintenance-aligned expiry.
-   * The cache is invalidated when the next maintenance period is reached.
-   */
-  readonly #cachedGetChainParameters: (
-    scope: Network,
-  ) => Promise<ChainParameter[]>;
-
   constructor({
     configProvider,
     tronHttpClient,
-    cache,
   }: {
     configProvider: ConfigProvider;
     tronHttpClient: TronHttpClient;
-    cache: ICache<Serializable>;
   }) {
     const { baseUrls } = configProvider.get().trongridApi;
 
@@ -70,14 +53,6 @@ export class TrongridApiClient {
     });
 
     this.#tronHttpClient = tronHttpClient;
-    this.#cache = cache;
-
-    // Create cached version of getChainParameters with maintenance-aligned expiry
-    this.#cachedGetChainParameters = useCacheUntil(
-      this.#fetchChainParametersWithExpiry.bind(this),
-      this.#cache,
-      { functionName: 'TrongridApiClient:getChainParameters' },
-    );
   }
 
   /**
@@ -307,7 +282,7 @@ export class TrongridApiClient {
    * @returns Promise<ChainParameter[]> - Chain parameters data
    */
   async getChainParameters(scope: Network): Promise<ChainParameter[]> {
-    return this.#cachedGetChainParameters(scope);
+    return (await this.#fetchChainParametersWithExpiry(scope)).result;
   }
 
   /**
