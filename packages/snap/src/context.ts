@@ -1,5 +1,4 @@
 import { InMemoryCache } from './caching/InMemoryCache';
-import { StateCache } from './caching/StateCache';
 import { PriceApiClient } from './clients/price-api/PriceApiClient';
 import { SecurityAlertsApiClient } from './clients/security-alerts-api/SecurityAlertsApiClient';
 import { SnapClient } from './clients/snap/SnapClient';
@@ -62,13 +61,9 @@ const transactionsRepository = new TransactionsRepository(state);
 // Clients
 const tronHttpClient = new TronHttpClient({ configProvider });
 
-// Cache for TrongridApiClient (chain parameters caching)
-// Using StateCache to persist cache across Snap restarts
-const trongridCache = new StateCache(state, noOpLogger, '__cache__trongrid');
 const trongridApiClient = new TrongridApiClient({
   configProvider,
   tronHttpClient,
-  cache: trongridCache,
 });
 const tronWebFactory = new TronWebFactory({
   configProvider,
