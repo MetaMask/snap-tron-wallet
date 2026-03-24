@@ -694,14 +694,19 @@ export class CronHandler {
 
   /**
    * Background job to track a transaction's confirmation status.
-   * Syncs accounts on first check to fetch transaction with status from network.
-   * Continues polling until confirmed, then syncs again to update status.
-   * Implements automatic retry logic with exponential backoff limits.
+   * Polls until the transaction is confirmed on-chain, then triggers account
+   * synchronization and analytics tracking.
+   *
+   * Only the sender account ID is required here — it is used exclusively for
+   * the `trackTransactionFinalized` analytics event (which needs the sender's
+   * account type). Synchronization of all affected accounts (including a
+   * receiver that may also be user-controlled) is handled by the
+   * `SynchronizeSelectedAccounts` background event scheduled on confirmation.
    *
    * @param params - Transaction tracking parameters
    * @param params.txId - The transaction ID to track
    * @param params.scope - The network scope (e.g., 'mainnet', 'shasta')
-   * @param params.senderAccountId - The ID of the account that sent the transaction
+   * @param params.senderAccountId - The sender account ID, used for analytics
    * @param params.attempt - Current attempt number (for retry logic)
    */
   async trackTransaction({

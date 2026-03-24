@@ -13,7 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Improve transaction tracking reliability: correct list pagination when the cursor is missing, schedule account synchronization before sender lookup, skip work when no accounts are selected, and drop unused params from the setSelectedAccounts background event ([#253](https://github.com/MetaMask/snap-tron-wallet/pull/253))
+- Improve transaction tracking reliability ([#253](https://github.com/MetaMask/snap-tron-wallet/pull/253))
+  - Correct list pagination when the cursor is missing
+  - Schedule account synchronization before sender lookup so sync runs even if the lookup fails
+  - Replace positional `accountIds[0]` sender convention with an explicit `senderAccountId` field
+  - Skip work when no sender account is provided
+  - Drop unused params from the `setSelectedAccounts` background event
 - Assert transaction structure at all entry points, rejecting malformed transactions ([#237](https://github.com/MetaMask/snap-tron-wallet/pull/237))
 - Disable scanning of unsupported contract types, preventing incorrect security alerts from blocking user flows ([#238](https://github.com/MetaMask/snap-tron-wallet/pull/238))
   - Supported transactions are those single-contract interaction transactions of the following types: `TransferContract`, `CreateSmartContract`, `TriggerSmartContract`.
