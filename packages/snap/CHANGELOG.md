@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Optimize account discovery by using a lightweight activity check (`limit=1`) instead of fetching full transaction history ([#252](https://github.com/MetaMask/snap-tron-wallet/pull/252))
+- Simplify `SnapClient` interface methods by removing defensive `*IfExists` wrappers and aligning with the Solana snap's approach
 
 ### Fixed
 
