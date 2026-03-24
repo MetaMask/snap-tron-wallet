@@ -261,7 +261,7 @@ export class ClientRequestHandler {
       params: {
         txId: result.txid,
         scope,
-        accountIds: [accountId],
+        senderAccountId: accountId,
         attempt: 0,
       },
       duration: 'PT1S',

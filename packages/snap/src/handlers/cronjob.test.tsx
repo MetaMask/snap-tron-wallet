@@ -511,7 +511,7 @@ describe('CronHandler', () => {
   });
 
   describe('trackTransaction', () => {
-    it('returns early when accountIds is empty', async () => {
+    it('returns early when senderAccountId is empty', async () => {
       const {
         cronHandler,
         mockLogger,
@@ -522,14 +522,14 @@ describe('CronHandler', () => {
       await cronHandler.trackTransaction({
         txId: 'tx-1',
         scope: Network.Mainnet,
-        accountIds: [],
+        senderAccountId: '',
         attempt: 0,
       });
 
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.anything(),
         { txId: 'tx-1', scope: Network.Mainnet },
-        'Transaction tracking invoked with empty accountIds',
+        'Transaction tracking invoked without senderAccountId',
       );
       expect(mockTronHttpClient.getTransactionInfoById).not.toHaveBeenCalled();
       expect(mockAccountsService.findByIds).not.toHaveBeenCalled();
@@ -537,7 +537,6 @@ describe('CronHandler', () => {
 
     it('schedules account sync before resolving sender for finalized analytics', async () => {
       const senderId = '123e4567-e89b-42d3-a456-426614174000';
-      const otherId = '223e4567-e89b-42d3-a456-426614174001';
       const {
         cronHandler,
         mockSnapClient,
@@ -550,14 +549,13 @@ describe('CronHandler', () => {
       } as any);
 
       mockAccountsService.findByIds.mockResolvedValue([
-        { id: otherId, type: 'tron:other' },
         { id: senderId, type: 'tron:eoa' },
       ] as TronKeyringAccount[]);
 
       await cronHandler.trackTransaction({
         txId: 'tx-1',
         scope: Network.Mainnet,
-        accountIds: [senderId],
+        senderAccountId: senderId,
         attempt: 0,
       });
 
