@@ -55,6 +55,7 @@ import {
   ESSENTIAL_ASSETS,
   MAX_BANDWIDTH_METADATA,
   MAX_ENERGY_METADATA,
+  NATIVE_ASSETS,
   Networks,
   TokenMetadata,
   TRX_IN_LOCK_PERIOD_METADATA,
@@ -361,8 +362,8 @@ export class AssetsService {
     return [
       this.#extractNativeAsset(account, scope, data.nativeBalance),
       ...this.#extractStakedNativeAssets(account, scope, data.stakedData),
-      this.#extractReadyForWithdrawalAsset(account, scope, data.stakedData),
-      this.#extractInLockPeriodAsset(account, scope, data.stakedData),
+      ...this.#extractReadyForWithdrawalAssets(account, scope, data.stakedData),
+      ...this.#extractInLockPeriodAssets(account, scope, data.stakedData),
       this.#extractStakingRewardsAsset(account, scope, data.stakingRewards),
       ...this.#extractTrc10Assets(account, scope, data.trc10Balances),
       ...this.#extractTrc20Assets(account, scope, data.trc20Balances),
@@ -479,7 +480,7 @@ export class AssetsService {
    * @param account - The keyring account.
    * @param scope - The network.
    * @param stakedData - Staking data including frozen balances and delegated resources.
-   * @returns AssetEntity[] - Array of staked assets (always 2: bandwidth and energy, amounts may be 0).
+   * @returns AssetEntity[] - Array of staked assets (may be empty if no staking).
    */
   #extractStakedNativeAssets(
     account: KeyringAccount,
@@ -510,33 +511,37 @@ export class AssetsService {
     stakedBandwidthAmount += delegatedBandwidth;
     stakedEnergyAmount += delegatedEnergy;
 
-    assets.push({
-      assetType: Networks[scope].stakedForBandwidth.id,
-      keyringAccountId: account.id,
-      network: scope,
-      symbol: Networks[scope].stakedForBandwidth.symbol,
-      decimals: Networks[scope].stakedForBandwidth.decimals,
-      rawAmount: stakedBandwidthAmount.toString(),
-      uiAmount: toUiAmount(
-        stakedBandwidthAmount,
-        Networks[scope].stakedForBandwidth.decimals,
-      ).toString(),
-      iconUrl: Networks[scope].stakedForBandwidth.iconUrl,
-    });
+    if (stakedBandwidthAmount > 0) {
+      assets.push({
+        assetType: Networks[scope].stakedForBandwidth.id,
+        keyringAccountId: account.id,
+        network: scope,
+        symbol: Networks[scope].stakedForBandwidth.symbol,
+        decimals: Networks[scope].stakedForBandwidth.decimals,
+        rawAmount: stakedBandwidthAmount.toString(),
+        uiAmount: toUiAmount(
+          stakedBandwidthAmount,
+          Networks[scope].stakedForBandwidth.decimals,
+        ).toString(),
+        iconUrl: Networks[scope].stakedForBandwidth.iconUrl,
+      });
+    }
 
-    assets.push({
-      assetType: Networks[scope].stakedForEnergy.id,
-      keyringAccountId: account.id,
-      network: scope,
-      symbol: Networks[scope].stakedForEnergy.symbol,
-      decimals: Networks[scope].stakedForEnergy.decimals,
-      rawAmount: stakedEnergyAmount.toString(),
-      uiAmount: toUiAmount(
-        stakedEnergyAmount,
-        Networks[scope].stakedForEnergy.decimals,
-      ).toString(),
-      iconUrl: Networks[scope].stakedForEnergy.iconUrl,
-    });
+    if (stakedEnergyAmount > 0) {
+      assets.push({
+        assetType: Networks[scope].stakedForEnergy.id,
+        keyringAccountId: account.id,
+        network: scope,
+        symbol: Networks[scope].stakedForEnergy.symbol,
+        decimals: Networks[scope].stakedForEnergy.decimals,
+        rawAmount: stakedEnergyAmount.toString(),
+        uiAmount: toUiAmount(
+          stakedEnergyAmount,
+          Networks[scope].stakedForEnergy.decimals,
+        ).toString(),
+        iconUrl: Networks[scope].stakedForEnergy.iconUrl,
+      });
+    }
 
     return assets;
   }
@@ -547,13 +552,13 @@ export class AssetsService {
    * @param account - The keyring account.
    * @param scope - The network.
    * @param stakedData - Staking data including unfrozen balances.
-   * @returns AssetEntity - The ready-for-withdrawal asset (amount may be 0).
+   * @returns AssetEntity[] - Ready-for-withdrawal asset when amount is greater than 0, else empty.
    */
-  #extractReadyForWithdrawalAsset(
+  #extractReadyForWithdrawalAssets(
     account: KeyringAccount,
     scope: Network,
     stakedData: NormalizedAccountData['stakedData'],
-  ): AssetEntity {
+  ): AssetEntity[] {
     const currentTimestamp = Date.now();
     let readyForWithdrawalAmount = 0;
 
@@ -566,19 +571,25 @@ export class AssetsService {
       }
     });
 
-    const { id, symbol, decimals, iconUrl } =
-      Networks[scope].readyForWithdrawal;
+    if (readyForWithdrawalAmount > 0) {
+      const { id, symbol, decimals, iconUrl } =
+        Networks[scope].readyForWithdrawal;
 
-    return {
-      assetType: id,
-      keyringAccountId: account.id,
-      network: scope,
-      symbol,
-      decimals,
-      rawAmount: readyForWithdrawalAmount.toString(),
-      uiAmount: toUiAmount(readyForWithdrawalAmount, decimals).toString(),
-      iconUrl,
-    };
+      return [
+        {
+          assetType: id,
+          keyringAccountId: account.id,
+          network: scope,
+          symbol,
+          decimals,
+          rawAmount: readyForWithdrawalAmount.toString(),
+          uiAmount: toUiAmount(readyForWithdrawalAmount, decimals).toString(),
+          iconUrl,
+        },
+      ];
+    }
+
+    return [];
   }
 
   /**
@@ -617,13 +628,13 @@ export class AssetsService {
    * @param account - The keyring account.
    * @param scope - The network.
    * @param stakedData - Staking data including unfrozen balances.
-   * @returns AssetEntity - The in-lock-period asset (amount may be 0).
+   * @returns AssetEntity[] - In-lock-period asset when amount is greater than 0, else empty.
    */
-  #extractInLockPeriodAsset(
+  #extractInLockPeriodAssets(
     account: KeyringAccount,
     scope: Network,
     stakedData: NormalizedAccountData['stakedData'],
-  ): AssetEntity {
+  ): AssetEntity[] {
     const currentTimestamp = Date.now();
     let inLockPeriodAmount = 0;
 
@@ -636,18 +647,24 @@ export class AssetsService {
       }
     });
 
-    const { id, symbol, decimals, iconUrl } = Networks[scope].inLockPeriod;
+    if (inLockPeriodAmount > 0) {
+      const { id, symbol, decimals, iconUrl } = Networks[scope].inLockPeriod;
 
-    return {
-      assetType: id,
-      keyringAccountId: account.id,
-      network: scope,
-      symbol,
-      decimals,
-      rawAmount: inLockPeriodAmount.toString(),
-      uiAmount: toUiAmount(inLockPeriodAmount, decimals).toString(),
-      iconUrl,
-    };
+      return [
+        {
+          assetType: id,
+          keyringAccountId: account.id,
+          network: scope,
+          symbol,
+          decimals,
+          rawAmount: inLockPeriodAmount.toString(),
+          uiAmount: toUiAmount(inLockPeriodAmount, decimals).toString(),
+          iconUrl,
+        },
+      ];
+    }
+
+    return [];
   }
 
   /**
@@ -1275,17 +1292,28 @@ export class AssetsService {
       return Boolean(savedAsset && hasZeroAmount(savedAsset));
     };
 
-    const isEssentialAsset = (asset: AssetEntity): boolean =>
-      ESSENTIAL_ASSETS.includes(asset.assetType);
+    const isWireVisible = (asset: AssetEntity): boolean =>
+      NATIVE_ASSETS.includes(asset.assetType) || hasNonZeroAmount(asset);
+
+    const wasWireVisible = (asset: AssetEntity): boolean => {
+      const savedAsset = savedAssets.find(
+        (item) =>
+          item.keyringAccountId === asset.keyringAccountId &&
+          item.assetType === asset.assetType,
+      );
+
+      return Boolean(savedAsset && isWireVisible(savedAsset));
+    };
 
     const shouldBeInRemovedList = (asset: AssetEntity): boolean =>
-      hasZeroAmount(asset) && !isEssentialAsset(asset); // Never remove essential assets (including energy & bandwidth) from the account asset list
+      !isWireVisible(asset) && wasWireVisible(asset);
 
     const shouldBeInAddedList = (asset: AssetEntity): boolean =>
-      !shouldBeInRemovedList(asset) &&
+      isWireVisible(asset) &&
       (!isIncremental ||
-        ((isNew(asset) || wasSavedWithZeroAmount(asset)) &&
-          hasNonZeroAmount(asset)));
+        isNew(asset) ||
+        wasSavedWithZeroAmount(asset) ||
+        !wasWireVisible(asset));
 
     const assetListUpdatedPayload = assets.reduce<
       AccountAssetListUpdatedEvent['params']['assets']
@@ -1324,7 +1352,10 @@ export class AssetsService {
       AssetsService.hasChanged(asset, savedAssets);
 
     const balancesUpdatedPayload = assets
-      .filter(isIncremental ? hasChanged : (): boolean => true)
+      .filter(
+        (asset) =>
+          isWireVisible(asset) && (isIncremental ? hasChanged(asset) : true),
+      )
       .reduce<AccountBalancesUpdatedEvent['params']['balances']>(
         (acc, asset) => ({
           ...acc,
@@ -1393,26 +1424,26 @@ export class AssetsService {
       await this.#assetsRepository.getByAccountId(keyringAccountId);
 
     /**
-     * Ensure the special assets are always present whether they have been synced or not.
-     * These are assets that should be visible to the user even with zero balance.
+     * Ensure native TRX is always present even before the first sync so the client
+     * does not render an empty asset list for the account.
      */
-    const missingEssentialAssets: AssetEntity[] = [];
+    const missingNativeAssets: AssetEntity[] = [];
 
-    for (const essentialAssetId of ESSENTIAL_ASSETS) {
+    for (const nativeAssetId of NATIVE_ASSETS) {
       const savedAsset = savedAssets.find(
-        (asset) => (asset.assetType as string) === essentialAssetId,
+        (asset) => (asset.assetType as string) === nativeAssetId,
       );
 
       if (!savedAsset) {
         const zeroBalanceAsset = this.#createZeroBalanceAsset(
-          essentialAssetId as KnownCaip19Id,
+          nativeAssetId as KnownCaip19Id,
           keyringAccountId,
         );
-        missingEssentialAssets.push(zeroBalanceAsset);
+        missingNativeAssets.push(zeroBalanceAsset);
       }
     }
 
-    return [...savedAssets, ...missingEssentialAssets];
+    return [...savedAssets, ...missingNativeAssets];
   }
 
   /**

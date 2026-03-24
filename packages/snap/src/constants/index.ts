@@ -401,3 +401,9 @@ export const ESSENTIAL_ASSETS: string[] = [
   KnownCaip19Id.TrxShasta,
   ...SPECIAL_ASSETS,
 ];
+
+export const NATIVE_ASSETS: string[] = [
+  KnownCaip19Id.TrxMainnet,
+  KnownCaip19Id.TrxNile,
+  KnownCaip19Id.TrxShasta,
+];

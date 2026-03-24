@@ -28,7 +28,7 @@ import type {
 import { sortBy } from 'lodash';
 
 import type { SnapClient } from '../clients/snap/SnapClient';
-import { ESSENTIAL_ASSETS, type Network } from '../constants';
+import { NATIVE_ASSETS, type Network } from '../constants';
 import { BackgroundEventMethod } from './cronjob';
 import type { TronMultichainMethod } from './keyring-types';
 import {
@@ -188,7 +188,7 @@ export class KeyringHandler implements Keyring {
       const result = assetEntities
         .filter(
           (asset) =>
-            ESSENTIAL_ASSETS.includes(asset.assetType) ||
+            NATIVE_ASSETS.includes(asset.assetType) ||
             Number(asset.rawAmount) > 0,
         )
         .map((asset) => asset.assetType);
@@ -335,7 +335,7 @@ export class KeyringHandler implements Keyring {
         // Remove token assets with zero balance
         .filter(
           (asset) =>
-            ESSENTIAL_ASSETS.includes(asset.assetType) ||
+            NATIVE_ASSETS.includes(asset.assetType) ||
             Number(asset.rawAmount) > 0,
         );
 

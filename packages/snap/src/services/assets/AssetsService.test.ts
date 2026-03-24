@@ -753,7 +753,7 @@ describe('AssetsService', () => {
 
     /* eslint-disable @typescript-eslint/naming-convention */
     describe('TRX ready for withdrawal', () => {
-      it('returns zero balance when account has no unfrozenV2 data', async () => {
+      it('omits ready for withdrawal asset when account has no unfrozenV2 data', async () => {
         await withAssetsService(
           async ({
             assetsService,
@@ -777,8 +777,7 @@ describe('AssetsService', () => {
               assets,
               KnownCaip19Id.TrxReadyForWithdrawalMainnet,
             );
-            expect(readyForWithdrawalAsset).toBeDefined();
-            expect(readyForWithdrawalAsset?.rawAmount).toBe('0');
+            expect(readyForWithdrawalAsset).toBeUndefined();
           },
         );
       });
@@ -816,7 +815,7 @@ describe('AssetsService', () => {
         );
       });
 
-      it('returns zero balance when unfrozenV2 has not expired', async () => {
+      it('omits ready for withdrawal asset when unfrozenV2 has not expired', async () => {
         await withAssetsService(
           async ({
             assetsService,
@@ -846,8 +845,7 @@ describe('AssetsService', () => {
               assets,
               KnownCaip19Id.TrxReadyForWithdrawalMainnet,
             );
-            expect(readyForWithdrawalAsset).toBeDefined();
-            expect(readyForWithdrawalAsset?.rawAmount).toBe('0');
+            expect(readyForWithdrawalAsset).toBeUndefined();
           },
         );
       });
@@ -929,7 +927,7 @@ describe('AssetsService', () => {
 
     /* eslint-disable @typescript-eslint/naming-convention */
     describe('TRX in lock period', () => {
-      it('returns zero balance when account has no unfrozenV2 data', async () => {
+      it('omits in lock period asset when account has no unfrozenV2 data', async () => {
         await withAssetsService(
           async ({
             assetsService,
@@ -953,8 +951,7 @@ describe('AssetsService', () => {
               assets,
               KnownCaip19Id.TrxInLockPeriodMainnet,
             );
-            expect(inLockPeriodAsset).toBeDefined();
-            expect(inLockPeriodAsset?.rawAmount).toBe('0');
+            expect(inLockPeriodAsset).toBeUndefined();
           },
         );
       });
@@ -995,7 +992,7 @@ describe('AssetsService', () => {
         );
       });
 
-      it('returns zero balance when unfrozenV2 has already expired', async () => {
+      it('omits in lock period asset when unfrozenV2 has already expired', async () => {
         await withAssetsService(
           async ({
             assetsService,
@@ -1025,8 +1022,7 @@ describe('AssetsService', () => {
               assets,
               KnownCaip19Id.TrxInLockPeriodMainnet,
             );
-            expect(inLockPeriodAsset).toBeDefined();
-            expect(inLockPeriodAsset?.rawAmount).toBe('0');
+            expect(inLockPeriodAsset).toBeUndefined();
           },
         );
       });
@@ -1110,7 +1106,7 @@ describe('AssetsService', () => {
         );
       });
 
-      it('returns zero balance for inactive accounts', async () => {
+      it('omits in lock period asset for inactive accounts', async () => {
         await withAssetsService(
           async ({
             assetsService,
@@ -1134,8 +1130,7 @@ describe('AssetsService', () => {
               assets,
               KnownCaip19Id.TrxInLockPeriodMainnet,
             );
-            expect(inLockPeriodAsset).toBeDefined();
-            expect(inLockPeriodAsset?.rawAmount).toBe('0');
+            expect(inLockPeriodAsset).toBeUndefined();
           },
         );
       });
@@ -1385,7 +1380,7 @@ describe('AssetsService', () => {
   });
 
   describe('saveMany', () => {
-    it('does not remove energy and bandwidth assets even when they have zero amounts', async () => {
+    it('omits energy and bandwidth assets from the wire when they have zero amounts', async () => {
       await withAssetsService(async ({ assetsService, mockState }) => {
         const assets: AssetEntity[] = [
           {
@@ -1430,11 +1425,7 @@ describe('AssetsService', () => {
           {
             assets: {
               [mockAccount.id]: {
-                added: expect.arrayContaining([
-                  KnownCaip19Id.TrxMainnet,
-                  KnownCaip19Id.EnergyMainnet,
-                  KnownCaip19Id.BandwidthMainnet,
-                ]),
+                added: [KnownCaip19Id.TrxMainnet],
                 removed: [],
               },
             },
@@ -1443,7 +1434,7 @@ describe('AssetsService', () => {
       });
     });
 
-    it('removes non-essential assets with zero amounts', async () => {
+    it('omits non-essential assets with zero amounts when they were never visible on the wire', async () => {
       await withAssetsService(async ({ assetsService, mockState }) => {
         const trc20AssetId = `${Network.Mainnet}/trc20:TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t`;
         const assets: AssetEntity[] = [
@@ -1482,7 +1473,7 @@ describe('AssetsService', () => {
             assets: {
               [mockAccount.id]: {
                 added: [KnownCaip19Id.TrxMainnet],
-                removed: [trc20AssetId],
+                removed: [],
               },
             },
           },
@@ -1490,7 +1481,7 @@ describe('AssetsService', () => {
       });
     });
 
-    it('keeps maximum energy and bandwidth assets even with zero amounts', async () => {
+    it('omits maximum energy and bandwidth assets from the wire when they have zero amounts', async () => {
       await withAssetsService(async ({ assetsService, mockState }) => {
         const assets: AssetEntity[] = [
           {
@@ -1535,11 +1526,7 @@ describe('AssetsService', () => {
           {
             assets: {
               [mockAccount.id]: {
-                added: expect.arrayContaining([
-                  KnownCaip19Id.TrxMainnet,
-                  KnownCaip19Id.MaximumEnergyMainnet,
-                  KnownCaip19Id.MaximumBandwidthMainnet,
-                ]),
+                added: [KnownCaip19Id.TrxMainnet],
                 removed: [],
               },
             },
@@ -1548,7 +1535,7 @@ describe('AssetsService', () => {
       });
     });
 
-    it('keeps staked assets even with zero amounts', async () => {
+    it('omits staked assets from the wire when they have zero amounts', async () => {
       await withAssetsService(async ({ assetsService, mockState }) => {
         const assets: AssetEntity[] = [
           {
@@ -1593,11 +1580,7 @@ describe('AssetsService', () => {
           {
             assets: {
               [mockAccount.id]: {
-                added: expect.arrayContaining([
-                  KnownCaip19Id.TrxMainnet,
-                  KnownCaip19Id.TrxStakedForBandwidthMainnet,
-                  KnownCaip19Id.TrxStakedForEnergyMainnet,
-                ]),
+                added: [KnownCaip19Id.TrxMainnet],
                 removed: [],
               },
             },
@@ -1606,7 +1589,7 @@ describe('AssetsService', () => {
       });
     });
 
-    it('keeps ready for withdrawal assets even with zero amounts', async () => {
+    it('omits ready for withdrawal assets from the wire when they have zero amounts', async () => {
       await withAssetsService(async ({ assetsService, mockState }) => {
         const assets: AssetEntity[] = [
           {
@@ -1641,10 +1624,7 @@ describe('AssetsService', () => {
           {
             assets: {
               [mockAccount.id]: {
-                added: expect.arrayContaining([
-                  KnownCaip19Id.TrxMainnet,
-                  KnownCaip19Id.TrxReadyForWithdrawalMainnet,
-                ]),
+                added: [KnownCaip19Id.TrxMainnet],
                 removed: [],
               },
             },
@@ -2244,7 +2224,7 @@ describe('AssetsService', () => {
         });
       });
 
-      it('keeps energy in the list when it drops to 0', async () => {
+      it('removes energy from the wire when it drops to 0', async () => {
         await withAssetsService(async ({ assetsService, mockState }) => {
           const savedAssets: AssetEntity[] = [
             {
@@ -2304,11 +2284,23 @@ describe('AssetsService', () => {
             {
               assets: {
                 [mockAccount.id]: {
-                  added: expect.arrayContaining([
-                    KnownCaip19Id.TrxMainnet,
-                    KnownCaip19Id.EnergyMainnet,
-                  ]),
-                  removed: [],
+                  added: [KnownCaip19Id.TrxMainnet],
+                  removed: [KnownCaip19Id.EnergyMainnet],
+                },
+              },
+            },
+          );
+
+          expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
+            expect.anything(),
+            KeyringEvent.AccountBalancesUpdated,
+            {
+              balances: {
+                [mockAccount.id]: {
+                  [KnownCaip19Id.TrxMainnet]: {
+                    unit: 'TRX',
+                    amount: '1',
+                  },
                 },
               },
             },
@@ -2316,7 +2308,7 @@ describe('AssetsService', () => {
         });
       });
 
-      it('keeps bandwidth in the list when it drops to 0', async () => {
+      it('removes bandwidth from the wire when it drops to 0', async () => {
         await withAssetsService(async ({ assetsService, mockState }) => {
           const savedAssets: AssetEntity[] = [
             {
@@ -2376,11 +2368,23 @@ describe('AssetsService', () => {
             {
               assets: {
                 [mockAccount.id]: {
-                  added: expect.arrayContaining([
-                    KnownCaip19Id.TrxMainnet,
-                    KnownCaip19Id.BandwidthMainnet,
-                  ]),
-                  removed: [],
+                  added: [KnownCaip19Id.TrxMainnet],
+                  removed: [KnownCaip19Id.BandwidthMainnet],
+                },
+              },
+            },
+          );
+
+          expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
+            expect.anything(),
+            KeyringEvent.AccountBalancesUpdated,
+            {
+              balances: {
+                [mockAccount.id]: {
+                  [KnownCaip19Id.TrxMainnet]: {
+                    unit: 'TRX',
+                    amount: '1',
+                  },
                 },
               },
             },
@@ -2503,6 +2507,57 @@ describe('AssetsService', () => {
           );
         });
       });
+    });
+  });
+
+  describe('getByKeyringAccountId', () => {
+    it('adds native TRX fallback without synthesizing zero special assets', async () => {
+      await withAssetsService(
+        async ({ assetsService, mockAssetsRepository, mockState }) => {
+          mockState.getKey.mockResolvedValue({});
+          mockAssetsRepository.getByAccountId.mockResolvedValue([
+            {
+              assetType: KnownCaip19Id.EnergyMainnet,
+              keyringAccountId: mockAccount.id,
+              network: Network.Mainnet,
+              symbol: 'ENERGY',
+              decimals: 0,
+              rawAmount: '0',
+              uiAmount: '0',
+              iconUrl: '',
+            },
+          ]);
+
+          const assets = await assetsService.getByKeyringAccountId(
+            mockAccount.id,
+          );
+
+          expect(assets).toStrictEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                assetType: KnownCaip19Id.TrxMainnet,
+                rawAmount: '0',
+                uiAmount: '0',
+              }),
+              expect.objectContaining({
+                assetType: KnownCaip19Id.EnergyMainnet,
+              }),
+            ]),
+          );
+          expect(
+            assets.find(
+              (asset: AssetEntity) =>
+                asset.assetType === KnownCaip19Id.MaximumEnergyMainnet,
+            ),
+          ).toBeUndefined();
+          expect(
+            assets.find(
+              (asset: AssetEntity) =>
+                asset.assetType === KnownCaip19Id.TrxReadyForWithdrawalMainnet,
+            ),
+          ).toBeUndefined();
+        },
+      );
     });
   });
 });
