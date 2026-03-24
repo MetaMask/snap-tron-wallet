@@ -1,9 +1,10 @@
-import type { KeyringRequest } from '@metamask/keyring-api';
+import type { KeyringRequest, Transaction } from '@metamask/keyring-api';
 import { UserRejectedRequestError } from '@metamask/snaps-sdk';
 import { bytesToBase64, bytesToHex, stringToBytes } from '@metamask/utils';
 
 import type { SnapClient } from '../clients/snap/SnapClient';
 import { Network } from '../constants';
+import { BackgroundEventMethod } from './cronjob';
 import { KeyringHandler } from './keyring';
 import { TronMultichainMethod } from './keyring-types';
 import type { TronKeyringAccount } from '../entities/keyring-account';
@@ -59,7 +60,9 @@ describe('KeyringHandler', () => {
   let mockConfirmationHandler: jest.Mocked<ConfirmationHandler>;
 
   beforeEach(() => {
-    mockSnapClient = {} as any;
+    mockSnapClient = {
+      scheduleBackgroundEvent: jest.fn().mockResolvedValue(undefined),
+    } as any;
     mockAccountsService = {
       findById: jest.fn().mockResolvedValue(mockAccount),
       findByIdOrThrow: jest.fn().mockResolvedValue(mockAccount),
@@ -68,6 +71,8 @@ describe('KeyringHandler', () => {
     mockAssetsService = {} as any;
     mockTransactionsService = {
       checkAddressActivity: jest.fn(),
+      fetchNewTransactionsForAccount: jest.fn(),
+      findByAccounts: jest.fn().mockResolvedValue([]),
     } as any;
     mockWalletService = {
       handleKeyringRequest: jest
@@ -580,6 +585,35 @@ describe('KeyringHandler', () => {
       expect(
         mockTransactionsService.checkAddressActivity,
       ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listAccountTransactions', () => {
+    beforeEach(() => {
+      mockTransactionsService.findByAccounts.mockResolvedValue([
+        { id: 'tx-1', account: mockAccount.id } as Transaction,
+        { id: 'tx-2', account: mockAccount.id } as Transaction,
+      ]);
+    });
+
+    it('returns empty results when cursor is not found', async () => {
+      const result = await keyringHandler.listAccountTransactions(
+        mockAccount.id,
+        { limit: 10, next: 'unknown-cursor-id' },
+      );
+
+      expect(result).toStrictEqual({ data: [], next: null });
+    });
+  });
+
+  describe('setSelectedAccounts', () => {
+    it('schedules synchronize selected accounts without event params', async () => {
+      await keyringHandler.setSelectedAccounts([mockAccount.id]);
+
+      expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith({
+        method: BackgroundEventMethod.SynchronizeSelectedAccounts,
+        duration: 'PT1S',
+      });
     });
   });
 });

@@ -3,6 +3,7 @@ import type { PriceApiClient } from '../clients/price-api/PriceApiClient';
 import type { SnapClient } from '../clients/snap/SnapClient';
 import type { TronHttpClient } from '../clients/tron-http/TronHttpClient';
 import { Network } from '../constants';
+import type { TronKeyringAccount } from '../entities/keyring-account';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { State, UnencryptedStateValue } from '../services/state/State';
 import type { TransactionScanService } from '../services/transaction-scan/TransactionScanService';
@@ -269,6 +270,58 @@ type WithCronHandlerOptions = {
 };
 
 /**
+ * Builds a `CronHandler` and mocks for `trackTransaction` tests.
+ *
+ * @returns Handler plus mocks for accounts, Snap client, Tron HTTP, and logger.
+ */
+function buildTrackTransactionCronHandler() {
+  const mockLogger = buildMockLogger();
+  const mockAccountsService = {
+    findByIds: jest.fn(),
+    synchronize: jest.fn().mockResolvedValue(undefined),
+  } as unknown as jest.Mocked<
+    Pick<AccountsService, 'findByIds' | 'synchronize'>
+  >;
+
+  const mockSnapClient = {
+    getClientStatus: jest
+      .fn()
+      .mockResolvedValue({ active: true, locked: false }),
+    scheduleBackgroundEvent: jest.fn().mockResolvedValue(undefined),
+    trackTransactionFinalized: jest.fn().mockResolvedValue(undefined),
+  } as unknown as jest.Mocked<
+    Pick<
+      SnapClient,
+      | 'getClientStatus'
+      | 'scheduleBackgroundEvent'
+      | 'trackTransactionFinalized'
+    >
+  >;
+
+  const mockTronHttpClient = {
+    getTransactionInfoById: jest.fn(),
+  } as unknown as jest.Mocked<Pick<TronHttpClient, 'getTransactionInfoById'>>;
+
+  const cronHandler = new CronHandler({
+    logger: mockLogger,
+    accountsService: mockAccountsService as unknown as AccountsService,
+    snapClient: mockSnapClient as unknown as SnapClient,
+    state: {} as State<UnencryptedStateValue>,
+    priceApiClient: {} as PriceApiClient,
+    tronHttpClient: mockTronHttpClient as unknown as TronHttpClient,
+    transactionScanService: {} as TransactionScanService,
+  });
+
+  return {
+    cronHandler,
+    mockLogger,
+    mockAccountsService,
+    mockSnapClient,
+    mockTronHttpClient,
+  };
+}
+
+/**
  * Constructs a CronHandler with sensible defaults and calls the given test
  * function with the handler and all mocks. Overrides can be provided to
  * configure the mocks for specific test scenarios.
@@ -453,6 +506,76 @@ describe('CronHandler', () => {
             }),
           );
         },
+      );
+    });
+  });
+
+  describe('trackTransaction', () => {
+    it('returns early when senderAccountId is empty', async () => {
+      const {
+        cronHandler,
+        mockLogger,
+        mockTronHttpClient,
+        mockAccountsService,
+      } = buildTrackTransactionCronHandler();
+
+      await cronHandler.trackTransaction({
+        txId: 'tx-1',
+        scope: Network.Mainnet,
+        senderAccountId: '',
+        attempt: 0,
+      });
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.anything(),
+        { txId: 'tx-1', scope: Network.Mainnet },
+        'Transaction tracking invoked without senderAccountId',
+      );
+      expect(mockTronHttpClient.getTransactionInfoById).not.toHaveBeenCalled();
+      expect(mockAccountsService.findByIds).not.toHaveBeenCalled();
+    });
+
+    it('schedules account sync before resolving sender for finalized analytics', async () => {
+      const senderId = '123e4567-e89b-42d3-a456-426614174000';
+      const {
+        cronHandler,
+        mockSnapClient,
+        mockTronHttpClient,
+        mockAccountsService,
+      } = buildTrackTransactionCronHandler();
+
+      mockTronHttpClient.getTransactionInfoById.mockResolvedValue({
+        blockNumber: 1,
+      } as any);
+
+      mockAccountsService.findByIds.mockResolvedValue([
+        { id: senderId, type: 'tron:eoa' },
+      ] as TronKeyringAccount[]);
+
+      await cronHandler.trackTransaction({
+        txId: 'tx-1',
+        scope: Network.Mainnet,
+        senderAccountId: senderId,
+        attempt: 0,
+      });
+
+      expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith({
+        method: BackgroundEventMethod.SynchronizeSelectedAccounts,
+        duration: 'PT1S',
+      });
+      expect(mockSnapClient.trackTransactionFinalized).toHaveBeenCalledWith({
+        origin: 'MetaMask',
+        accountType: 'tron:eoa',
+        chainIdCaip: Network.Mainnet,
+      });
+      const syncInvocationOrder =
+        mockSnapClient.scheduleBackgroundEvent.mock.invocationCallOrder[0];
+      const finalizedInvocationOrder =
+        mockSnapClient.trackTransactionFinalized.mock.invocationCallOrder[0];
+      expect(syncInvocationOrder).toBeDefined();
+      expect(finalizedInvocationOrder).toBeDefined();
+      expect(syncInvocationOrder as number).toBeLessThan(
+        finalizedInvocationOrder as number,
       );
     });
   });

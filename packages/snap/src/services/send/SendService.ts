@@ -448,7 +448,7 @@ export class SendService {
       params: {
         txId: result.txid,
         scope,
-        accountIds: [fromAccountId],
+        senderAccountId: fromAccountId,
         attempt: 0,
       },
       duration: 'PT1S',

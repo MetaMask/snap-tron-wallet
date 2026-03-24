@@ -119,7 +119,7 @@ export class CronHandler {
           params as {
             txId: string;
             scope: Network;
-            accountIds: string[];
+            senderAccountId: string;
             attempt: number;
           },
         );
@@ -694,25 +694,30 @@ export class CronHandler {
 
   /**
    * Background job to track a transaction's confirmation status.
-   * Syncs accounts on first check to fetch transaction with status from network.
-   * Continues polling until confirmed, then syncs again to update status.
-   * Implements automatic retry logic with exponential backoff limits.
+   * Polls until the transaction is confirmed on-chain, then triggers account
+   * synchronization and analytics tracking.
+   *
+   * Only the sender account ID is required here — it is used exclusively for
+   * the `trackTransactionFinalized` analytics event (which needs the sender's
+   * account type). Synchronization of all affected accounts (including a
+   * receiver that may also be user-controlled) is handled by the
+   * `SynchronizeSelectedAccounts` background event scheduled on confirmation.
    *
    * @param params - Transaction tracking parameters
    * @param params.txId - The transaction ID to track
    * @param params.scope - The network scope (e.g., 'mainnet', 'shasta')
-   * @param params.accountIds - Account IDs to sync after confirmation (first account is always the sender)
+   * @param params.senderAccountId - The sender account ID, used for analytics
    * @param params.attempt - Current attempt number (for retry logic)
    */
   async trackTransaction({
     txId,
     scope,
-    accountIds,
+    senderAccountId,
     attempt = 0,
   }: {
     txId: string;
     scope: Network;
-    accountIds: string[];
+    senderAccountId: string;
     attempt: number;
   }): Promise<void> {
     const maxAttempts = 15; // Maximum number of polling attempts
@@ -722,6 +727,14 @@ export class CronHandler {
       `[Attempt ${attempt + 1} of ${maxAttempts}] Tracking transaction ${txId} on ${scope}...`,
     );
 
+    if (!senderAccountId) {
+      this.#logger.error(
+        { txId, scope },
+        'Transaction tracking invoked without senderAccountId',
+      );
+      return;
+    }
+
     // Check if we've exceeded maximum attempts
     if (attempt >= maxAttempts) {
       this.#logger.warn(
@@ -730,7 +743,7 @@ export class CronHandler {
       );
 
       // Fallback: sync accounts anyway to update final status
-      const accounts = await this.#accountsService.findByIds(accountIds);
+      const accounts = await this.#accountsService.findByIds([senderAccountId]);
       if (accounts.length > 0) {
         await this.#accountsService.synchronize(accounts);
       }
@@ -757,7 +770,7 @@ export class CronHandler {
           params: {
             txId,
             scope,
-            accountIds,
+            senderAccountId,
             attempt: attempt + 1,
           },
           duration: pollingInterval,
@@ -771,21 +784,20 @@ export class CronHandler {
         '✅ Transaction confirmed on-chain',
       );
 
-      // Get the sender account to determine account type
-      const accounts = await this.#accountsService.findByIds(accountIds);
-      const senderAccount = accounts[0];
-
-      if (!senderAccount) {
-        this.#logger.error({ txId }, 'Sender account not found');
-        return;
-      }
-
       // Synchronize accounts to get the full transaction details and update state
       // Scheduled in the background to avoid blocking the main thread
       await this.#snapClient.scheduleBackgroundEvent({
         method: BackgroundEventMethod.SynchronizeSelectedAccounts,
         duration: 'PT1S',
       });
+
+      const accounts = await this.#accountsService.findByIds([senderAccountId]);
+      const senderAccount = accounts[0];
+
+      if (!senderAccount) {
+        this.#logger.error({ txId }, 'Sender account not found');
+        return;
+      }
 
       // Track Transaction Finalized event now that transaction is confirmed
       await this.#snapClient.trackTransactionFinalized({
@@ -806,7 +818,7 @@ export class CronHandler {
           params: {
             txId,
             scope,
-            accountIds,
+            senderAccountId,
             attempt: attempt + 1,
           },
           duration: pollingInterval,
@@ -817,7 +829,9 @@ export class CronHandler {
           { txId, scope },
           'Max tracking attempts reached with errors - falling back to account sync',
         );
-        const accounts = await this.#accountsService.findByIds(accountIds);
+        const accounts = await this.#accountsService.findByIds([
+          senderAccountId,
+        ]);
         if (accounts.length > 0) {
           await this.#accountsService.synchronize(accounts);
         }
