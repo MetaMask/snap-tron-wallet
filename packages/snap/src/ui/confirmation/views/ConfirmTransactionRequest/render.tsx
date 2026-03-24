@@ -1,7 +1,7 @@
 import type { DialogResult, Json } from '@metamask/snaps-sdk';
 import { parseCaipAssetType } from '@metamask/utils';
 import { BigNumber } from 'bignumber.js';
-import { Types } from 'tronweb';
+import { TronWeb, Types } from 'tronweb';
 
 import { ConfirmTransactionRequest } from './ConfirmTransactionRequest';
 import {
@@ -84,10 +84,22 @@ function buildScanTransactionRawData(
   const isTrc20 = assetNamespace === 'trc20';
 
   if (isTrc20) {
+    const rawValue = new BigNumber(amount)
+      .multipliedBy(new BigNumber(10).pow(asset.decimals))
+      .toFixed(0);
+
+    // ABI-encode transfer(address,uint256): selector + padded address + padded amount
+    // Tron hex addresses start with '41'; strip it to get the 20-byte address for ABI encoding
+    const toAddressHex = TronWeb.address.toHex(toAddress).slice(2);
+    const paddedAddress = toAddressHex.padStart(64, '0');
+    const paddedAmount = new BigNumber(rawValue).toString(16).padStart(64, '0');
+    const data = `a9059cbb${paddedAddress}${paddedAmount}`;
+
     return buildTransactionRawData({
       from: fromAddress,
       to: assetReference,
       amount: 0,
+      data,
       contractType: Types.ContractType.TriggerSmartContract,
     });
   }

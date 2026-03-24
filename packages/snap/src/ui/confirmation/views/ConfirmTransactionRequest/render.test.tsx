@@ -1,4 +1,5 @@
 import { render } from './render';
+import { extractScanParametersFromTransactionData } from '../../../../clients/security-alerts-api/utils';
 import type { SnapClient } from '../../../../clients/snap/SnapClient';
 import { Network } from '../../../../constants';
 import type { AssetEntity } from '../../../../entities/assets';
@@ -372,7 +373,7 @@ describe('ConfirmTransactionRequest render', () => {
     );
   });
 
-  it('builds correct scan parameters for TRC20 tokens', async () => {
+  it('builds correct scan parameters for TRC20 tokens with encoded transfer data', async () => {
     await withRender(async ({ callRender, mockTransactionScanService }) => {
       const trc20Asset: AssetEntity = {
         ...mockAsset,
@@ -381,13 +382,18 @@ describe('ConfirmTransactionRequest render', () => {
         decimals: 6,
       };
 
-      await callRender({ asset: trc20Asset });
+      await callRender({ asset: trc20Asset, amount: '1' });
 
-      expect(mockTransactionScanService.scanTransaction).toHaveBeenCalledWith(
-        expect.objectContaining({
-          transactionRawData: expect.any(Object),
-        }),
-      );
+      const callArgs = mockTransactionScanService.scanTransaction.mock
+        .calls[0]?.[0] as any;
+      const rawData = callArgs?.transactionRawData;
+
+      // Should be a TriggerSmartContract with encoded transfer(address,uint256) data
+      expect(rawData?.contract[0]?.type).toBe('TriggerSmartContract');
+
+      const scanParams = extractScanParametersFromTransactionData(rawData);
+      expect(scanParams?.data).toBeDefined();
+      expect(scanParams?.data).toMatch(/^0xa9059cbb/u);
     });
   });
 
