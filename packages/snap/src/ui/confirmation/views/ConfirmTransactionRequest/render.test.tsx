@@ -34,7 +34,7 @@ type MockSnapClient = jest.Mocked<
     SnapClient,
     | 'createInterface'
     | 'showDialog'
-    | 'updateInterfaceIfExists'
+    | 'updateInterface'
     | 'getPreferences'
     | 'scheduleBackgroundEvent'
   >
@@ -133,7 +133,7 @@ function buildMockSnapClient(): MockSnapClient {
   return {
     createInterface: jest.fn().mockResolvedValue('interface-id-123'),
     showDialog: jest.fn().mockResolvedValue(true),
-    updateInterfaceIfExists: jest.fn().mockResolvedValue(true),
+    updateInterface: jest.fn().mockResolvedValue(undefined),
     getPreferences: jest.fn().mockResolvedValue(defaultPreferences),
     scheduleBackgroundEvent: jest.fn().mockResolvedValue(undefined),
   };
@@ -250,7 +250,7 @@ describe('ConfirmTransactionRequest render', () => {
             options: ['simulation', 'validation'],
           }),
         );
-        expect(mockSnapClient.updateInterfaceIfExists).toHaveBeenCalled();
+        expect(mockSnapClient.updateInterface).toHaveBeenCalled();
         expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith({
           method: BackgroundEventMethod.RefreshConfirmationSend,
           duration: 'PT20S',
@@ -293,9 +293,9 @@ describe('ConfirmTransactionRequest render', () => {
         await callRender();
 
         expect(mockSnapClient.createInterface).toHaveBeenCalledTimes(1);
-        expect(mockSnapClient.updateInterfaceIfExists).toHaveBeenCalled();
+        expect(mockSnapClient.updateInterface).toHaveBeenCalled();
 
-        const updateCall = mockSnapClient.updateInterfaceIfExists.mock.calls[0];
+        const updateCall = mockSnapClient.updateInterface.mock.calls[0];
         const contextArg = updateCall?.[2] as any;
         expect(contextArg?.scanFetchStatus).toBe(FetchStatus.Error);
         expect(contextArg?.scan).toBeNull();
