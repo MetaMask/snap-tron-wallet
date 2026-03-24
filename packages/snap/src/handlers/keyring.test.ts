@@ -3,7 +3,7 @@ import { UserRejectedRequestError } from '@metamask/snaps-sdk';
 import { bytesToBase64, bytesToHex, stringToBytes } from '@metamask/utils';
 
 import type { SnapClient } from '../clients/snap/SnapClient';
-import { Network } from '../constants';
+import { KnownCaip19Id, Network } from '../constants';
 import { KeyringHandler } from './keyring';
 import { TronMultichainMethod } from './keyring-types';
 import type { TronKeyringAccount } from '../entities/keyring-account';
@@ -86,6 +86,102 @@ describe('KeyringHandler', () => {
       transactionsService: mockTransactionsService,
       walletService: mockWalletService,
       confirmationHandler: mockConfirmationHandler,
+    });
+  });
+
+  describe('asset reads', () => {
+    it('listAccountAssets keeps native TRX and omits zero special assets', async () => {
+      jest
+        .spyOn(mockAssetsService, 'getByKeyringAccountId')
+        .mockImplementation()
+        .mockResolvedValue([
+          {
+            assetType: KnownCaip19Id.TrxMainnet,
+            keyringAccountId: mockAccount.id,
+            network: Network.Mainnet,
+            symbol: 'TRX',
+            decimals: 6,
+            rawAmount: '0',
+            uiAmount: '0',
+          },
+          {
+            assetType: KnownCaip19Id.EnergyMainnet,
+            keyringAccountId: mockAccount.id,
+            network: Network.Mainnet,
+            symbol: 'ENERGY',
+            decimals: 0,
+            rawAmount: '0',
+            uiAmount: '0',
+          },
+          {
+            assetType: KnownCaip19Id.TrxStakedForEnergyMainnet,
+            keyringAccountId: mockAccount.id,
+            network: Network.Mainnet,
+            symbol: 'sTRX-ENERGY',
+            decimals: 6,
+            rawAmount: '500000',
+            uiAmount: '0.5',
+          },
+        ] as any);
+
+      const result = await keyringHandler.listAccountAssets(mockAccount.id);
+
+      expect(result).toStrictEqual([
+        KnownCaip19Id.TrxMainnet,
+        KnownCaip19Id.TrxStakedForEnergyMainnet,
+      ]);
+    });
+
+    it('getAccountBalances keeps native TRX and omits zero special assets', async () => {
+      jest
+        .spyOn(mockAssetsService, 'getByKeyringAccountId')
+        .mockImplementation()
+        .mockResolvedValue([
+          {
+            assetType: KnownCaip19Id.TrxMainnet,
+            keyringAccountId: mockAccount.id,
+            network: Network.Mainnet,
+            symbol: 'TRX',
+            decimals: 6,
+            rawAmount: '0',
+            uiAmount: '0',
+          },
+          {
+            assetType: KnownCaip19Id.EnergyMainnet,
+            keyringAccountId: mockAccount.id,
+            network: Network.Mainnet,
+            symbol: 'ENERGY',
+            decimals: 0,
+            rawAmount: '0',
+            uiAmount: '0',
+          },
+          {
+            assetType: KnownCaip19Id.MaximumEnergyMainnet,
+            keyringAccountId: mockAccount.id,
+            network: Network.Mainnet,
+            symbol: 'MAX-ENERGY',
+            decimals: 0,
+            rawAmount: '100000',
+            uiAmount: '100000',
+          },
+        ] as any);
+
+      const result = await keyringHandler.getAccountBalances(mockAccount.id, [
+        KnownCaip19Id.TrxMainnet,
+        KnownCaip19Id.EnergyMainnet,
+        KnownCaip19Id.MaximumEnergyMainnet,
+      ]);
+
+      expect(result).toStrictEqual({
+        [KnownCaip19Id.TrxMainnet]: {
+          unit: 'TRX',
+          amount: '0',
+        },
+        [KnownCaip19Id.MaximumEnergyMainnet]: {
+          unit: 'MAX-ENERGY',
+          amount: '100000',
+        },
+      });
     });
   });
 

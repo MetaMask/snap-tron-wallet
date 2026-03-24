@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Optimize account discovery by using a lightweight activity check (`limit=1`) instead of fetching full transaction history ([#252](https://github.com/MetaMask/snap-tron-wallet/pull/252))
+- Omit zero-balance staked, ready-for-withdrawal, and in-lock-period assets instead of returning them with amount `"0"` ([#254](https://github.com/MetaMask/snap-tron-wallet/pull/254))
 
 ### Fixed
 
