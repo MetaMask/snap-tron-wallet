@@ -1,4 +1,5 @@
 import { FeeType } from '@metamask/keyring-api';
+import type { JsonRpcRequest } from '@metamask/snaps-sdk';
 import { BigNumber } from 'bignumber.js';
 
 import { ClientRequestHandler } from './clientRequest';
@@ -15,6 +16,8 @@ import type { StakingService } from '../../services/staking/StakingService';
 import type { TransactionsService } from '../../services/transactions/TransactionsService';
 import { trxToSun } from '../../utils/conversion';
 import { mockLogger } from '../../utils/mockLogger';
+
+const toJsonRpcRequest = (request: JsonRpcRequest): JsonRpcRequest => request;
 
 describe('ClientRequestHandler', () => {
   describe('computeFee', () => {
@@ -195,7 +198,9 @@ describe('ClientRequestHandler', () => {
         mockFeeCalculatorService.computeFee.mockResolvedValue(feeResult);
 
         // Execute
-        const result = await clientRequestHandler.handle(request as any);
+        const result = await clientRequestHandler.handle(
+          toJsonRpcRequest(request),
+        );
 
         // Verify - no signing needed for fee computation
         expect(mockAccountsService.findByIdOrThrow).toHaveBeenCalledWith(
@@ -323,7 +328,9 @@ describe('ClientRequestHandler', () => {
         ];
         mockFeeCalculatorService.computeFee.mockResolvedValue(feeResult);
 
-        const result = await clientRequestHandler.handle(request as any);
+        const result = await clientRequestHandler.handle(
+          toJsonRpcRequest(request),
+        );
 
         expect(result).toStrictEqual(feeResult);
         // computeFee receives unsigned transaction (no signature field)
@@ -416,7 +423,9 @@ describe('ClientRequestHandler', () => {
         ];
         mockFeeCalculatorService.computeFee.mockResolvedValue(feeResult);
 
-        const result = await clientRequestHandler.handle(request as any);
+        const result = await clientRequestHandler.handle(
+          toJsonRpcRequest(request),
+        );
 
         expect(result).toStrictEqual(feeResult);
         expect(mockFeeCalculatorService.computeFee).toHaveBeenCalledWith({
@@ -445,7 +454,7 @@ describe('ClientRequestHandler', () => {
         };
 
         await expect(
-          clientRequestHandler.handle(request as any),
+          clientRequestHandler.handle(toJsonRpcRequest(request)),
         ).rejects.toThrow('Invalid method parameter(s)');
       });
 
@@ -466,7 +475,7 @@ describe('ClientRequestHandler', () => {
         };
 
         await expect(
-          clientRequestHandler.handle(request as any),
+          clientRequestHandler.handle(toJsonRpcRequest(request)),
         ).rejects.toThrow('Invalid method parameter(s)');
       });
 
@@ -491,7 +500,7 @@ describe('ClientRequestHandler', () => {
         );
 
         await expect(
-          clientRequestHandler.handle(request as any),
+          clientRequestHandler.handle(toJsonRpcRequest(request)),
         ).rejects.toThrow('Account not found');
       });
     });
@@ -641,7 +650,7 @@ describe('ClientRequestHandler', () => {
         };
 
         await expect(
-          clientRequestHandler.handle(request as any),
+          clientRequestHandler.handle(toJsonRpcRequest(request)),
         ).rejects.toThrow('Invalid method parameter(s)');
       });
 
@@ -664,7 +673,7 @@ describe('ClientRequestHandler', () => {
         mockAccountsService.findById.mockResolvedValue(null);
 
         await expect(
-          clientRequestHandler.handle(request as any),
+          clientRequestHandler.handle(toJsonRpcRequest(request)),
         ).rejects.toThrow('Account not found');
       });
 
@@ -689,7 +698,7 @@ describe('ClientRequestHandler', () => {
         // The validation struct will catch the invalid address format
         // before we can compare it to the signing account address
         await expect(
-          clientRequestHandler.handle(request as any),
+          clientRequestHandler.handle(toJsonRpcRequest(request)),
         ).rejects.toThrow('Invalid method parameter(s)');
       });
 
@@ -707,7 +716,7 @@ describe('ClientRequestHandler', () => {
         };
 
         await expect(
-          clientRequestHandler.handle(request as any),
+          clientRequestHandler.handle(toJsonRpcRequest(request)),
         ).rejects.toThrow('Invalid method parameter(s)');
       });
 
@@ -727,7 +736,7 @@ describe('ClientRequestHandler', () => {
         };
 
         await expect(
-          clientRequestHandler.handle(request as any),
+          clientRequestHandler.handle(toJsonRpcRequest(request)),
         ).rejects.toThrow('Invalid method parameter(s)');
       });
     });
@@ -820,7 +829,7 @@ describe('ClientRequestHandler - onAmountInput', () => {
       { uiAmount: '100000', rawAmount: '100000' },
     ] as any);
 
-    const result = await clientRequestHandler.handle(request as any);
+    const result = await clientRequestHandler.handle(toJsonRpcRequest(request));
 
     expect(result).toStrictEqual({ valid: true, errors: [] });
     expect(mockSendService.buildTransaction).not.toHaveBeenCalled();
@@ -873,7 +882,7 @@ describe('ClientRequestHandler - onAmountInput', () => {
       },
     ]);
 
-    const result = await clientRequestHandler.handle(request as any);
+    const result = await clientRequestHandler.handle(toJsonRpcRequest(request));
 
     expect(result).toStrictEqual({ valid: true, errors: [] });
     expect(mockSendService.buildTransaction).toHaveBeenCalledWith({
@@ -926,7 +935,7 @@ describe('ClientRequestHandler - onAmountInput', () => {
       { uiAmount: '100000', rawAmount: '100000' },
     ] as any);
 
-    const result = await clientRequestHandler.handle(request as any);
+    const result = await clientRequestHandler.handle(toJsonRpcRequest(request));
 
     expect(result).toStrictEqual({
       valid: false,
@@ -982,7 +991,7 @@ describe('ClientRequestHandler - onAmountInput', () => {
       },
     ]);
 
-    const result = await clientRequestHandler.handle(request as any);
+    const result = await clientRequestHandler.handle(toJsonRpcRequest(request));
 
     expect(result).toStrictEqual({
       valid: false,
@@ -1130,7 +1139,7 @@ describe('ClientRequestHandler - computeStakeFee', () => {
     ];
     mockFeeCalculatorService.computeFee.mockResolvedValue(feeResult);
 
-    const result = await clientRequestHandler.handle(request as any);
+    const result = await clientRequestHandler.handle(toJsonRpcRequest(request));
 
     expect(mockAccountsService.findByIdOrThrow).toHaveBeenCalledWith(
       TEST_ACCOUNT_ID,
@@ -1187,7 +1196,9 @@ describe('ClientRequestHandler - computeStakeFee', () => {
       uiAmount: '5',
     });
 
-    const result = (await clientRequestHandler.handle(request as any)) as any;
+    const result = (await clientRequestHandler.handle(
+      toJsonRpcRequest(request),
+    )) as any;
 
     expect(result).toStrictEqual({
       valid: false,
@@ -1302,7 +1313,9 @@ describe('ClientRequestHandler - confirmSend validation', () => {
       errorCode: 'InsufficientBalance' as any,
     });
 
-    const result = (await clientRequestHandler.handle(request as any)) as any;
+    const result = (await clientRequestHandler.handle(
+      toJsonRpcRequest(request),
+    )) as any;
 
     expect(result).toStrictEqual({
       valid: false,
@@ -1362,7 +1375,9 @@ describe('ClientRequestHandler - confirmSend validation', () => {
       errorCode: 'InsufficientBalanceToCoverFee' as any,
     });
 
-    const result = (await clientRequestHandler.handle(request as any)) as any;
+    const result = (await clientRequestHandler.handle(
+      toJsonRpcRequest(request),
+    )) as any;
 
     expect(result).toStrictEqual({
       valid: false,
@@ -1448,7 +1463,7 @@ describe('ClientRequestHandler - confirmSend validation', () => {
       txid: 'broadcast-tx-id',
     } as any);
 
-    const result = await clientRequestHandler.handle(request as any);
+    const result = await clientRequestHandler.handle(toJsonRpcRequest(request));
 
     // Should have proceeded through the full flow
     expect(mockSendService.validateSend).toHaveBeenCalled();
@@ -1482,7 +1497,9 @@ describe('ClientRequestHandler - confirmSend validation', () => {
     // Account not found
     mockAccountsService.findById.mockResolvedValue(null);
 
-    const result = (await clientRequestHandler.handle(request as any)) as any;
+    const result = (await clientRequestHandler.handle(
+      toJsonRpcRequest(request),
+    )) as any;
 
     expect(result).toStrictEqual({
       valid: false,
@@ -1518,7 +1535,9 @@ describe('ClientRequestHandler - confirmSend validation', () => {
       null,
     );
 
-    const result = (await clientRequestHandler.handle(request as any)) as any;
+    const result = (await clientRequestHandler.handle(
+      toJsonRpcRequest(request),
+    )) as any;
 
     expect(result).toStrictEqual({
       valid: false,
@@ -1600,7 +1619,7 @@ describe('ClientRequestHandler - claimUnstakedTrx', () => {
       },
     };
 
-    const result = await clientRequestHandler.handle(request as any);
+    const result = await clientRequestHandler.handle(toJsonRpcRequest(request));
 
     expect(mockAccountsService.findByIdOrThrow).toHaveBeenCalledWith(
       TEST_ACCOUNT_ID,
@@ -1631,9 +1650,9 @@ describe('ClientRequestHandler - claimUnstakedTrx', () => {
       },
     };
 
-    await expect(clientRequestHandler.handle(request as any)).rejects.toThrow(
-      'User rejected the request.',
-    );
+    await expect(
+      clientRequestHandler.handle(toJsonRpcRequest(request)),
+    ).rejects.toThrow('User rejected the request.');
 
     expect(
       mockConfirmationHandler.confirmClaimUnstakedTrx,
@@ -1655,9 +1674,9 @@ describe('ClientRequestHandler - claimUnstakedTrx', () => {
       },
     };
 
-    await expect(clientRequestHandler.handle(request as any)).rejects.toThrow(
-      'Invalid method parameter(s)',
-    );
+    await expect(
+      clientRequestHandler.handle(toJsonRpcRequest(request)),
+    ).rejects.toThrow('Invalid method parameter(s)');
   });
 });
 
@@ -1728,7 +1747,7 @@ describe('ClientRequestHandler - claimTrxStakingRewards', () => {
       },
     };
 
-    const result = await clientRequestHandler.handle(request as any);
+    const result = await clientRequestHandler.handle(toJsonRpcRequest(request));
 
     expect(mockAccountsService.findByIdOrThrow).toHaveBeenCalledWith(
       TEST_ACCOUNT_ID,
@@ -1751,8 +1770,8 @@ describe('ClientRequestHandler - claimTrxStakingRewards', () => {
       },
     };
 
-    await expect(clientRequestHandler.handle(request as any)).rejects.toThrow(
-      'Invalid method parameter(s)',
-    );
+    await expect(
+      clientRequestHandler.handle(toJsonRpcRequest(request)),
+    ).rejects.toThrow('Invalid method parameter(s)');
   });
 });
