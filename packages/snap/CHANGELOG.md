@@ -9,13 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.25.0]
 
-### Uncategorized
-
-- chore: narrow findByIds and fetchNewTransactionsForAccount types ([#251](https://github.com/MetaMask/snap-tron-wallet/pull/251))
-- chore: remove entities barrel and use direct imports ([#250](https://github.com/MetaMask/snap-tron-wallet/pull/250))
-- refactor: migrate Security Alerts API types to superstruct runtime validation ([#247](https://github.com/MetaMask/snap-tron-wallet/pull/247))
-- refactor: convert FetchStatus type alias to enum ([#246](https://github.com/MetaMask/snap-tron-wallet/pull/246))
-
 ### Changed
 
 - Optimize account discovery by using a lightweight activity check (`limit=1`) instead of fetching full transaction history ([#252](https://github.com/MetaMask/snap-tron-wallet/pull/252))
