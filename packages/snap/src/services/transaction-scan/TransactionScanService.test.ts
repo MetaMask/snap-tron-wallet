@@ -101,7 +101,7 @@ describe('TransactionScanService', () => {
       expect(result?.estimatedChanges.assets[0]?.value).toBe('0.99');
     });
 
-    it('falls back to API value when raw_value or decimals are missing', async () => {
+    it('falls back to "0" value when decimals is missing', async () => {
       const mockApiResponse: SecurityAlertSimulationValidationResponse = {
         simulation: {
           status: 'Success',
@@ -163,11 +163,11 @@ describe('TransactionScanService', () => {
         options: ['simulation'],
       });
 
-      // Falls back to API value when decimals is missing
-      expect(result?.estimatedChanges.assets[0]?.value).toBe('0.99');
+      // Falls back to "0" value when decimals is missing
+      expect(result?.estimatedChanges.assets[0]?.value).toBe('0');
     });
 
-    it('falls back to API value when raw_value is missing', async () => {
+    it('falls back to "0" value when raw_value is missing', async () => {
       const mockApiResponse: SecurityAlertSimulationValidationResponse = {
         simulation: {
           status: 'Success',
@@ -229,7 +229,7 @@ describe('TransactionScanService', () => {
         options: ['simulation'],
       });
 
-      expect(result?.estimatedChanges.assets[0]?.value).toBe('0.99');
+      expect(result?.estimatedChanges.assets[0]?.value).toBe('0');
     });
 
     it('handles decimals of 0 correctly (no decimal shift)', async () => {

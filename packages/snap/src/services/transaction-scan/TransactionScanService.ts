@@ -256,7 +256,7 @@ export class TransactionScanService {
               const change = inChange ?? outChange;
 
               const { decimals } = asset.asset;
-              let displayValue = change?.value ?? '0';
+              let displayValue = '0';
               if (change?.raw_value && decimals !== undefined) {
                 displayValue = new BigNumber(change.raw_value)
                   .dividedBy(new BigNumber(10).pow(decimals))
