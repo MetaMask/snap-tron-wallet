@@ -8,6 +8,18 @@ import { Network } from '../../constants';
 import { mockLogger } from '../../utils/mockLogger';
 
 describe('TransactionScanService', () => {
+  const createMockSecurityAlertsApiClient = (
+    mockApiResponse: SecurityAlertSimulationValidationResponse,
+  ): jest.Mocked<Pick<SecurityAlertsApiClient, 'scanTransaction'>> => ({
+    scanTransaction: jest.fn().mockResolvedValue(mockApiResponse),
+  });
+
+  const createMockSnapClient = (): jest.Mocked<
+    Pick<SnapClient, 'trackSecurityScanCompleted'>
+  > => ({
+    trackSecurityScanCompleted: jest.fn(),
+  });
+
   const createWellFormedTransactionRawData =
     (): Types.Transaction['raw_data'] => ({
       contract: [
@@ -76,17 +88,13 @@ describe('TransactionScanService', () => {
         },
       };
 
-      const mockSecurityAlertsApiClient = {
-        scanTransaction: jest.fn().mockResolvedValue(mockApiResponse),
-      } as unknown as SecurityAlertsApiClient;
-
-      const mockSnapClient = {
-        trackSecurityScanCompleted: jest.fn(),
-      } as unknown as SnapClient;
+      const mockSecurityAlertsApiClient =
+        createMockSecurityAlertsApiClient(mockApiResponse);
+      const mockSnapClient = createMockSnapClient();
 
       const service = new TransactionScanService(
-        mockSecurityAlertsApiClient,
-        mockSnapClient,
+        mockSecurityAlertsApiClient as unknown as SecurityAlertsApiClient,
+        mockSnapClient as unknown as SnapClient,
         mockLogger,
       );
 
@@ -140,17 +148,13 @@ describe('TransactionScanService', () => {
         },
       };
 
-      const mockSecurityAlertsApiClient = {
-        scanTransaction: jest.fn().mockResolvedValue(mockApiResponse),
-      } as unknown as SecurityAlertsApiClient;
-
-      const mockSnapClient = {
-        trackSecurityScanCompleted: jest.fn(),
-      } as unknown as SnapClient;
+      const mockSecurityAlertsApiClient =
+        createMockSecurityAlertsApiClient(mockApiResponse);
+      const mockSnapClient = createMockSnapClient();
 
       const service = new TransactionScanService(
-        mockSecurityAlertsApiClient,
-        mockSnapClient,
+        mockSecurityAlertsApiClient as unknown as SecurityAlertsApiClient,
+        mockSnapClient as unknown as SnapClient,
         mockLogger,
       );
 
@@ -205,17 +209,13 @@ describe('TransactionScanService', () => {
         },
       };
 
-      const mockSecurityAlertsApiClient = {
-        scanTransaction: jest.fn().mockResolvedValue(mockApiResponse),
-      } as unknown as SecurityAlertsApiClient;
-
-      const mockSnapClient = {
-        trackSecurityScanCompleted: jest.fn(),
-      } as unknown as SnapClient;
+      const mockSecurityAlertsApiClient =
+        createMockSecurityAlertsApiClient(mockApiResponse);
+      const mockSnapClient = createMockSnapClient();
 
       const service = new TransactionScanService(
-        mockSecurityAlertsApiClient,
-        mockSnapClient,
+        mockSecurityAlertsApiClient as unknown as SecurityAlertsApiClient,
+        mockSnapClient as unknown as SnapClient,
         mockLogger,
       );
 
@@ -269,17 +269,13 @@ describe('TransactionScanService', () => {
         },
       };
 
-      const mockSecurityAlertsApiClient = {
-        scanTransaction: jest.fn().mockResolvedValue(mockApiResponse),
-      } as unknown as SecurityAlertsApiClient;
-
-      const mockSnapClient = {
-        trackSecurityScanCompleted: jest.fn(),
-      } as unknown as SnapClient;
+      const mockSecurityAlertsApiClient =
+        createMockSecurityAlertsApiClient(mockApiResponse);
+      const mockSnapClient = createMockSnapClient();
 
       const service = new TransactionScanService(
-        mockSecurityAlertsApiClient,
-        mockSnapClient,
+        mockSecurityAlertsApiClient as unknown as SecurityAlertsApiClient,
+        mockSnapClient as unknown as SnapClient,
         mockLogger,
       );
 
@@ -334,17 +330,13 @@ describe('TransactionScanService', () => {
         },
       };
 
-      const mockSecurityAlertsApiClient = {
-        scanTransaction: jest.fn().mockResolvedValue(mockApiResponse),
-      } as unknown as SecurityAlertsApiClient;
-
-      const mockSnapClient = {
-        trackSecurityScanCompleted: jest.fn(),
-      } as unknown as SnapClient;
+      const mockSecurityAlertsApiClient =
+        createMockSecurityAlertsApiClient(mockApiResponse);
+      const mockSnapClient = createMockSnapClient();
 
       const service = new TransactionScanService(
-        mockSecurityAlertsApiClient,
-        mockSnapClient,
+        mockSecurityAlertsApiClient as unknown as SecurityAlertsApiClient,
+        mockSnapClient as unknown as SnapClient,
         mockLogger,
       );
 
