@@ -8,30 +8,31 @@ import { Network } from '../../constants';
 import { mockLogger } from '../../utils/mockLogger';
 
 describe('TransactionScanService', () => {
-  const createWellFormedTransactionRawData = () => ({
-    contract: [
-      {
-        type: Types.ContractType.TransferContract,
-        parameter: {
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          type_url: 'type.googleapis.com/protocol.TransferContract',
-          value: {
+  const createWellFormedTransactionRawData =
+    (): Types.Transaction['raw_data'] => ({
+      contract: [
+        {
+          type: Types.ContractType.TransferContract,
+          parameter: {
             // eslint-disable-next-line @typescript-eslint/naming-convention
-            owner_address: `41${'a'.repeat(40)}`,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            to_address: `41${'b'.repeat(40)}`,
-            amount: 990000,
+            type_url: 'type.googleapis.com/protocol.TransferContract',
+            value: {
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              owner_address: `41${'a'.repeat(40)}`,
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              to_address: `41${'b'.repeat(40)}`,
+              amount: 990000,
+            },
           },
         },
-      },
-    ],
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    ref_block_bytes: '0000',
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    ref_block_hash: '0'.repeat(16),
-    expiration: Date.now() + 60000,
-    timestamp: Date.now(),
-  });
+      ],
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      ref_block_bytes: '0000',
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      ref_block_hash: '0'.repeat(16),
+      expiration: Date.now() + 60000,
+      timestamp: Date.now(),
+    });
 
   describe('estimated changes decimal precision', () => {
     it('computes display value from raw_value and decimals', async () => {
@@ -91,8 +92,7 @@ describe('TransactionScanService', () => {
 
       const result = await service.scanTransaction({
         accountAddress: 'TExvJsxzPyAZ2NtkrWgNKnbLkpqnFJ73DT',
-        transactionRawData:
-          createWellFormedTransactionRawData() as Types.Transaction['raw_data'],
+        transactionRawData: createWellFormedTransactionRawData(),
         origin: 'https://tronscan.on.btfs.io',
         scope: Network.Mainnet,
         options: ['simulation'],
@@ -156,8 +156,7 @@ describe('TransactionScanService', () => {
 
       const result = await service.scanTransaction({
         accountAddress: 'TExvJsxzPyAZ2NtkrWgNKnbLkpqnFJ73DT',
-        transactionRawData:
-          createWellFormedTransactionRawData() as Types.Transaction['raw_data'],
+        transactionRawData: createWellFormedTransactionRawData(),
         origin: 'https://tronscan.on.btfs.io',
         scope: Network.Mainnet,
         options: ['simulation'],
@@ -222,8 +221,7 @@ describe('TransactionScanService', () => {
 
       const result = await service.scanTransaction({
         accountAddress: 'TExvJsxzPyAZ2NtkrWgNKnbLkpqnFJ73DT',
-        transactionRawData:
-          createWellFormedTransactionRawData() as Types.Transaction['raw_data'],
+        transactionRawData: createWellFormedTransactionRawData(),
         origin: 'https://tronscan.on.btfs.io',
         scope: Network.Mainnet,
         options: ['simulation'],
@@ -287,8 +285,7 @@ describe('TransactionScanService', () => {
 
       const result = await service.scanTransaction({
         accountAddress: 'TExvJsxzPyAZ2NtkrWgNKnbLkpqnFJ73DT',
-        transactionRawData:
-          createWellFormedTransactionRawData() as Types.Transaction['raw_data'],
+        transactionRawData: createWellFormedTransactionRawData(),
         origin: 'https://tronscan.on.btfs.io',
         scope: Network.Mainnet,
         options: ['simulation'],
@@ -353,8 +350,7 @@ describe('TransactionScanService', () => {
 
       const result = await service.scanTransaction({
         accountAddress: 'TExvJsxzPyAZ2NtkrWgNKnbLkpqnFJ73DT',
-        transactionRawData:
-          createWellFormedTransactionRawData() as Types.Transaction['raw_data'],
+        transactionRawData: createWellFormedTransactionRawData(),
         origin: 'https://tronscan.on.btfs.io',
         scope: Network.Mainnet,
         options: ['simulation'],
