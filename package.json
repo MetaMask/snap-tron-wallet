@@ -33,6 +33,7 @@
     "publish-previews": "yarn workspaces foreach --all --no-private --parallel --verbose run publish:preview",
     "start": "yarn workspaces foreach --all --parallel --verbose --interlaced run start",
     "test": "yarn workspace @metamask/tron-wallet-snap run test",
+    "test:unit": "yarn workspace @metamask/tron-wallet-snap run test:unit",
     "test:integration": "yarn workspace @metamask/tron-wallet-snap run test:integration"
   },
   "devDependencies": {
