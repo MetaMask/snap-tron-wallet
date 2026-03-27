@@ -39,7 +39,7 @@
     "serve": "mm-snap serve",
     "start": "node scripts/update-manifest-local.js && concurrently \"mm-snap watch\" \"yarn build:locale:watch\"",
     "test": "jest && yarn jest-it-up",
-    "test:integration": "./integration-test/run-integration.sh"
+    "test:integration": "node ./scripts/run-integration.js"
   },
   "devDependencies": {
     "@metamask/auto-changelog": "^3.4.4",
