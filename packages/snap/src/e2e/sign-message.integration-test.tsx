@@ -4,10 +4,6 @@ import { installSnap } from '@metamask/snaps-jest';
 import { Network } from '../constants';
 import { TronMultichainMethod } from '../handlers/keyring-types';
 import {
-  startMockApiServer,
-  type MockApiServer,
-} from '../test-utils/mockApiServer';
-import {
   createInstallSnapOptions,
   createTestAccount,
   defaultAccountInfoResponse,
@@ -17,6 +13,10 @@ import {
   SECRET_RECOVERY_PHRASE,
   TEST_ORIGIN,
 } from '../test-utils/fixtures';
+import {
+  startMockApiServer,
+  type MockApiServer,
+} from '../test-utils/mockApiServer';
 import { ConfirmSignMessageFormNames } from '../ui/confirmation/views/ConfirmSignMessage/events';
 
 // Base64-encode a test message
@@ -41,6 +41,7 @@ describe('Sign Message E2E', () => {
   });
 
   it('confirms message signing and returns signature', async () => {
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const { onKeyringRequest } = await installSnap({
       options: createInstallSnapOptions(account),
     });
@@ -80,6 +81,7 @@ describe('Sign Message E2E', () => {
   });
 
   it('rejects when user clicks cancel', async () => {
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const { onKeyringRequest } = await installSnap({
       options: createInstallSnapOptions(account),
     });
