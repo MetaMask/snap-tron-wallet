@@ -3,12 +3,8 @@ import { installSnap } from '@metamask/snaps-jest';
 import { KnownCaip19Id } from '../constants';
 import { ClientRequestMethod } from '../handlers/clientRequest/types';
 import {
-  startMockApiServer,
-  type MockApiServer,
-} from '../test-utils/mockApiServer';
-import {
-  createTestAccount,
   createInstallSnapOptionsWithStaking,
+  createTestAccount,
   defaultAccountInfoResponse,
   defaultScanApiResponse,
   deriveAccountAddress,
@@ -16,6 +12,10 @@ import {
   SECRET_RECOVERY_PHRASE,
   TEST_ACCOUNT_ID,
 } from '../test-utils/fixtures';
+import {
+  startMockApiServer,
+  type MockApiServer,
+} from '../test-utils/mockApiServer';
 
 describe('Confirm Unstake E2E', () => {
   let mockServer: MockApiServer;
@@ -31,6 +31,7 @@ describe('Confirm Unstake E2E', () => {
       walletCallResponse: (_method, _body) => ({
         result: { result: true },
         transaction: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           raw_data_hex: 'abcdef1234567890',
           txID: 'mock-unfreeze-txid',
         },
@@ -43,6 +44,7 @@ describe('Confirm Unstake E2E', () => {
   });
 
   it('unstakes TRX by broadcasting unfreeze transaction', async () => {
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const { onClientRequest, mockJsonRpc } = await installSnap({
       options: createInstallSnapOptionsWithStaking(account),
     });
