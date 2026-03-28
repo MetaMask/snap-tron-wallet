@@ -5,10 +5,6 @@ import { TronWeb } from 'tronweb';
 import { KnownCaip19Id, Network } from '../constants';
 import { TronMultichainMethod } from '../handlers/keyring-types';
 import {
-  startMockApiServer,
-  type MockApiServer,
-} from '../test-utils/mockApiServer';
-import {
   createInstallSnapOptions,
   createMaliciousScanApiResponse,
   createSignableTransaction,
@@ -28,6 +24,10 @@ import {
   TEST_ORIGIN,
   TRX_IMAGE_SVG,
 } from '../test-utils/fixtures';
+import {
+  startMockApiServer,
+  type MockApiServer,
+} from '../test-utils/mockApiServer';
 import { FetchStatus } from '../types/snap';
 import { ConfirmSignTransaction } from '../ui/confirmation/views/ConfirmSignTransaction/ConfirmSignTransaction';
 import { ConfirmSignTransactionFormNames } from '../ui/confirmation/views/ConfirmSignTransaction/events';
@@ -38,8 +38,11 @@ import { ConfirmSignTransactionFormNames } from '../ui/confirmation/views/Confir
  * @param onKeyringRequest - The onKeyringRequest function from installSnap.
  * @param account - The test account.
  * @param transaction - The transaction to sign.
+ * @param transaction.rawDataHex - The raw data hex of the transaction.
+ * @param transaction.type - The type of the transaction.
  * @returns The response promise with getInterface().
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function sendSignTransactionRequest(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onKeyringRequest: any,
@@ -86,6 +89,7 @@ describe('Sign Transaction E2E', () => {
     it('confirms a TRX transfer and returns signature', async () => {
       const transaction = createSignableTransaction(accountAddress);
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const { onKeyringRequest, mockJsonRpc } = await installSnap({
         options: createInstallSnapOptions(account),
       });
@@ -142,6 +146,7 @@ describe('Sign Transaction E2E', () => {
       ]);
       expect(mockServer.requests.scans).toStrictEqual([
         {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           account_address: account.address,
           metadata: { domain: TEST_ORIGIN },
           data: {
@@ -172,6 +177,7 @@ describe('Sign Transaction E2E', () => {
     it('confirms a TRC20 transfer and returns signature', async () => {
       const transaction = createTrc20SignableTransaction(accountAddress);
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const { onKeyringRequest, mockJsonRpc } = await installSnap({
         options: createInstallSnapOptions(account),
       });
@@ -203,6 +209,7 @@ describe('Sign Transaction E2E', () => {
     it('rejects when user clicks cancel', async () => {
       const transaction = createSignableTransaction(accountAddress);
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const { onKeyringRequest, mockJsonRpc } = await installSnap({
         options: createInstallSnapOptions(account),
       });
@@ -239,6 +246,7 @@ describe('Sign Transaction E2E', () => {
     it('renders danger banner but allows confirmation', async () => {
       const transaction = createSignableTransaction(accountAddress);
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const { onKeyringRequest, mockJsonRpc } = await installSnap({
         options: createInstallSnapOptions(account),
       });
@@ -281,6 +289,7 @@ describe('Sign Transaction E2E', () => {
     it('renders warning banner but allows confirmation', async () => {
       const transaction = createSignableTransaction(accountAddress);
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const { onKeyringRequest, mockJsonRpc } = await installSnap({
         options: createInstallSnapOptions(account),
       });
@@ -322,6 +331,7 @@ describe('Sign Transaction E2E', () => {
     it('disables confirm button when simulation fails', async () => {
       const transaction = createSignableTransaction(accountAddress);
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const { onKeyringRequest, mockJsonRpc } = await installSnap({
         options: createInstallSnapOptions(account),
       });
@@ -334,7 +344,7 @@ describe('Sign Transaction E2E', () => {
       );
 
       const initialScreen = await response.getInterface();
-      const updatedScreen = await initialScreen.waitForUpdate();
+      await initialScreen.waitForUpdate();
 
       // Verify the scan request was made
       expect(mockServer.requests.scans.length).toBe(1);
@@ -357,6 +367,7 @@ describe('Sign Transaction E2E', () => {
     it('renders error banner but allows confirmation', async () => {
       const transaction = createSignableTransaction(accountAddress);
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const { onKeyringRequest, mockJsonRpc } = await installSnap({
         options: createInstallSnapOptions(account),
       });
