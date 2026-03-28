@@ -3,10 +3,6 @@ import { installSnap } from '@metamask/snaps-jest';
 import { KnownCaip19Id } from '../constants';
 import { ClientRequestMethod } from '../handlers/clientRequest/types';
 import {
-  startMockApiServer,
-  type MockApiServer,
-} from '../test-utils/mockApiServer';
-import {
   createInstallSnapOptionsWithStaking,
   createTestAccount,
   defaultAccountInfoResponse,
@@ -16,6 +12,10 @@ import {
   SECRET_RECOVERY_PHRASE,
   TEST_ACCOUNT_ID,
 } from '../test-utils/fixtures';
+import {
+  startMockApiServer,
+  type MockApiServer,
+} from '../test-utils/mockApiServer';
 
 /**
  * Returns a minimal valid TronWeb transaction object for freeze/vote responses.
@@ -24,17 +24,21 @@ import {
  * @param txId - The transaction ID to use in the response.
  * @returns A mock transaction object.
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function makeMockTransaction(txId: string) {
   return {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     raw_data: {
       contract: [],
+      // eslint-disable-next-line @typescript-eslint/naming-convention
       ref_block_bytes: '0000',
+      // eslint-disable-next-line @typescript-eslint/naming-convention
       ref_block_hash: '0000000000000000',
       expiration: 9999999999999,
       timestamp: 1000000000000,
     },
-    raw_data_hex:
-      '0a02000022080000000000000000400fca9a3b5a0012001a00',
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    raw_data_hex: '0a02000022080000000000000000400fca9a3b5a0012001a00',
     txID: txId,
     visible: false,
   };
@@ -69,6 +73,7 @@ describe('Confirm Stake E2E', () => {
   });
 
   it('stakes TRX by broadcasting freeze and vote transactions', async () => {
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const { onClientRequest, mockJsonRpc } = await installSnap({
       options: createInstallSnapOptionsWithStaking(account),
     });
