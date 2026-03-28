@@ -4,10 +4,6 @@ import { TronWeb } from 'tronweb';
 import { KnownCaip19Id } from '../constants';
 import { ClientRequestMethod } from '../handlers/clientRequest/types';
 import {
-  startMockApiServer,
-  type MockApiServer,
-} from '../test-utils/mockApiServer';
-import {
   createInstallSnapOptionsWithStaking,
   createMaliciousScanApiResponse,
   createSimulationFailedScanApiResponse,
@@ -19,6 +15,10 @@ import {
   SECRET_RECOVERY_PHRASE,
   TEST_ACCOUNT_ID,
 } from '../test-utils/fixtures';
+import {
+  startMockApiServer,
+  type MockApiServer,
+} from '../test-utils/mockApiServer';
 import { ConfirmSignAndSendTransactionFormNames } from '../ui/confirmation/views/ConfirmTransactionRequest/events';
 
 const RECIPIENT_ADDRESS = TronWeb.address.fromHex(
@@ -31,11 +31,13 @@ const RECIPIENT_ADDRESS = TronWeb.address.fromHex(
  * @param ownerAddress - The sender's Tron base58 address.
  * @returns A transaction response object suitable for TronWeb to process.
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function createMockTrxTransaction(ownerAddress: string) {
   const ownerAddressHex = TronWeb.address.toHex(ownerAddress).toUpperCase();
   return {
     visible: false,
     txID: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     raw_data: {
       contract: [
         {
@@ -88,6 +90,7 @@ describe('Confirm Send E2E', () => {
     });
 
     it('confirms TRX send, broadcasts, and returns transaction ID', async () => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const { onClientRequest, mockJsonRpc } = await installSnap({
         options: createInstallSnapOptionsWithStaking(account),
       });
@@ -124,6 +127,7 @@ describe('Confirm Send E2E', () => {
     });
 
     it('rejects send when user clicks cancel', async () => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const { onClientRequest, mockJsonRpc } = await installSnap({
         options: createInstallSnapOptionsWithStaking(account),
       });
@@ -168,6 +172,7 @@ describe('Confirm Send E2E', () => {
     });
 
     it('renders danger banner but send still proceeds', async () => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const { onClientRequest, mockJsonRpc } = await installSnap({
         options: createInstallSnapOptionsWithStaking(account),
       });
@@ -213,6 +218,7 @@ describe('Confirm Send E2E', () => {
     });
 
     it('disables confirm button when simulation fails', async () => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const { onClientRequest, mockJsonRpc } = await installSnap({
         options: createInstallSnapOptionsWithStaking(account),
       });
