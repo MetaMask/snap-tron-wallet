@@ -13,7 +13,7 @@ const config = {
   coverageDirectory: 'coverage',
 
   // An array of regexp pattern strings used to skip coverage collection
-  coveragePathIgnorePatterns: ['.*/index\\.ts', '.*/test-utils/.*'],
+  coveragePathIgnorePatterns: ['.*/index\\.ts', '.*/test-utils/.*', '.*/e2e/.*'],
 
   // Indicates which provider should be used to instrument code for coverage
   coverageProvider: 'babel',
