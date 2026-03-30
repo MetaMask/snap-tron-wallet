@@ -40,6 +40,7 @@ describe('ClientRequestHandler', () => {
     const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
     const TEST_TRANSACTION_BASE64 =
       'CgK0FiII40phBu42/OZAkJyY96YzWrADCB8SqwMKMXR5cGUuZ29vZ2xlYXBpcy5jb20vcHJvdG9jb2wuVHJpZ2dlclNtYXJ0Q29udHJhY3QS9QIKFUEU0B62M0bakw7g2jDVhRrBTODEeRIVQZlGn9WqCM/oNjlc6ZPA69Vn4sFPIsQCnd+TuwAAAAAAAAAAAAAAAKYU+AO2/XgJhqQseOycf3fm3tE8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC+vCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAnq6OQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAF1RSWHxzeWtuZjl8MC41fGJyaWRnZXJzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACJUQnNGcUttbVJ5WWNuWUphOFlEeFk1ZDJKQVJhSGVxdUJKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcLzdlPemMw==';
+    const FEE_LIMIT = 100_000_000;
 
     beforeEach(() => {
       mockAccountsService = {
@@ -62,9 +63,15 @@ describe('ClientRequestHandler', () => {
           deserializeTx: {
             deserializeTransaction: jest.fn(),
           },
+          transaction: {
+            txJsonToPb: jest.fn().mockImplementation((tx) => tx),
+            txPbToRawDataHex: jest.fn().mockReturnValue('1234567890abcdef'),
+            txPbToTxID: jest.fn().mockReturnValue('mock-tx-id'),
+          },
         },
         trx: {
           sign: jest.fn(),
+          sendRawTransaction: jest.fn(),
         },
       };
 
@@ -72,7 +79,9 @@ describe('ClientRequestHandler', () => {
         createClient: jest.fn().mockReturnValue(mockTronWeb),
       } as unknown as jest.Mocked<TronWebFactory>;
 
-      mockSnapClient = {} as unknown as jest.Mocked<SnapClient>;
+      mockSnapClient = {
+        scheduleBackgroundEvent: jest.fn(),
+      } as unknown as jest.Mocked<SnapClient>;
       mockStakingService = {} as unknown as jest.Mocked<StakingService>;
       mockConfirmationHandler =
         {} as unknown as jest.Mocked<ConfirmationHandler>;
@@ -94,6 +103,90 @@ describe('ClientRequestHandler', () => {
     });
 
     describe('when called with valid parameters from external dapp', () => {
+      it('signs and sends a transaction with the default feeLimit', async () => {
+        const scope = Network.Mainnet;
+        const request = {
+          jsonrpc: '2.0' as const,
+          id: '1',
+          method: ClientRequestMethod.SignAndSendTransaction,
+          params: {
+            accountId: TEST_ACCOUNT_ID,
+            transaction: TEST_TRANSACTION_BASE64,
+            scope,
+            options: {
+              visible: false,
+              type: 'TriggerSmartContract',
+            },
+          },
+        };
+
+        mockAccountsService.findByIdOrThrow.mockResolvedValue({
+          id: TEST_ACCOUNT_ID,
+          address: 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx',
+          entropySource: 'test-entropy',
+          derivationPath: [],
+        } as any);
+
+        mockAccountsService.deriveTronKeypair.mockResolvedValue({
+          privateKeyHex: 'test-private-key',
+        } as any);
+
+        const mockRawData = {
+          contract: [
+            {
+              type: 'TriggerSmartContract',
+              parameter: {
+                value: {
+                  // eslint-disable-next-line @typescript-eslint/naming-convention
+                  owner_address: '41045d01eb63374da930ee0da30d58516ac14ce04c79',
+                },
+              },
+            },
+          ],
+        };
+        mockTronWeb.utils.deserializeTx.deserializeTransaction.mockReturnValue(
+          mockRawData,
+        );
+
+        const signedTransaction = {
+          txID: 'test-tx-id',
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          raw_data: mockRawData,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          raw_data_hex: 'test-hex',
+          signature: ['test-signature'],
+        };
+        mockTronWeb.trx.sign.mockResolvedValue(signedTransaction);
+        mockTronWeb.trx.sendRawTransaction.mockResolvedValue({
+          result: true,
+          txid: 'test-tx-id',
+        });
+
+        const result = await clientRequestHandler.handle(
+          request as JsonRpcRequest,
+        );
+
+        expect(result).toStrictEqual({
+          transactionId: 'test-tx-id',
+        });
+
+        // Verify the default feeLimit was set on rawData before signing
+        expect(mockRawData).toHaveProperty('fee_limit', FEE_LIMIT);
+        expect(mockTronWeb.utils.transaction.txJsonToPb).toHaveBeenCalledWith(
+          expect.objectContaining({
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            raw_data: expect.objectContaining({
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              fee_limit: FEE_LIMIT,
+            }),
+          }),
+        );
+        expect(
+          mockTronWeb.utils.transaction.txPbToRawDataHex,
+        ).toHaveBeenCalled();
+        expect(mockTronWeb.trx.sign).toHaveBeenCalled();
+      });
+
       it('computes fee breakdown for TRC20 transfer transaction', async () => {
         const scope = Network.Shasta;
         const request = {
@@ -235,7 +328,7 @@ describe('ClientRequestHandler', () => {
           }),
           availableEnergy: BigNumber('100000'),
           availableBandwidth: BigNumber('5000'),
-          feeLimit: undefined,
+          feeLimit: FEE_LIMIT,
         });
         expect(result).toStrictEqual(feeResult);
       });
@@ -349,7 +442,7 @@ describe('ClientRequestHandler', () => {
           }),
           availableEnergy: BigNumber('0'),
           availableBandwidth: BigNumber('1000'),
-          feeLimit: undefined,
+          feeLimit: FEE_LIMIT,
         });
       });
 
@@ -437,6 +530,7 @@ describe('ClientRequestHandler', () => {
           transaction: expect.any(Object),
           availableEnergy: BigNumber('0'),
           availableBandwidth: BigNumber('0'),
+          feeLimit: FEE_LIMIT,
         });
       });
     });
@@ -752,6 +846,8 @@ describe('ClientRequestHandler - onAmountInput', () => {
   const TEST_TO_ADDRESS = 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx';
   const scope = Network.Mainnet;
   const nativeTokenId = Networks[scope].nativeToken.id;
+  const FEE_LIMIT = 100_000_000;
+
   type OnAmountInputRequest = Infer<typeof OnAmountInputRequestStruct>;
   type WithOnAmountInputHandlerCallback<ReturnValue> = (payload: {
     handler: ClientRequestHandler;
@@ -1000,12 +1096,14 @@ describe('ClientRequestHandler - onAmountInput', () => {
           toAddress: TEST_TO_ADDRESS,
           asset: mockAsset,
           amount: new BigNumber('10'),
+          feeLimit: FEE_LIMIT,
         });
         expect(mockFeeCalculatorService.computeFee).toHaveBeenCalledWith({
           scope,
           transaction: builtTransaction,
           availableEnergy: BigNumber('100000'),
           availableBandwidth: BigNumber('5000'),
+          feeLimit: FEE_LIMIT,
         });
       },
     );
@@ -1408,6 +1506,7 @@ describe('ClientRequestHandler - confirmSend validation', () => {
   const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
   const TEST_TO_ADDRESS = 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx';
   const scope = Network.Mainnet;
+  const FEE_LIMIT = 100_000_000;
 
   beforeEach(() => {
     mockAccountsService = {
@@ -1513,6 +1612,7 @@ describe('ClientRequestHandler - confirmSend validation', () => {
       toAddress: TEST_TO_ADDRESS,
       asset: mockAsset,
       amount: BigNumber('10'),
+      feeLimit: FEE_LIMIT,
     });
 
     // Should not proceed to build transaction or confirmation
@@ -1651,9 +1751,28 @@ describe('ClientRequestHandler - confirmSend validation', () => {
     const result = await clientRequestHandler.handle(request as JsonRpcRequest);
 
     // Should have proceeded through the full flow
-    expect(mockSendService.validateSend).toHaveBeenCalled();
-    expect(mockSendService.buildTransaction).toHaveBeenCalled();
-    expect(mockFeeCalculatorService.computeFee).toHaveBeenCalled();
+    expect(mockSendService.validateSend).toHaveBeenCalledWith({
+      scope,
+      fromAccountId: TEST_ACCOUNT_ID,
+      toAddress: TEST_TO_ADDRESS,
+      asset: mockAsset,
+      amount: BigNumber('10'),
+      feeLimit: FEE_LIMIT,
+    });
+    expect(mockSendService.buildTransaction).toHaveBeenCalledWith({
+      fromAccountId: TEST_ACCOUNT_ID,
+      toAddress: TEST_TO_ADDRESS,
+      asset: mockAsset,
+      amount: BigNumber('10'),
+      feeLimit: FEE_LIMIT,
+    });
+    expect(mockFeeCalculatorService.computeFee).toHaveBeenCalledWith({
+      scope,
+      transaction: mockTransaction,
+      availableEnergy: BigNumber('50000'),
+      availableBandwidth: BigNumber('1000'),
+      feeLimit: FEE_LIMIT,
+    });
     expect(
       mockConfirmationHandler.confirmTransactionRequest,
     ).toHaveBeenCalled();
