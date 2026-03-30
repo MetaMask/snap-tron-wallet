@@ -19,9 +19,25 @@ import {
 } from '../test-utils/mockApiServer';
 import { ConfirmSignMessageFormNames } from '../ui/confirmation/views/ConfirmSignMessage/events';
 
-// Base64-encode a test message
+/**
+ * Encodes a UTF-8 message as base64 for the signing RPC.
+ *
+ * @param message - The plaintext message to encode.
+ * @returns The base64-encoded message.
+ */
+function encodeMessage(message: string): string {
+  const bytes = new TextEncoder().encode(message);
+  const binary = Array.from(bytes, (byte) => String.fromCodePoint(byte)).join(
+    '',
+  );
+
+  return btoa(binary);
+}
+
 const TEST_MESSAGE = 'Hello, Tron!';
-const TEST_MESSAGE_BASE64 = btoa(TEST_MESSAGE);
+const TEST_MESSAGE_BASE64 = encodeMessage(TEST_MESSAGE);
+const UNICODE_TEST_MESSAGE = 'Ol\u00E1, Tron \u{1F680}';
+const UNICODE_TEST_MESSAGE_BASE64 = encodeMessage(UNICODE_TEST_MESSAGE);
 
 describe('Sign Message E2E', () => {
   let mockServer: MockApiServer;
@@ -113,5 +129,45 @@ describe('Sign Message E2E', () => {
         code: expect.any(Number),
       }),
     );
+  });
+
+  it('confirms signing for a UTF-8 message and returns signature', async () => {
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const { onKeyringRequest } = await installSnap({
+      options: createInstallSnapOptions(account),
+    });
+
+    const response = onKeyringRequest({
+      origin: TEST_ORIGIN,
+      method: KeyringRpcMethod.SubmitRequest,
+      params: {
+        id: '44444444-4444-4444-8444-444444444444',
+        origin: TEST_ORIGIN,
+        account: account.id,
+        scope: Network.Mainnet,
+        request: {
+          method: TronMultichainMethod.SignMessage,
+          params: {
+            address: account.address,
+            message: UNICODE_TEST_MESSAGE_BASE64,
+          },
+        },
+      },
+    });
+
+    const screen = await response.getInterface();
+
+    await screen.clickElement(ConfirmSignMessageFormNames.Confirm);
+
+    expect(await response).toMatchObject({
+      response: {
+        result: {
+          pending: false,
+          result: {
+            signature: expect.stringMatching(/^0x[0-9a-fA-F]+$/u),
+          },
+        },
+      },
+    });
   });
 });
