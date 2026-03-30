@@ -1,6 +1,6 @@
 import { KeyringRpcMethod } from '@metamask/keyring-api';
 
-import { TestDappRpcRequestMethod } from './handlers/rpc/types';
+import { TestDappRpcRequestMethod, WalletConnectRpcMethod } from './handlers/rpc/types';
 
 // eslint-disable-next-line no-restricted-globals
 const isDev = process.env.ENVIRONMENT !== 'production';
@@ -48,3 +48,16 @@ for (const origin of allowedOrigins) {
   originPermissions.set(origin, dappPermissions);
 }
 originPermissions.set(metamask, metamaskPermissions);
+
+/**
+ * WalletConnect methods that are callable from any origin.
+ *
+ * These bypass the origin allowlist because WalletConnect dApp origins are
+ * not known ahead of time and cannot be pre-registered. Security is provided
+ * by the WalletConnect session authorization — the user has already approved
+ * the connection, and MetaMask Mobile validates the session before forwarding
+ * the request to the snap.
+ *
+ * Ref: https://docs.reown.com/advanced/multichain/rpc-reference/tron-rpc
+ */
+export const walletConnectMethods = new Set(Object.values(WalletConnectRpcMethod));
