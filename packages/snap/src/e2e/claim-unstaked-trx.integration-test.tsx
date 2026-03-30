@@ -1,4 +1,7 @@
+/* eslint-disable @typescript-eslint/naming-convention */
+
 import { installSnap } from '@metamask/snaps-jest';
+import { TronWeb } from 'tronweb';
 
 import { KnownCaip19Id } from '../constants';
 import { ClientRequestMethod } from '../handlers/clientRequest/types';
@@ -31,30 +34,29 @@ function makeMockWithdrawTransaction(ownerAddress: string) {
   return {
     visible: false,
     txID: 'mock-withdraw-txid',
-    // eslint-disable-next-line @typescript-eslint/naming-convention
+
     raw_data: {
       contract: [
         {
           parameter: {
             value: {
-              // eslint-disable-next-line @typescript-eslint/naming-convention
               owner_address: ownerAddress,
             },
-            // eslint-disable-next-line @typescript-eslint/naming-convention
+
             type_url:
               'type.googleapis.com/protocol.WithdrawExpireUnfreezeContract',
           },
           type: 'WithdrawExpireUnfreezeContract',
         },
       ],
-      // eslint-disable-next-line @typescript-eslint/naming-convention
+
       ref_block_bytes: '0000',
-      // eslint-disable-next-line @typescript-eslint/naming-convention
+
       ref_block_hash: '0000000000000000',
       expiration: 9999999999999,
       timestamp: 1000000000000,
     },
-    // eslint-disable-next-line @typescript-eslint/naming-convention
+
     raw_data_hex: '0a02000022080000000000000000400fca9a3b5a0012001a00',
   };
 }
@@ -111,8 +113,22 @@ describe('Claim Unstaked TRX E2E', () => {
       },
     });
 
-    // The handler broadcasts the signed withdraw transaction.
-    expect(mockServer.requests.broadcasts.length).toBeGreaterThanOrEqual(1);
+    expect(mockServer.requests.broadcasts).toStrictEqual([
+      expect.objectContaining({
+        raw_data: expect.objectContaining({
+          contract: [
+            expect.objectContaining({
+              type: 'WithdrawExpireUnfreezeContract',
+              parameter: expect.objectContaining({
+                value: expect.objectContaining({
+                  owner_address: TronWeb.address.toHex(account.address),
+                }),
+              }),
+            }),
+          ],
+        }),
+      }),
+    ]);
   }, 60000);
 
   it('rejects claim when user clicks cancel', async () => {
@@ -139,5 +155,6 @@ describe('Claim Unstaked TRX E2E', () => {
         code: expect.any(Number),
       }),
     );
+    expect(mockServer.requests.broadcasts).toStrictEqual([]);
   }, 60000);
 });
