@@ -188,6 +188,31 @@ describe('ConfirmTransactionRequest', () => {
     expect(result).toBeDefined();
   });
 
+  it('renders unsupported-contract estimated changes when simulation is skipped', () => {
+    const skippedScanResult: TransactionScanResult = {
+      ...mockScanResult,
+      estimatedChanges: { assets: [] },
+      validation: {
+        type: null,
+        reason: null,
+      },
+      simulationStatus: SimulationStatus.Skipped,
+    };
+
+    const context: ConfirmTransactionRequestContext = {
+      ...baseContext,
+      scan: skippedScanResult,
+      scanFetchStatus: FetchStatus.Fetched,
+    };
+
+    const result = ConfirmTransactionRequest({ context });
+    const serialized = JSON.stringify(result);
+
+    expect(serialized).toContain(
+      'confirmation.estimatedChanges.unsupportedContract',
+    );
+  });
+
   it('renders with Malicious validation', () => {
     const maliciousScanResult: TransactionScanResult = {
       ...mockScanResult,
