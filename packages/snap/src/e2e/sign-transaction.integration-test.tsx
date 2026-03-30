@@ -1,9 +1,16 @@
-import { KeyringRpcMethod } from '@metamask/keyring-api';
+/* eslint-disable @typescript-eslint/naming-convention */
+
+import { FeeType, KeyringRpcMethod } from '@metamask/keyring-api';
 import { installSnap } from '@metamask/snaps-jest';
 import { TronWeb } from 'tronweb';
 
-import { KnownCaip19Id, Network } from '../constants';
+import { KnownCaip19Id, Network, Networks } from '../constants';
 import { TronMultichainMethod } from '../handlers/keyring-types';
+import type { ComputeFeeResult } from '../services/send/types';
+import {
+  SimulationStatus,
+  type TransactionScanResult,
+} from '../services/transaction-scan/types';
 import {
   createInstallSnapOptions,
   createMaliciousScanApiResponse,
@@ -29,8 +36,14 @@ import {
   type MockApiServer,
 } from '../test-utils/mockApiServer';
 import { FetchStatus } from '../types/snap';
+import { getIconUrlForKnownAsset } from '../ui/confirmation/utils/getIconUrlForKnownAsset';
 import { ConfirmSignTransaction } from '../ui/confirmation/views/ConfirmSignTransaction/ConfirmSignTransaction';
 import { ConfirmSignTransactionFormNames } from '../ui/confirmation/views/ConfirmSignTransaction/events';
+
+type SignableTransaction = {
+  rawDataHex: string;
+  type: string;
+};
 
 /**
  * Helper to invoke a SignTransaction keyring request.
@@ -47,7 +60,7 @@ function sendSignTransactionRequest(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onKeyringRequest: any,
   account: ReturnType<typeof createTestAccount>,
-  transaction: { rawDataHex: string; type: string },
+  transaction: SignableTransaction,
 ) {
   return onKeyringRequest({
     origin: TEST_ORIGIN,
@@ -68,6 +81,77 @@ function sendSignTransactionRequest(
   });
 }
 
+const maliciousScanResult: TransactionScanResult = {
+  ...defaultScanResult,
+  validation: {
+    type: 'Malicious',
+    reason: 'known_attacker',
+  },
+};
+
+const warningScanResult: TransactionScanResult = {
+  ...defaultScanResult,
+  validation: {
+    type: 'Warning',
+    reason: 'unfair_trade',
+  },
+};
+
+const simulationFailedScanResult: TransactionScanResult = {
+  status: 'ERROR',
+  estimatedChanges: {
+    assets: [],
+  },
+  validation: {
+    type: 'Benign',
+    reason: 'other',
+  },
+  error: {
+    type: null,
+    code: 'EXECUTION_REVERTED',
+    message: 'Transaction execution failed',
+  },
+  simulationStatus: SimulationStatus.Failed,
+};
+
+const skippedSimulationScanResult: TransactionScanResult = {
+  status: 'SUCCESS',
+  estimatedChanges: {
+    assets: [],
+  },
+  validation: {
+    type: null,
+    reason: null,
+  },
+  error: null,
+  simulationStatus: SimulationStatus.Skipped,
+};
+
+const unsupportedTransactionFees: ComputeFeeResult = [
+  {
+    type: FeeType.Base,
+    asset: {
+      unit: Networks[Network.Mainnet].nativeToken.symbol,
+      type: Networks[Network.Mainnet].nativeToken.id,
+      amount: '0',
+      fungible: true as const,
+      iconUrl: getIconUrlForKnownAsset(
+        Networks[Network.Mainnet].nativeToken.id,
+      ),
+    },
+  },
+  {
+    type: FeeType.Base,
+    asset: {
+      unit: Networks[Network.Mainnet].bandwidth.symbol,
+      type: Networks[Network.Mainnet].bandwidth.id,
+      amount: '254',
+      fungible: true as const,
+      iconUrl: getIconUrlForKnownAsset(Networks[Network.Mainnet].bandwidth.id),
+    },
+  },
+];
+
 describe('Sign Transaction E2E', () => {
   let mockServer: MockApiServer;
   const accountAddress = deriveAccountAddress(SECRET_RECOVERY_PHRASE);
@@ -76,6 +160,28 @@ describe('Sign Transaction E2E', () => {
   afterEach(async () => {
     await mockServer.close();
   });
+
+  /**
+   * Creates a signable transaction whose contract type is unsupported by the scan service.
+   *
+   * @returns A signable unsupported transaction payload.
+   */
+  async function createUnsupportedSignableTransaction(): Promise<SignableTransaction> {
+    const tronWeb = new TronWeb({ fullHost: 'http://127.0.0.1:8899' });
+    const transaction =
+      await tronWeb.transactionBuilder.withdrawExpireUnfreeze(accountAddress);
+    const transactionPb = tronWeb.utils.transaction.txJsonToPb({
+      raw_data: transaction.raw_data,
+      visible: false,
+    });
+
+    return {
+      rawDataHex: tronWeb.utils.transaction
+        .txPbToRawDataHex(transactionPb)
+        .toLowerCase(),
+      type: 'WithdrawExpireUnfreezeContract',
+    };
+  }
 
   describe('Security Alerts — Benign', () => {
     beforeEach(async () => {
@@ -146,7 +252,6 @@ describe('Sign Transaction E2E', () => {
       ]);
       expect(mockServer.requests.scans).toStrictEqual([
         {
-          // eslint-disable-next-line @typescript-eslint/naming-convention
           account_address: account.address,
           metadata: { domain: TEST_ORIGIN },
           data: {
@@ -260,6 +365,24 @@ describe('Sign Transaction E2E', () => {
 
       const initialScreen = await response.getInterface();
       const updatedScreen = await initialScreen.waitForUpdate();
+      expect(updatedScreen).toRender(
+        <ConfirmSignTransaction
+          context={{
+            scope: Network.Mainnet,
+            account,
+            transaction,
+            origin: TEST_ORIGIN,
+            preferences: mockPreferences,
+            networkImage: TRX_IMAGE_SVG,
+            scan: maliciousScanResult,
+            scanFetchStatus: FetchStatus.Fetched,
+            tokenPrices: mockSpotPrices,
+            tokenPricesFetchStatus: FetchStatus.Fetched,
+            fees: expectedFees,
+            feesFetchStatus: FetchStatus.Fetched,
+          }}
+        />,
+      );
 
       // Confirm button should still be enabled — malicious is informational only
       await updatedScreen.clickElement(ConfirmSignTransactionFormNames.Confirm);
@@ -303,6 +426,24 @@ describe('Sign Transaction E2E', () => {
 
       const initialScreen = await response.getInterface();
       const updatedScreen = await initialScreen.waitForUpdate();
+      expect(updatedScreen).toRender(
+        <ConfirmSignTransaction
+          context={{
+            scope: Network.Mainnet,
+            account,
+            transaction,
+            origin: TEST_ORIGIN,
+            preferences: mockPreferences,
+            networkImage: TRX_IMAGE_SVG,
+            scan: warningScanResult,
+            scanFetchStatus: FetchStatus.Fetched,
+            tokenPrices: mockSpotPrices,
+            tokenPricesFetchStatus: FetchStatus.Fetched,
+            fees: expectedFees,
+            feesFetchStatus: FetchStatus.Fetched,
+          }}
+        />,
+      );
 
       await updatedScreen.clickElement(ConfirmSignTransactionFormNames.Confirm);
 
@@ -344,13 +485,91 @@ describe('Sign Transaction E2E', () => {
       );
 
       const initialScreen = await response.getInterface();
-      await initialScreen.waitForUpdate();
+      const updatedScreen = await initialScreen.waitForUpdate();
+      expect(updatedScreen).toRender(
+        <ConfirmSignTransaction
+          context={{
+            scope: Network.Mainnet,
+            account,
+            transaction,
+            origin: TEST_ORIGIN,
+            preferences: mockPreferences,
+            networkImage: TRX_IMAGE_SVG,
+            scan: simulationFailedScanResult,
+            scanFetchStatus: FetchStatus.Fetched,
+            tokenPrices: mockSpotPrices,
+            tokenPricesFetchStatus: FetchStatus.Fetched,
+            fees: expectedFees,
+            feesFetchStatus: FetchStatus.Fetched,
+          }}
+        />,
+      );
 
       // Verify the scan request was made
       expect(mockServer.requests.scans.length).toBe(1);
-      // The confirm button should be disabled — user cannot proceed
-      // Verify by checking broadcasts were never called (no way to confirm)
-      expect(mockServer.requests.broadcasts).toStrictEqual([]);
+    });
+  });
+
+  describe('Security Alerts — Simulation Skipped', () => {
+    beforeEach(async () => {
+      mockServer = await startMockApiServer({
+        spotPricesResponse: mockSpotPrices,
+        scanResponse: defaultScanApiResponse,
+        accountInfoResponse: defaultAccountInfoResponse,
+      });
+    });
+
+    it('renders unsupported-contract state without calling the scan API', async () => {
+      const transaction = await createUnsupportedSignableTransaction();
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const { onKeyringRequest, mockJsonRpc } = await installSnap({
+        options: createInstallSnapOptions(account),
+      });
+      mockJsonRpc({ method: 'snap_scheduleBackgroundEvent', result: {} });
+
+      const response = sendSignTransactionRequest(
+        onKeyringRequest,
+        account,
+        transaction,
+      );
+
+      const initialScreen = await response.getInterface();
+      const updatedScreen = await initialScreen.waitForUpdate();
+
+      expect(updatedScreen).toRender(
+        <ConfirmSignTransaction
+          context={{
+            scope: Network.Mainnet,
+            account,
+            transaction,
+            origin: TEST_ORIGIN,
+            preferences: mockPreferences,
+            networkImage: TRX_IMAGE_SVG,
+            scan: skippedSimulationScanResult,
+            scanFetchStatus: FetchStatus.Fetched,
+            tokenPrices: mockSpotPrices,
+            tokenPricesFetchStatus: FetchStatus.Fetched,
+            fees: unsupportedTransactionFees,
+            feesFetchStatus: FetchStatus.Fetched,
+          }}
+        />,
+      );
+
+      expect(mockServer.requests.scans).toStrictEqual([]);
+
+      await updatedScreen.clickElement(ConfirmSignTransactionFormNames.Confirm);
+
+      expect(await response).toMatchObject({
+        response: {
+          result: {
+            pending: false,
+            result: {
+              signature: expect.stringMatching(/^0x[0-9a-fA-F]+$/u),
+            },
+          },
+        },
+      });
     });
   });
 
@@ -381,6 +600,24 @@ describe('Sign Transaction E2E', () => {
 
       const initialScreen = await response.getInterface();
       const updatedScreen = await initialScreen.waitForUpdate();
+      expect(updatedScreen).toRender(
+        <ConfirmSignTransaction
+          context={{
+            scope: Network.Mainnet,
+            account,
+            transaction,
+            origin: TEST_ORIGIN,
+            preferences: mockPreferences,
+            networkImage: TRX_IMAGE_SVG,
+            scan: null,
+            scanFetchStatus: FetchStatus.Error,
+            tokenPrices: mockSpotPrices,
+            tokenPricesFetchStatus: FetchStatus.Fetched,
+            fees: expectedFees,
+            feesFetchStatus: FetchStatus.Fetched,
+          }}
+        />,
+      );
 
       // Even with scan error, confirm button should be enabled
       await updatedScreen.clickElement(ConfirmSignTransactionFormNames.Confirm);
