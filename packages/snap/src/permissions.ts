@@ -1,6 +1,9 @@
 import { KeyringRpcMethod } from '@metamask/keyring-api';
 
-import { TestDappRpcRequestMethod, WalletConnectRpcMethod } from './handlers/rpc/types';
+import {
+  TestDappRpcRequestMethod,
+  WalletConnectRpcMethod,
+} from './handlers/rpc/types';
 
 // eslint-disable-next-line no-restricted-globals
 const isDev = process.env.ENVIRONMENT !== 'production';
@@ -60,4 +63,6 @@ originPermissions.set(metamask, metamaskPermissions);
  *
  * Ref: https://docs.reown.com/advanced/multichain/rpc-reference/tron-rpc
  */
-export const walletConnectMethods = new Set(Object.values(WalletConnectRpcMethod));
+export const walletConnectMethods = new Set(
+  Object.values(WalletConnectRpcMethod),
+);

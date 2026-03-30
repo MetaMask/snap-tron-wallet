@@ -1,4 +1,7 @@
-import { MethodNotFoundError, UserRejectedRequestError } from '@metamask/snaps-sdk';
+import {
+  MethodNotFoundError,
+  UserRejectedRequestError,
+} from '@metamask/snaps-sdk';
 import type { Json, JsonRpcRequest } from '@metamask/snaps-sdk';
 
 import { Network } from '../../constants';
@@ -46,20 +49,24 @@ export class RpcHandler {
     // WalletConnect methods bypass the origin allowlist — dApp origins are not
     // known ahead of time. Session-level authorization is handled by MetaMask
     // Mobile before the request reaches the snap.
-    if (!walletConnectMethods.has(request.method)) {
+    if (!walletConnectMethods.has(request.method as WalletConnectRpcMethod)) {
       validateOrigin(origin, request.method);
     }
 
-    this.#logger.log('Handling RPC request', { method: request.method, origin });
+    this.#logger.log('Handling RPC request', {
+      method: request.method,
+      origin,
+    });
 
-    const { method } = request;
+    // Cast to the enum so the switch comparison is type-safe.
+    const method = request.method as WalletConnectRpcMethod;
 
     switch (method) {
       case WalletConnectRpcMethod.SignMessage:
-        return this.#handleSignMessage(request);
+        return this.#handleSignMessage(origin, request);
 
       case WalletConnectRpcMethod.SignTransaction:
-        return this.#handleSignTransaction(request);
+        return this.#handleSignTransaction(origin, request);
 
       default:
         throw new MethodNotFoundError() as Error;
@@ -69,16 +76,22 @@ export class RpcHandler {
   /**
    * Handles tron_signMessage (WalletConnect Tron namespace).
    *
-   * WalletConnect format:
-   *   params: { address: string, message: string (plain text) }
-   *   result: { signature: string }
+   * WalletConnect format — params: `{ address, message }` (plain text);
+   * result: `{ signature }`.
    *
    * Mapping: message is base64-encoded before forwarding to WalletService,
-   * which calls tronWeb.trx.signMessageV2.
+   * which calls `tronWeb.trx.signMessageV2`.
    *
    * Ref: https://docs.reown.com/advanced/multichain/rpc-reference/tron-rpc
+   *
+   * @param origin - The dApp origin forwarded by MetaMask Mobile.
+   * @param request - The JSON-RPC request from the WalletConnect dApp.
+   * @returns The signature object `{ signature: string }`.
    */
-  async #handleSignMessage(request: JsonRpcRequest): Promise<Json> {
+  async #handleSignMessage(
+    origin: string,
+    request: JsonRpcRequest,
+  ): Promise<Json> {
     validateRequest(request.params, WCSignMessageParamsStruct);
     const { address, message } = request.params;
 
@@ -96,9 +109,10 @@ export class RpcHandler {
 
     const confirmed = await this.#confirmationHandler.handleKeyringRequest({
       request: {
-        id: crypto.randomUUID(),
+        id: globalThis.crypto.randomUUID(),
         scope: Network.Mainnet,
         account: account.id,
+        origin,
         request: {
           method: TronMultichainMethod.SignMessage,
           params: snapParams,
@@ -121,25 +135,35 @@ export class RpcHandler {
   /**
    * Handles tron_signTransaction (WalletConnect Tron namespace).
    *
-   * WalletConnect v1 flat format:
-   *   params: { address, transaction: { txID, raw_data, raw_data_hex, visible? } }
-   *   result: { txID, signature: string[], raw_data, raw_data_hex, visible }
+   * WalletConnect v1 flat format — params:
+   * `{ address, transaction: { txID, raw_data, raw_data_hex, visible? } }`;
+   * result: `{ txID, signature: string[], raw_data, raw_data_hex, visible }`.
    *
    * Mapping:
-   * - IN:  raw_data_hex + raw_data.contract[0].type → WalletService.signTransaction
-   * - OUT: signature "0x<hex>" → strip 0x, wrap in array per WC spec
+   * - IN: `raw_data_hex` + `raw_data.contract[0].type` → WalletService.signTransaction
+   * - OUT: signature `"0x<hex>"` → strip 0x, wrap in array per WC spec
    *
-   * Wallets must advertise tron_method_version: "v1" in WalletConnect
-   * sessionProperties so dApps send the flat format (not the legacy nested
-   * transaction.transaction structure).
+   * Wallets must advertise `tron_method_version: "v1"` in WalletConnect
+   * `sessionProperties` so dApps send the flat format (not the legacy nested
+   * `transaction.transaction` structure).
    *
    * Ref: https://docs.reown.com/advanced/multichain/rpc-reference/tron-rpc
+   *
+   * @param origin - The dApp origin forwarded by MetaMask Mobile.
+   * @param request - The JSON-RPC request from the WalletConnect dApp.
+   * @returns The signed transaction in WalletConnect format.
    */
-  async #handleSignTransaction(request: JsonRpcRequest): Promise<Json> {
+  async #handleSignTransaction(
+    origin: string,
+    request: JsonRpcRequest,
+  ): Promise<Json> {
     validateRequest(request.params, WCSignTransactionParamsStruct);
     const { address, transaction } = request.params;
 
-    this.#logger.log('tron_signTransaction', { address, txID: transaction.txID });
+    this.#logger.log('tron_signTransaction', {
+      address,
+      txID: transaction.txID,
+    });
 
     const account = await this.#accountsService.findByAddress(address);
     if (!account) {
@@ -159,9 +183,10 @@ export class RpcHandler {
 
     const confirmed = await this.#confirmationHandler.handleKeyringRequest({
       request: {
-        id: crypto.randomUUID(),
+        id: globalThis.crypto.randomUUID(),
         scope: Network.Mainnet,
         account: account.id,
+        origin,
         request: {
           method: TronMultichainMethod.SignTransaction,
           params: snapParams,

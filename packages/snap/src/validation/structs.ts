@@ -514,7 +514,9 @@ export const WCSignTransactionParamsStruct = object({
   address: TronAddressStruct,
   transaction: type({
     txID: string(),
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     raw_data: WCRawDataStruct,
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     raw_data_hex: string(),
   }),
 });
