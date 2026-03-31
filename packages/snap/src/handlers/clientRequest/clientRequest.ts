@@ -13,7 +13,7 @@ import {
   sha256,
 } from '@metamask/utils';
 import { BigNumber } from 'bignumber.js';
-import type { TronWeb } from 'tronweb';
+import type { TronWeb, Types } from 'tronweb';
 
 import { ClientRequestMethod, SendErrorCodes } from './types';
 import {
@@ -59,6 +59,11 @@ import { BackgroundEventMethod } from '../cronjob';
  * 100 TRX
  */
 const FEE_LIMIT = 100_000_000;
+
+type TransactionRawData = Types.Transaction['raw_data'] & {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  fee_limit?: number;
+};
 
 export class ClientRequestHandler {
   readonly #logger: ILogger;
@@ -227,7 +232,7 @@ export class ClientRequestHandler {
     const rawData = tronWeb.utils.deserializeTx.deserializeTransaction(
       type,
       rawDataHex,
-    );
+    ) as TransactionRawData;
     rawDataHex = this.#setRawDataFeeLimit(tronWeb, rawData);
 
     assertTransactionStructure(rawData);
@@ -614,7 +619,7 @@ export class ClientRequestHandler {
     const rawData = tronWeb.utils.deserializeTx.deserializeTransaction(
       type,
       rawDataHex,
-    );
+    ) as TransactionRawData;
     rawDataHex = this.#setRawDataFeeLimit(tronWeb, rawData);
 
     assertTransactionStructure(rawData);
@@ -1104,8 +1109,7 @@ export class ClientRequestHandler {
    */
   #setRawDataFeeLimit(
     tronWeb: TronWeb,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    rawData: any,
+    rawData: TransactionRawData,
     feeLimit = FEE_LIMIT,
   ): string {
     rawData.fee_limit = feeLimit;
