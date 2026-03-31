@@ -461,3 +461,66 @@ export const ResolveAccountAddressResponseStruct = pattern(
   string(),
   /^[a-zA-Z0-9]+:[a-zA-Z0-9]+:[a-zA-Z0-9]+$/u,
 );
+
+// ─── WalletConnect RPC method structs ────────────────────────────────────────
+//
+// Spec: https://docs.reown.com/advanced/multichain/rpc-reference/tron-rpc
+//
+// WalletConnect sends / expects a different format than the snap's internal
+// Keyring API. These structs define the boundary shapes; the RpcHandler is
+// responsible for converting between them before calling WalletService.
+
+/**
+ * tron_signMessage params (WalletConnect v1 format).
+ * message is a plain-text string; the snap internally base64-encodes it
+ * before passing it to WalletService.signMessage.
+ */
+export const WCSignMessageParamsStruct = object({
+  address: TronAddressStruct,
+  message: string(),
+});
+
+export type WCSignMessageParams = Infer<typeof WCSignMessageParamsStruct>;
+
+/**
+ * tron_signMessage response (WalletConnect format).
+ */
+export const WCSignMessageResultStruct = object({
+  signature: string(),
+});
+
+/**
+ * Minimal shape of the raw_data object inside a WalletConnect tron transaction.
+ * Uses type() (not object()) to tolerate extra fields from TronWeb.
+ */
+const WCRawDataStruct = type({
+  contract: array(
+    type({
+      type: string(),
+    }),
+  ),
+});
+
+/**
+ * tron_signTransaction params (WalletConnect v1 flat format).
+ * The transaction object is the raw TronWeb transaction produced by
+ * tronWeb.transactionBuilder.*. raw_data_hex and contract[0].type are
+ * extracted and forwarded to WalletService.signTransaction.
+ *
+ * Legacy nested format (transaction.transaction) is NOT supported —
+ * wallets should advertise tron_method_version: "v1" in sessionProperties.
+ */
+export const WCSignTransactionParamsStruct = object({
+  address: TronAddressStruct,
+  transaction: type({
+    txID: string(),
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    raw_data: WCRawDataStruct,
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    raw_data_hex: string(),
+  }),
+});
+
+export type WCSignTransactionParams = Infer<
+  typeof WCSignTransactionParamsStruct
+>;

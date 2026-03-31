@@ -195,6 +195,9 @@ const keyringHandler = new KeyringHandler({
 });
 const rpcHandler = new RpcHandler({
   logger,
+  walletService,
+  accountsService,
+  confirmationHandler,
 });
 const userInputHandler = new UserInputHandler({
   logger,
