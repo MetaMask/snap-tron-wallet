@@ -9,7 +9,7 @@ import { ClientRequestMethod, SendErrorCodes } from './types';
 import type { OnAmountInputRequestStruct } from './validation';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
-import { Network, Networks } from '../../constants';
+import { FEE_LIMIT, Network, Networks } from '../../constants';
 import type { NativeAsset, ResourceAsset } from '../../entities/assets';
 import type { TronKeyringAccount } from '../../entities/keyring-account';
 import type { AccountsService } from '../../services/accounts/AccountsService';
@@ -40,7 +40,6 @@ describe('ClientRequestHandler', () => {
     const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
     const TEST_TRANSACTION_BASE64 =
       'CgK0FiII40phBu42/OZAkJyY96YzWrADCB8SqwMKMXR5cGUuZ29vZ2xlYXBpcy5jb20vcHJvdG9jb2wuVHJpZ2dlclNtYXJ0Q29udHJhY3QS9QIKFUEU0B62M0bakw7g2jDVhRrBTODEeRIVQZlGn9WqCM/oNjlc6ZPA69Vn4sFPIsQCnd+TuwAAAAAAAAAAAAAAAKYU+AO2/XgJhqQseOycf3fm3tE8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC+vCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAnq6OQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAF1RSWHxzeWtuZjl8MC41fGJyaWRnZXJzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACJUQnNGcUttbVJ5WWNuWUphOFlEeFk1ZDJKQVJhSGVxdUJKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcLzdlPemMw==';
-    const FEE_LIMIT = 100_000_000;
 
     beforeEach(() => {
       mockAccountsService = {
@@ -846,7 +845,6 @@ describe('ClientRequestHandler - onAmountInput', () => {
   const TEST_TO_ADDRESS = 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx';
   const scope = Network.Mainnet;
   const nativeTokenId = Networks[scope].nativeToken.id;
-  const FEE_LIMIT = 100_000_000;
 
   type OnAmountInputRequest = Infer<typeof OnAmountInputRequestStruct>;
   type WithOnAmountInputHandlerCallback<ReturnValue> = (payload: {
@@ -1506,7 +1504,6 @@ describe('ClientRequestHandler - confirmSend validation', () => {
   const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
   const TEST_TO_ADDRESS = 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx';
   const scope = Network.Mainnet;
-  const FEE_LIMIT = 100_000_000;
 
   beforeEach(() => {
     mockAccountsService = {

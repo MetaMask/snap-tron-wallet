@@ -3,7 +3,7 @@ import { FeeType } from '@metamask/keyring-api';
 import { BigNumber } from 'bignumber.js';
 
 import { SendService } from './SendService';
-import { Network, Networks } from '../../constants';
+import { FEE_LIMIT, Network, Networks } from '../../constants';
 import type { AssetEntity } from '../../entities/assets';
 import { SendErrorCodes } from '../../handlers/clientRequest/types';
 import { mockLogger } from '../../utils/mockLogger';
@@ -21,7 +21,6 @@ describe('SendService', () => {
     const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
     const TEST_TO_ADDRESS = 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx';
     const TEST_FROM_ADDRESS = 'TExvJsxzPyAZ2NtkrWgNKnbLkpqnFJ73DT';
-    const FEE_LIMIT = 100_000_000;
 
     const scope = Network.Mainnet;
     const nativeTokenId = Networks[scope].nativeToken.id;

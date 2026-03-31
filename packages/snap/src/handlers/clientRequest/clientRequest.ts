@@ -35,7 +35,7 @@ import {
 } from './validation';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
-import { Network, Networks, ZERO } from '../../constants';
+import { FEE_LIMIT, Network, Networks, ZERO } from '../../constants';
 import type { AccountsService } from '../../services/accounts/AccountsService';
 import type { AssetsService } from '../../services/assets/AssetsService';
 import type {
@@ -54,11 +54,6 @@ import type { ILogger } from '../../utils/logger';
 import { createPrefixedLogger } from '../../utils/logger';
 import { assertTransactionStructure } from '../../validation/transaction';
 import { BackgroundEventMethod } from '../cronjob';
-
-/**
- * 100 TRX
- */
-const FEE_LIMIT = 100_000_000;
 
 type TransactionRawData = Types.Transaction['raw_data'] & {
   // eslint-disable-next-line @typescript-eslint/naming-convention
