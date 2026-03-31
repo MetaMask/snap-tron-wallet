@@ -39,7 +39,6 @@
     "serve": "mm-snap serve",
     "start": "node scripts/update-manifest-local.js && concurrently \"mm-snap watch\" \"yarn build:locale:watch\"",
     "test": "jest && yarn jest-it-up",
-    "test:single": "yarn jest",
     "test:integration": "./integration-test/run-integration.sh"
   },
   "devDependencies": {
