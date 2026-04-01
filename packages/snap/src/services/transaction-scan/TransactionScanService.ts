@@ -241,12 +241,16 @@ export class TransactionScanService {
       estimatedChanges: {
         assets:
           result.simulation?.account_summary?.assets_diffs
-            // Filter out assets without a displayable value (e.g., NONERC tokens
-            // that only have raw_value but no human-readable value from the API)
+            // Filter out assets without a displayable change
             ?.filter((asset) => {
-              const inChange = asset.in?.[0];
-              const outChange = asset.out?.[0];
-              const change = inChange ?? outChange;
+              const change = asset.in?.[0] ?? asset.out?.[0];
+              if (!change) {
+                return false;
+              }
+              // NFT types (ERC721/ERC1155) use token_id instead of value
+              if ('token_id' in change) {
+                return true;
+              }
               return change?.value !== undefined;
             })
             .map((asset) => {
@@ -255,12 +259,22 @@ export class TransactionScanService {
               const outChange = asset.out?.[0];
               const change = inChange ?? outChange;
 
-              const { decimals } = asset.asset;
               let displayValue = '0';
-              if (change?.raw_value && decimals !== undefined) {
-                displayValue = new BigNumber(change.raw_value)
-                  .dividedBy(new BigNumber(10).pow(decimals))
-                  .toFixed();
+
+              if (change && 'token_id' in change) {
+                // NFT assets (ERC721): each token is a single unit
+                // ERC1155: use the value field if present
+                displayValue =
+                  'value' in change && typeof change.value === 'string'
+                    ? change.value
+                    : '1';
+              } else {
+                const { decimals } = asset.asset;
+                if (change?.raw_value && decimals !== undefined) {
+                  displayValue = new BigNumber(change.raw_value)
+                    .dividedBy(new BigNumber(10).pow(decimals))
+                    .toFixed();
+                }
               }
 
               return {
