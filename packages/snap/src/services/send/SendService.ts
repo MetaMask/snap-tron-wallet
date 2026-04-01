@@ -497,7 +497,7 @@ export class SendService {
       | Transaction<TransferAssetContract>,
     feeLimit: number | undefined,
   ): void {
-    if (feeLimit) {
+    if (feeLimit !== undefined) {
       transaction.raw_data.fee_limit = feeLimit;
 
       const transactionPb = tronWeb.utils.transaction.txJsonToPb(transaction);

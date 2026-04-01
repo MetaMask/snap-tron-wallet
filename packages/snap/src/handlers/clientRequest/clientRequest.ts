@@ -597,7 +597,7 @@ export class ClientRequestHandler {
         scope,
         transaction: transactionBase64,
         accountId,
-        options: { type },
+        options: { type, feeLimit },
       },
     } = request;
 
@@ -615,7 +615,7 @@ export class ClientRequestHandler {
       type,
       rawDataHex,
     ) as TransactionRawData;
-    rawDataHex = this.#setRawDataFeeLimit(tronWeb, rawData);
+    rawDataHex = this.#setRawDataFeeLimit(tronWeb, rawData, feeLimit);
 
     assertTransactionStructure(rawData);
 
