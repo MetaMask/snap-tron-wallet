@@ -12,7 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Include memo fee (1 TRX) in transaction fee estimation ([#281](https://github.com/MetaMask/snap-tron-wallet/pull/281))
 - Display correctly token icon size when sending TRC20 tokens ([#262](https://github.com/MetaMask/snap-tron-wallet/pull/262))
 - Display correctly decimal amount sent in confirmation dialog ([#264](https://github.com/MetaMask/snap-tron-wallet/pull/264))
-- Adds #clearInterfaceId helper to better handle the interface ID storing and fix the thrown error Interface not found ([#284](https://github.com/MetaMask/snap-tron-wallet/pull/284))
+- Remove interface ID after it is no longer needed ([#284](https://github.com/MetaMask/snap-tron-wallet/pull/284))
+- Added set of `fee_limit` when building transaction ([#280](https://github.com/MetaMask/snap-tron-wallet/pull/280))
 
 ## [1.25.0]
 
