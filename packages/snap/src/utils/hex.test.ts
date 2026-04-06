@@ -1,4 +1,4 @@
-import { hexToString } from './hex';
+import { hexToString, hexToStringSafe } from './hex';
 
 describe('hex utilities', () => {
   describe('hexToString', () => {
@@ -22,6 +22,16 @@ describe('hex utilities', () => {
 
     it('decodes numeric string from hex', () => {
       expect(hexToString('31303035313139')).toBe('1005119');
+    });
+  });
+
+  describe('hexToStringSafe', () => {
+    it('returns original value when input is not valid hex', () => {
+      expect(hexToStringSafe('1005119')).toBe('1005119');
+    });
+
+    it('still decodes valid hex values', () => {
+      expect(hexToStringSafe('31303035313139')).toBe('1005119');
     });
   });
 });

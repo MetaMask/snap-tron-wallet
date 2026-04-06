@@ -64,8 +64,8 @@ export type RawTronVote = {
   vote_count: number;
 };
 
-export type TransactionInfo = {
-  ret: TransactionResult[];
+export type TrongridApiTransaction = {
+  ret: TrongridApiTransactionResult[];
   signature: string[];
   txID: string;
   net_usage: number;
@@ -76,17 +76,17 @@ export type TransactionInfo = {
   block_timestamp: number;
   energy_fee: number;
   energy_usage_total: number;
-  raw_data: RawTransactionData;
-  internal_transactions: InternalTransaction[];
+  raw_data: TrongridApiRawTransactionData;
+  internal_transactions: TrongridApiInternalTransaction[];
 };
 
-export type TransactionResult = {
+export type TrongridApiTransactionResult = {
   contractRet: string;
   fee: number;
 };
 
-export type RawTransactionData = {
-  contract: ContractInfo[];
+export type TrongridApiRawTransactionData = {
+  contract: TrongridApiContract[];
   ref_block_bytes: string;
   ref_block_hash: string;
   expiration: number;
@@ -95,33 +95,33 @@ export type RawTransactionData = {
 };
 
 // Specific contract types
-export type TransferContractInfo = {
-  parameter: TransferContractParameter;
+export type TrongridApiTransferContract = {
+  parameter: TrongridApiTransferContractParameter;
   type: 'TransferContract';
 };
 
-export type TransferContractParameter = {
-  value: TransferContractValue;
+export type TrongridApiTransferContractParameter = {
+  value: TrongridApiTransferContractValue;
   type_url: 'type.googleapis.com/protocol.TransferContract';
 };
 
-export type TransferContractValue = {
+export type TrongridApiTransferContractValue = {
   amount: number;
   owner_address: string;
   to_address: string;
 };
 
-export type TransferAssetContractInfo = {
-  parameter: TransferAssetContractParameter;
+export type TrongridApiTransferAssetContract = {
+  parameter: TrongridApiTransferAssetContractParameter;
   type: 'TransferAssetContract';
 };
 
-export type TransferAssetContractParameter = {
-  value: TransferAssetContractValue;
+export type TrongridApiTransferAssetContractParameter = {
+  value: TrongridApiTransferAssetContractValue;
   type_url: 'type.googleapis.com/protocol.TransferAssetContract';
 };
 
-export type TransferAssetContractValue = {
+export type TrongridApiTransferAssetContractValue = {
   amount: number;
   asset_name: string;
   owner_address: string;
@@ -129,23 +129,23 @@ export type TransferAssetContractValue = {
 };
 
 // General contract type (catch-all)
-export type GeneralContractInfo = {
-  parameter: ContractParameter;
+export type TrongridApiGeneralContract = {
+  parameter: TrongridApiContractParameterWire;
   type: string;
 };
 
 // Union type for all contract types
-export type ContractInfo =
-  | TransferContractInfo
-  | TransferAssetContractInfo
-  | GeneralContractInfo;
+export type TrongridApiContract =
+  | TrongridApiTransferContract
+  | TrongridApiTransferAssetContract
+  | TrongridApiGeneralContract;
 
-export type ContractParameter = {
-  value: ContractValue;
+export type TrongridApiContractParameterWire = {
+  value: TrongridApiContractValue;
   type_url: string;
 };
 
-export type ContractValue = {
+export type TrongridApiContractValue = {
   owner_address?: string;
   to_address?: string;
   unfreeze_balance?: number;
@@ -161,24 +161,28 @@ export type ContractVote = {
   vote_count: number;
 };
 
-export type InternalTransaction = {
-  internal_tx_id: string;
-  data: InternalTransactionData;
-  to_address: string;
-  from_address: string;
+export type TrongridApiInternalTransaction = {
+  internal_tx_id?: string;
+  data?: TrongridApiInternalTransactionData;
+  to_address?: string;
+  from_address?: string;
 };
 
-export type InternalTransactionData = {
-  note: string;
-  rejected: boolean;
-  call_value?: {
-    _: number;
-  };
+export type TrongridApiInternalTransactionData = {
+  note?: string;
+  rejected?: boolean;
+  call_value?: TrongridApiInternalTransactionCallValue;
 };
 
-export type ContractTransactionInfo = {
+export type TrongridApiInternalTransactionCallValue = {
+  _?: number;
+  callValue?: number;
+  tokenId?: string;
+};
+
+export type TrongridApiTrc20Transfer = {
   transaction_id: string;
-  token_info: TokenInfo;
+  token_info: TrongridApiTokenInfo;
   block_timestamp: number;
   from: string;
   to: string;
@@ -186,7 +190,7 @@ export type ContractTransactionInfo = {
   value: string;
 };
 
-export type TokenInfo = {
+export type TrongridApiTokenInfo = {
   symbol: string;
   address: string;
   decimals: number;

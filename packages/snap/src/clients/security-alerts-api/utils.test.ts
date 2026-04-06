@@ -3,14 +3,14 @@ import { Types } from 'tronweb';
 
 import { extractScanParametersFromTransactionData } from './utils';
 import type {
-  TransferAssetContractParameter,
-  TransferContractParameter,
+  TrongridApiTransferAssetContractParameter,
+  TrongridApiTransferContractParameter,
 } from '../trongrid/types';
 
 describe('SecurityAlertsApiClient utils', () => {
   describe('extractScanParametersFromTransactionData', () => {
     it('extracts scan parameters from a TransferAssetContractParameter', () => {
-      const contractInteraction: TransferAssetContractParameter = {
+      const contractInteraction: TrongridApiTransferAssetContractParameter = {
         type_url: 'type.googleapis.com/protocol.TransferAssetContract',
         value: {
           asset_name: 'MyToken',
@@ -43,7 +43,7 @@ describe('SecurityAlertsApiClient utils', () => {
     });
 
     it('extracts scan parameters from a TransferContractParameter', () => {
-      const contractInteraction: TransferContractParameter = {
+      const contractInteraction: TrongridApiTransferContractParameter = {
         type_url: 'type.googleapis.com/protocol.TransferContract',
         value: {
           owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',

@@ -9,13 +9,13 @@ import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
 import type { TRC10TokenMetadata } from '../../clients/tron-http/types';
 import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
 import type {
-  ContractTransactionInfo,
-  TransactionInfo,
-  TransferAssetContractInfo,
+  TrongridApiTrc20Transfer,
+  TrongridApiTransaction,
+  TrongridApiTransferAssetContract,
 } from '../../clients/trongrid/types';
 import type { Network } from '../../constants';
 import type { TronKeyringAccount } from '../../entities/keyring-account';
-import { hexToString } from '../../utils/hex';
+import { hexToStringSafe } from '../../utils/hex';
 import type { ILogger } from '../../utils/logger';
 import { createPrefixedLogger } from '../../utils/logger';
 
@@ -56,8 +56,8 @@ export class TransactionsService {
    */
   async #enrichPotentialSwaps(
     scope: Network,
-    rawTransactions: TransactionInfo[],
-  ): Promise<TransactionInfo[]> {
+    rawTransactions: TrongridApiTransaction[],
+  ): Promise<TrongridApiTransaction[]> {
     const enrichmentPromises = rawTransactions.map(async (tx) => {
       // Only enrich TriggerSmartContract transactions that might be swaps
       // and are missing internal_transactions from TronGrid's /transactions endpoint.
@@ -90,7 +90,9 @@ export class TransactionsService {
             return {
               ...tx,
               // eslint-disable-next-line @typescript-eslint/naming-convention
-              internal_transactions: fullTxInfo.internal_transactions ?? [],
+              internal_transactions:
+                (fullTxInfo.internal_transactions as unknown as TrongridApiTransaction['internal_transactions']) ??
+                [],
             };
           }
         } catch (error) {
@@ -107,7 +109,7 @@ export class TransactionsService {
 
     return enrichedTransactions
       .map((result) => (result.status === 'fulfilled' ? result.value : null))
-      .filter(Boolean) as TransactionInfo[];
+      .filter(Boolean) as TrongridApiTransaction[];
   }
 
   /**
@@ -120,7 +122,7 @@ export class TransactionsService {
    */
   async #fetchTrc10TokenMetadata(
     scope: Network,
-    rawTransactions: TransactionInfo[],
+    rawTransactions: TrongridApiTransaction[],
   ): Promise<Map<string, TRC10TokenMetadata>> {
     const trc10TokenMetadata = new Map<string, TRC10TokenMetadata>();
 
@@ -130,8 +132,10 @@ export class TransactionsService {
     for (const tx of rawTransactions) {
       const contract = tx.raw_data.contract?.[0];
       if (contract?.type === 'TransferAssetContract') {
-        const assetContract = contract as TransferAssetContractInfo;
-        const tokenId = hexToString(assetContract.parameter.value.asset_name);
+        const assetContract = contract as TrongridApiTransferAssetContract;
+        const tokenId = hexToStringSafe(
+          assetContract.parameter.value.asset_name,
+        );
         trc10TokenIds.add(tokenId);
       }
     }
@@ -197,6 +201,12 @@ export class TransactionsService {
   ): Promise<Transaction[]> {
     this.#logger.info(
       `Fetching new transactions for account ${account.address} on network ${scope}...`,
+    );
+    console.log(
+      'DEBUG: Fetching new transactions for account',
+      account.address,
+      'on network',
+      scope,
     );
 
     /**
@@ -323,8 +333,8 @@ export class TransactionsService {
     scope: Network,
     address: string,
   ): Promise<{
-    rawTransactions: TransactionInfo[];
-    trc20Transactions: ContractTransactionInfo[];
+    rawTransactions: TrongridApiTransaction[];
+    trc20Transactions: TrongridApiTrc20Transfer[];
   }> {
     const [rawTransactionsResult, trc20TransactionsResult] =
       await Promise.allSettled([
@@ -335,8 +345,8 @@ export class TransactionsService {
         ),
       ]);
 
-    let rawTransactions: TransactionInfo[] = [];
-    let trc20Transactions: ContractTransactionInfo[] = [];
+    let rawTransactions: TrongridApiTransaction[] = [];
+    let trc20Transactions: TrongridApiTrc20Transfer[] = [];
 
     if (rawTransactionsResult.status === 'rejected') {
       this.#logger.error(
@@ -369,9 +379,9 @@ export class TransactionsService {
    */
   async #fetchEnrichmentData(
     scope: Network,
-    rawTransactions: TransactionInfo[],
+    rawTransactions: TrongridApiTransaction[],
   ): Promise<{
-    enrichedRawTransactions: TransactionInfo[];
+    enrichedRawTransactions: TrongridApiTransaction[];
     trc10TokenMetadata: Map<string, TRC10TokenMetadata>;
   }> {
     const [enrichedRawTransactions, trc10TokenMetadata] = await Promise.all([

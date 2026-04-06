@@ -9,11 +9,11 @@ export const SUN_IN_TRX = 1_000_000;
  * 100 TRX
  */
 export const FEE_LIMIT = 100_000_000;
+
 /**
  * Delay before syncing selected accounts after an on-chain action.
- * Keep this isolated from other cron timings.
  */
-export const SELECTED_ACCOUNT_POST_ACTION_SYNC_DELAY = 'PT4S';
+export const ACCOUNT_SYNC_DELAY = 'PT4S';
 
 export const NULL_ADDRESS = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 export const CONSENSYS_SR_NODE_ADDRESS = 'TVMwGfdDz58VvM7yTzGMWWSHsmofSxa9jH';

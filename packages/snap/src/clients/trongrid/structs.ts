@@ -5,6 +5,7 @@ import {
   boolean,
   min,
   number,
+  object,
   optional,
   record,
   string,
@@ -91,7 +92,7 @@ export type ValidatedTronAccount = Infer<typeof TronAccountStruct>;
 // Transaction Info Structs
 // --------------------------------------------------------------------------
 
-export const TransactionResultStruct = type({
+export const TrongridApiTransactionResultStruct = type({
   contractRet: optional(string()),
   fee: optional(min(number(), 0)),
 });
@@ -114,36 +115,38 @@ export const ContractValueStruct = type({
   asset_name: optional(string()),
 });
 
-export const ContractParameterStruct = type({
+export const TrongridApiContractParameterStruct = type({
   value: ContractValueStruct,
   type_url: string(),
 });
 
-export const ContractInfoStruct = type({
-  parameter: ContractParameterStruct,
+export const TrongridApiContractStruct = type({
+  parameter: TrongridApiContractParameterStruct,
   type: string(),
 });
 
-export const InternalTransactionCallValueStruct = type({
+export const TrongridApiInternalTransactionCallValueStruct = type({
   // eslint-disable-next-line id-length
-  _: number(),
+  _: optional(number()),
+  callValue: optional(min(number(), 0)),
+  tokenId: optional(string()),
 });
 
-export const InternalTransactionDataStruct = type({
-  note: string(),
-  rejected: boolean(),
-  call_value: optional(InternalTransactionCallValueStruct),
+export const TrongridApiInternalTransactionDataStruct = type({
+  note: optional(string()),
+  rejected: optional(boolean()),
+  call_value: optional(TrongridApiInternalTransactionCallValueStruct),
 });
 
-export const InternalTransactionStruct = type({
-  internal_tx_id: string(),
-  data: InternalTransactionDataStruct,
-  to_address: string(),
-  from_address: string(),
+export const TrongridApiInternalTransactionStruct = object({
+  internal_tx_id: optional(string()),
+  data: optional(TrongridApiInternalTransactionDataStruct),
+  to_address: optional(string()),
+  from_address: optional(string()),
 });
 
-export const RawTransactionDataStruct = type({
-  contract: array(ContractInfoStruct),
+export const TrongridApiRawTransactionDataStruct = type({
+  contract: array(TrongridApiContractStruct),
   ref_block_bytes: string(),
   ref_block_hash: string(),
   expiration: min(number(), 0),
@@ -151,8 +154,8 @@ export const RawTransactionDataStruct = type({
   fee_limit: optional(min(number(), 0)),
 });
 
-export const TransactionInfoStruct = type({
-  ret: optional(array(TransactionResultStruct)),
+export const TrongridApiTransactionStruct = type({
+  ret: optional(array(TrongridApiTransactionResultStruct)),
   signature: optional(array(string())),
   txID: string(),
   net_usage: optional(min(number(), 0)),
@@ -163,26 +166,28 @@ export const TransactionInfoStruct = type({
   block_timestamp: optional(min(number(), 0)),
   energy_fee: optional(min(number(), 0)),
   energy_usage_total: optional(min(number(), 0)),
-  raw_data: RawTransactionDataStruct,
-  internal_transactions: optional(array(InternalTransactionStruct)),
+  raw_data: TrongridApiRawTransactionDataStruct,
+  internal_transactions: optional(array(TrongridApiInternalTransactionStruct)),
 });
 
-export type ValidatedTransactionInfo = Infer<typeof TransactionInfoStruct>;
+export type ValidatedTrongridApiTransaction = Infer<
+  typeof TrongridApiTransactionStruct
+>;
 
 // --------------------------------------------------------------------------
 // Contract Transaction Info Structs (TRC20)
 // --------------------------------------------------------------------------
 
-export const TokenInfoStruct = type({
+export const TrongridApiTokenInfoStruct = type({
   symbol: string(),
   address: string(),
   decimals: min(number(), 0),
   name: string(),
 });
 
-export const ContractTransactionInfoStruct = type({
+export const TrongridApiTrc20TransferStruct = type({
   transaction_id: string(),
-  token_info: TokenInfoStruct,
+  token_info: TrongridApiTokenInfoStruct,
   block_timestamp: min(number(), 0),
   from: string(),
   to: string(),
@@ -190,8 +195,8 @@ export const ContractTransactionInfoStruct = type({
   value: string(),
 });
 
-export type ValidatedContractTransactionInfo = Infer<
-  typeof ContractTransactionInfoStruct
+export type ValidatedTrongridApiTrc20Transfer = Infer<
+  typeof TrongridApiTrc20TransferStruct
 >;
 
 // --------------------------------------------------------------------------
@@ -211,13 +216,13 @@ export const TrongridAccountResponseStruct = type({
 });
 
 export const TrongridTransactionInfoResponseStruct = type({
-  data: array(TransactionInfoStruct),
+  data: array(TrongridApiTransactionStruct),
   success: boolean(),
   meta: TrongridApiMetaStruct,
 });
 
 export const TrongridContractTransactionInfoResponseStruct = type({
-  data: array(ContractTransactionInfoStruct),
+  data: array(TrongridApiTrc20TransferStruct),
   success: boolean(),
   meta: TrongridApiMetaStruct,
 });

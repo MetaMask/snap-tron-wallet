@@ -7,7 +7,7 @@ import {
   CONSENSYS_SR_NODE_ADDRESS,
   KnownCaip19Id,
   Network,
-  SELECTED_ACCOUNT_POST_ACTION_SYNC_DELAY,
+  ACCOUNT_SYNC_DELAY,
 } from '../../constants';
 import type { TronKeyringAccount } from '../../entities/keyring-account';
 import { BackgroundEventMethod } from '../../handlers/cronjob';
@@ -154,7 +154,7 @@ describe('StakingService', () => {
 
       expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith({
         method: BackgroundEventMethod.SynchronizeSelectedAccounts,
-        duration: SELECTED_ACCOUNT_POST_ACTION_SYNC_DELAY,
+        duration: ACCOUNT_SYNC_DELAY,
       });
     });
 
@@ -358,7 +358,7 @@ describe('StakingService', () => {
 
       expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith({
         method: BackgroundEventMethod.SynchronizeSelectedAccounts,
-        duration: SELECTED_ACCOUNT_POST_ACTION_SYNC_DELAY,
+        duration: ACCOUNT_SYNC_DELAY,
       });
     });
 
@@ -525,7 +525,7 @@ describe('StakingService', () => {
       );
       expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith({
         method: BackgroundEventMethod.SynchronizeSelectedAccounts,
-        duration: SELECTED_ACCOUNT_POST_ACTION_SYNC_DELAY,
+        duration: ACCOUNT_SYNC_DELAY,
       });
     });
   });
@@ -554,7 +554,7 @@ describe('StakingService', () => {
       );
       expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith({
         method: BackgroundEventMethod.SynchronizeSelectedAccounts,
-        duration: SELECTED_ACCOUNT_POST_ACTION_SYNC_DELAY,
+        duration: ACCOUNT_SYNC_DELAY,
       });
     });
   });

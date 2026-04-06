@@ -1,5 +1,5 @@
 import { TrongridApiClient } from './TrongridApiClient';
-import type { Trc20Balance, TransactionInfo } from './types';
+import type { Trc20Balance, TrongridApiTransaction } from './types';
 import type { ICache } from '../../caching/ICache';
 import { InMemoryCache } from '../../caching/InMemoryCache';
 import { Network } from '../../constants';
@@ -8,6 +8,7 @@ import nativeTransferMock from '../../services/transactions/mocks/native-transfe
 import { mockLogger } from '../../utils/mockLogger';
 import type { Serializable } from '../../utils/serialization/types';
 import { TronHttpClient } from '../tron-http/TronHttpClient';
+import legacyInternalTransactionMock from './mocks/account-transaction-with-legacy-internals.json';
 
 type WithTrongridApiClientCallback<ReturnValue> = (payload: {
   client: TrongridApiClient;
@@ -302,7 +303,7 @@ describe('TrongridApiClient', () => {
 
   describe('getTransactionInfoByAddress', () => {
     const mockAddress = 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx';
-    const mockTx = nativeTransferMock as TransactionInfo;
+    const mockTx = nativeTransferMock as TrongridApiTransaction;
 
     it('fetches transactions without a limit query parameter by default', async () => {
       await withTrongridApiClient(async ({ client }) => {
@@ -359,6 +360,73 @@ describe('TrongridApiClient', () => {
           `https://api.trongrid.io/v1/accounts/${mockAddress}/transactions?limit=1`,
           expect.any(Object),
         );
+      });
+    });
+
+    it('accepts legacy internal_transactions shape from Trongrid', async () => {
+      await withTrongridApiClient(async ({ client }) => {
+        // eslint-disable-next-line no-restricted-globals
+        jest.spyOn(global, 'fetch').mockResolvedValueOnce(
+          // eslint-disable-next-line no-restricted-globals
+          new Response(
+            JSON.stringify({
+              data: [legacyInternalTransactionMock],
+              success: true,
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              meta: { at: 1770121997373, page_size: 1 },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        );
+
+        const result = await client.getTransactionInfoByAddress(
+          Network.Mainnet,
+          mockAddress,
+        );
+
+        expect(result).toHaveLength(1);
+      });
+    });
+
+    it('rejects modern internal_transactions shape from Trongrid', async () => {
+      await withTrongridApiClient(async ({ client }) => {
+        const txWithModernInternalTransactions = {
+          ...mockTx,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          internal_transactions: [
+            {
+              hash: 'a00dc01a55e7b2babebdf13d2c94c36ae584ffe1956bf5274db879dca9839133',
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              caller_address: '41f742f4589459f0923fa579600815763d1646bec3',
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              transferTo_address: '4170b0f2955dde7dca6567187d0a74d532043fc2a2',
+              callValueInfo: [
+                {
+                  callValue: 87500,
+                },
+              ],
+              note: '63616c6c',
+            },
+          ],
+        };
+
+        // eslint-disable-next-line no-restricted-globals
+        jest.spyOn(global, 'fetch').mockResolvedValueOnce(
+          // eslint-disable-next-line no-restricted-globals
+          new Response(
+            JSON.stringify({
+              data: [txWithModernInternalTransactions],
+              success: true,
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              meta: { at: 1770121997373, page_size: 1 },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        );
+
+        await expect(
+          client.getTransactionInfoByAddress(Network.Mainnet, mockAddress),
+        ).rejects.toThrow('Expected a value of type');
       });
     });
   });

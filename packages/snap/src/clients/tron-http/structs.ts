@@ -5,6 +5,7 @@ import {
   boolean,
   min,
   number,
+  object,
   optional,
   record,
   string,
@@ -66,7 +67,7 @@ export const AccountResourcesStruct = type({
 export type AccountResources = Infer<typeof AccountResourcesStruct>;
 
 // --------------------------------------------------------------------------
-// FullNodeTransactionInfo Structs
+// TronHttpApiTransactionInfo structs
 // --------------------------------------------------------------------------
 
 export const FullNodeTransactionReceiptStruct = type({
@@ -86,7 +87,7 @@ export const FullNodeTransactionLogStruct = type({
   data: string(),
 });
 
-export const FullNodeInternalTransactionStruct = type({
+export const TronHttpApiInternalTransactionStruct = object({
   hash: optional(string()),
   caller_address: optional(string()),
   transferTo_address: optional(string()),
@@ -102,7 +103,7 @@ export const FullNodeInternalTransactionStruct = type({
   rejected: optional(boolean()),
 });
 
-export const FullNodeTransactionInfoStruct = type({
+export const TronHttpApiTransactionInfoStruct = type({
   id: optional(string()),
   fee: optional(min(number(), 0)),
   blockNumber: optional(min(number(), 0)),
@@ -115,13 +116,13 @@ export const FullNodeTransactionInfoStruct = type({
   resMessage: optional(string()),
   withdraw_amount: optional(min(number(), 0)),
   unfreeze_amount: optional(min(number(), 0)),
-  internal_transactions: optional(array(FullNodeInternalTransactionStruct)),
+  internal_transactions: optional(array(TronHttpApiInternalTransactionStruct)),
   withdraw_expire_amount: optional(min(number(), 0)),
   cancel_unfreezeV2_amount: optional(record(string(), number())),
 });
 
-export type ValidatedFullNodeTransactionInfo = Infer<
-  typeof FullNodeTransactionInfoStruct
+export type ValidatedTronHttpApiTransactionInfo = Infer<
+  typeof TronHttpApiTransactionInfoStruct
 >;
 
 // --------------------------------------------------------------------------

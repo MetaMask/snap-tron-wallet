@@ -1,4 +1,4 @@
-import type { KeyringRequest } from '@metamask/keyring-api';
+import type { KeyringRequest, Transaction } from '@metamask/keyring-api';
 import { UserRejectedRequestError } from '@metamask/snaps-sdk';
 import { bytesToBase64, bytesToHex, stringToBytes } from '@metamask/utils';
 
@@ -71,6 +71,7 @@ describe('KeyringHandler', () => {
     mockAssetsService = {} as any;
     mockTransactionsService = {
       checkAddressActivity: jest.fn(),
+      findByAccounts: jest.fn().mockResolvedValue([]),
     } as any;
     mockWalletService = {
       handleKeyringRequest: jest
@@ -583,6 +584,64 @@ describe('KeyringHandler', () => {
       expect(
         mockTransactionsService.checkAddressActivity,
       ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listAccountTransactions', () => {
+    it('returns first page when next cursor is not found', async () => {
+      const transactions: Transaction[] = [
+        {
+          id: 'tx-1',
+          type: 'send',
+          account: mockAccount.id,
+          chain: Network.Mainnet,
+          status: 'confirmed',
+          timestamp: 3,
+          from: [],
+          to: [],
+          fees: [],
+          events: [],
+        },
+        {
+          id: 'tx-2',
+          type: 'send',
+          account: mockAccount.id,
+          chain: Network.Mainnet,
+          status: 'confirmed',
+          timestamp: 2,
+          from: [],
+          to: [],
+          fees: [],
+          events: [],
+        },
+        {
+          id: 'tx-3',
+          type: 'send',
+          account: mockAccount.id,
+          chain: Network.Mainnet,
+          status: 'confirmed',
+          timestamp: 1,
+          from: [],
+          to: [],
+          fees: [],
+          events: [],
+        },
+      ];
+
+      mockTransactionsService.findByAccounts.mockResolvedValue(transactions);
+
+      const result = await keyringHandler.listAccountTransactions(
+        mockAccount.id,
+        {
+          limit: 2,
+          next: 'unknown-cursor',
+        },
+      );
+
+      expect(result).toStrictEqual({
+        data: [transactions[0], transactions[1]],
+        next: 'tx-3',
+      });
     });
   });
 
