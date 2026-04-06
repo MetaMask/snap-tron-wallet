@@ -39,7 +39,7 @@ import {
   FEE_LIMIT,
   Network,
   Networks,
-  SELECTED_ACCOUNT_POST_ACTION_SYNC_DELAY,
+  ACCOUNT_SYNC_DELAY,
   ZERO,
 } from '../../constants';
 import type { AccountsService } from '../../services/accounts/AccountsService';
@@ -269,7 +269,7 @@ export class ClientRequestHandler {
 
     await this.#snapClient.scheduleBackgroundEvent({
       method: BackgroundEventMethod.SynchronizeSelectedAccounts,
-      duration: SELECTED_ACCOUNT_POST_ACTION_SYNC_DELAY,
+      duration: ACCOUNT_SYNC_DELAY,
     });
 
     /**

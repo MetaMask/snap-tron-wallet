@@ -8,7 +8,7 @@ import {
   FEE_LIMIT,
   Network,
   Networks,
-  SELECTED_ACCOUNT_POST_ACTION_SYNC_DELAY,
+  ACCOUNT_SYNC_DELAY,
 } from '../../constants';
 import type { AssetEntity } from '../../entities/assets';
 import { SendErrorCodes } from '../../handlers/clientRequest/types';
@@ -998,7 +998,7 @@ describe('SendService', () => {
         1,
         {
           method: BackgroundEventMethod.SynchronizeSelectedAccounts,
-          duration: SELECTED_ACCOUNT_POST_ACTION_SYNC_DELAY,
+          duration: ACCOUNT_SYNC_DELAY,
         },
       );
       expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenNthCalledWith(
