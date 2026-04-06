@@ -7,6 +7,7 @@ import {
   CONSENSYS_SR_NODE_ADDRESS,
   KnownCaip19Id,
   Network,
+  SELECTED_ACCOUNT_POST_ACTION_SYNC_DELAY,
 } from '../../constants';
 import type { TronKeyringAccount } from '../../entities/keyring-account';
 import { BackgroundEventMethod } from '../../handlers/cronjob';
@@ -152,9 +153,8 @@ describe('StakingService', () => {
       );
 
       expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith({
-        method: BackgroundEventMethod.SynchronizeAccount,
-        params: { accountId: mockAccount.id },
-        duration: 'PT5S',
+        method: BackgroundEventMethod.SynchronizeSelectedAccounts,
+        duration: SELECTED_ACCOUNT_POST_ACTION_SYNC_DELAY,
       });
     });
 
@@ -357,9 +357,8 @@ describe('StakingService', () => {
       );
 
       expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith({
-        method: BackgroundEventMethod.SynchronizeAccount,
-        params: { accountId: mockAccount.id },
-        duration: 'PT5S',
+        method: BackgroundEventMethod.SynchronizeSelectedAccounts,
+        duration: SELECTED_ACCOUNT_POST_ACTION_SYNC_DELAY,
       });
     });
 
@@ -525,9 +524,8 @@ describe('StakingService', () => {
         mockSignedTransaction,
       );
       expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith({
-        method: BackgroundEventMethod.SynchronizeAccount,
-        params: { accountId: mockAccount.id },
-        duration: 'PT5S',
+        method: BackgroundEventMethod.SynchronizeSelectedAccounts,
+        duration: SELECTED_ACCOUNT_POST_ACTION_SYNC_DELAY,
       });
     });
   });
@@ -555,9 +553,8 @@ describe('StakingService', () => {
         mockSignedTransaction,
       );
       expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith({
-        method: BackgroundEventMethod.SynchronizeAccount,
-        params: { accountId: mockAccount.id },
-        duration: 'PT5S',
+        method: BackgroundEventMethod.SynchronizeSelectedAccounts,
+        duration: SELECTED_ACCOUNT_POST_ACTION_SYNC_DELAY,
       });
     });
   });

@@ -29,8 +29,6 @@ export enum CronjobMethod {
 
 export enum BackgroundEventMethod {
   SynchronizeSelectedAccounts = 'onSynchronizeSelectedAccounts',
-  SynchronizeAccounts = 'onSynchronizeAccounts',
-  SynchronizeAccount = 'onSynchronizeAccount',
   SynchronizeAccountTransactions = 'onSynchronizeAccountTransactions',
   RefreshConfirmationPrices = 'refreshConfirmationPrices',
   RefreshConfirmationSend = 'refreshConfirmationSend',
@@ -94,12 +92,6 @@ export class CronHandler {
       case BackgroundEventMethod.SynchronizeSelectedAccounts:
         await this.synchronizeSelectedAccounts();
         break;
-      case BackgroundEventMethod.SynchronizeAccounts:
-        await this.synchronizeAccounts(params as { accountIds: string[] });
-        break;
-      case BackgroundEventMethod.SynchronizeAccount:
-        await this.synchronizeAccount(params as { accountId: string });
-        break;
       case BackgroundEventMethod.SynchronizeAccountTransactions:
         await this.synchronizeAccountTransactions(
           params as { accountId: string },
@@ -135,38 +127,6 @@ export class CronHandler {
     const accounts = await this.#accountsService.getAllSelected();
 
     await this.#accountsService.synchronize(accounts);
-  }
-
-  async synchronizeAccounts({
-    accountIds,
-  }: {
-    accountIds: string[];
-  }): Promise<void> {
-    this.#logger.info(`Synchronizing accounts ${accountIds.join(', ')}...`);
-
-    const accounts = await this.#accountsService.findByIds(accountIds);
-
-    if (accounts.length === 0) {
-      return;
-    }
-
-    await this.#accountsService.synchronize(accounts);
-  }
-
-  async synchronizeAccount({
-    accountId,
-  }: {
-    accountId: string;
-  }): Promise<void> {
-    this.#logger.info(`Synchronizing account ${accountId}...`);
-
-    const account = await this.#accountsService.findById(accountId);
-
-    if (!account) {
-      return;
-    }
-
-    await this.#accountsService.synchronize([account]);
   }
 
   async synchronizeAccountTransactions({
@@ -694,14 +654,13 @@ export class CronHandler {
 
   /**
    * Background job to track a transaction's confirmation status.
-   * Syncs accounts on first check to fetch transaction with status from network.
-   * Continues polling until confirmed, then syncs again to update status.
-   * Implements automatic retry logic with exponential backoff limits.
+   * Continues polling until confirmed and emits finalized analytics.
+   * Does not perform state synchronization side effects.
    *
    * @param params - Transaction tracking parameters
    * @param params.txId - The transaction ID to track
    * @param params.scope - The network scope (e.g., 'mainnet', 'shasta')
-   * @param params.accountIds - Account IDs to sync after confirmation (first account is always the sender)
+   * @param params.accountIds - Account IDs where first account is treated as sender for analytics metadata
    * @param params.attempt - Current attempt number (for retry logic)
    */
   async trackTransaction({
@@ -726,14 +685,8 @@ export class CronHandler {
     if (attempt >= maxAttempts) {
       this.#logger.warn(
         { txId, scope, attempts: maxAttempts },
-        'Transaction tracking timeout - syncing accounts',
+        'Transaction tracking timeout',
       );
-
-      // Fallback: sync accounts anyway to update final status
-      const accounts = await this.#accountsService.findByIds(accountIds);
-      if (accounts.length > 0) {
-        await this.#accountsService.synchronize(accounts);
-      }
       return;
     }
 
@@ -780,13 +733,6 @@ export class CronHandler {
         return;
       }
 
-      // Synchronize accounts to get the full transaction details and update state
-      // Scheduled in the background to avoid blocking the main thread
-      await this.#snapClient.scheduleBackgroundEvent({
-        method: BackgroundEventMethod.SynchronizeSelectedAccounts,
-        duration: 'PT1S',
-      });
-
       // Track Transaction Finalized event now that transaction is confirmed
       await this.#snapClient.trackTransactionFinalized({
         origin: 'MetaMask',
@@ -812,15 +758,11 @@ export class CronHandler {
           duration: pollingInterval,
         });
       } else {
-        // Max attempts reached - fallback to sync
+        // Max attempts reached
         this.#logger.warn(
           { txId, scope },
-          'Max tracking attempts reached with errors - falling back to account sync',
+          'Max tracking attempts reached with errors',
         );
-        const accounts = await this.#accountsService.findByIds(accountIds);
-        if (accounts.length > 0) {
-          await this.#accountsService.synchronize(accounts);
-        }
       }
     }
   }

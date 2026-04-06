@@ -256,7 +256,17 @@ export class AccountsService {
     return this.#accountsRepository.getAll();
   }
 
+  /**
+   * Retrieves all accounts that are selected in the MetaMask UI.
+   *
+   * @returns The selected accounts.
+   */
   async getAllSelected(): Promise<TronKeyringAccount[]> {
+    /**
+     * TODO: In theory, we should fetch the selected accounts first and then use those with `findByIds` to filter the accounts.
+     * However, due to the way this is implemented in the `AccountsRepository`, all accounts would still be read anyway.
+     * Change both things at the same time.
+     */
     const [allAccounts, selectedAccountIds] = await Promise.all([
       this.#accountsRepository.getAll(),
       getSelectedAccounts(snap),

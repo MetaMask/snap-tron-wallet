@@ -9,7 +9,12 @@ import { ClientRequestMethod, SendErrorCodes } from './types';
 import type { OnAmountInputRequestStruct } from './validation';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
-import { FEE_LIMIT, Network, Networks } from '../../constants';
+import {
+  FEE_LIMIT,
+  Network,
+  Networks,
+  SELECTED_ACCOUNT_POST_ACTION_SYNC_DELAY,
+} from '../../constants';
 import type { NativeAsset, ResourceAsset } from '../../entities/assets';
 import type { TronKeyringAccount } from '../../entities/keyring-account';
 import type { AccountsService } from '../../services/accounts/AccountsService';
@@ -22,6 +27,7 @@ import type { StakingService } from '../../services/staking/StakingService';
 import type { TransactionsService } from '../../services/transactions/TransactionsService';
 import { trxToSun } from '../../utils/conversion';
 import { mockLogger } from '../../utils/mockLogger';
+import { BackgroundEventMethod } from '../cronjob';
 
 describe('ClientRequestHandler', () => {
   describe('computeFee', () => {
@@ -184,6 +190,26 @@ describe('ClientRequestHandler', () => {
           mockTronWeb.utils.transaction.txPbToRawDataHex,
         ).toHaveBeenCalled();
         expect(mockTronWeb.trx.sign).toHaveBeenCalled();
+        expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenNthCalledWith(
+          1,
+          {
+            method: BackgroundEventMethod.SynchronizeSelectedAccounts,
+            duration: SELECTED_ACCOUNT_POST_ACTION_SYNC_DELAY,
+          },
+        );
+        expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenNthCalledWith(
+          2,
+          {
+            method: BackgroundEventMethod.TrackTransaction,
+            params: {
+              txId: 'test-tx-id',
+              scope,
+              accountIds: [TEST_ACCOUNT_ID],
+              attempt: 0,
+            },
+            duration: 'PT1S',
+          },
+        );
       });
 
       it('computes fee breakdown for TRC20 transfer transaction', async () => {
