@@ -4,6 +4,7 @@ import { bytesToBase64, bytesToHex, stringToBytes } from '@metamask/utils';
 
 import type { SnapClient } from '../clients/snap/SnapClient';
 import { Network } from '../constants';
+import { BackgroundEventMethod } from './cronjob';
 import { KeyringHandler } from './keyring';
 import { TronMultichainMethod } from './keyring-types';
 import type { TronKeyringAccount } from '../entities/keyring-account';
@@ -59,7 +60,9 @@ describe('KeyringHandler', () => {
   let mockConfirmationHandler: jest.Mocked<ConfirmationHandler>;
 
   beforeEach(() => {
-    mockSnapClient = {} as any;
+    mockSnapClient = {
+      scheduleBackgroundEvent: jest.fn().mockResolvedValue(undefined),
+    } as any;
     mockAccountsService = {
       findById: jest.fn().mockResolvedValue(mockAccount),
       findByIdOrThrow: jest.fn().mockResolvedValue(mockAccount),
@@ -580,6 +583,17 @@ describe('KeyringHandler', () => {
       expect(
         mockTransactionsService.checkAddressActivity,
       ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('setSelectedAccounts', () => {
+    it('schedules selected account synchronization', async () => {
+      await keyringHandler.setSelectedAccounts([mockAccount.id]);
+
+      expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith({
+        method: BackgroundEventMethod.SynchronizeSelectedAccounts,
+        duration: 'PT1S',
+      });
     });
   });
 });

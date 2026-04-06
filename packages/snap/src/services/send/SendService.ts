@@ -14,7 +14,7 @@ import type { SendValidationResult } from './types';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
 import type { Network } from '../../constants';
-import { Networks, ZERO } from '../../constants';
+import { Networks, ACCOUNT_SYNC_DELAY, ZERO } from '../../constants';
 import type { AssetEntity } from '../../entities/assets';
 import { SendErrorCodes } from '../../handlers/clientRequest/types';
 import { BackgroundEventMethod } from '../../handlers/cronjob';
@@ -461,6 +461,11 @@ export class SendService {
       origin,
       accountType: account.type,
       chainIdCaip: scope,
+    });
+
+    await this.#snapClient.scheduleBackgroundEvent({
+      method: BackgroundEventMethod.SynchronizeSelectedAccounts,
+      duration: ACCOUNT_SYNC_DELAY,
     });
 
     await this.#snapClient.scheduleBackgroundEvent({

@@ -9,11 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Include memo fee (1 TRX) in transaction fee estimation ([#281](https://github.com/MetaMask/snap-tron-wallet/pull/281))
 - Display correctly token icon size when sending TRC20 tokens ([#262](https://github.com/MetaMask/snap-tron-wallet/pull/262))
 - Display correctly decimal amount sent in confirmation dialog ([#264](https://github.com/MetaMask/snap-tron-wallet/pull/264))
 - Added set of `fee_limit` when building transaction ([#280](https://github.com/MetaMask/snap-tron-wallet/pull/280))
+- Include memo fee (1 TRX) in transaction fee estimation ([#281](https://github.com/MetaMask/snap-tron-wallet/pull/281))
 - Handle NFT asset types in transaction scan simulation ([#285](https://github.com/MetaMask/snap-tron-wallet/pull/285))
+- Make sure selected account syncs after on-chain actions ([#287](https://github.com/MetaMask/snap-tron-wallet/pull/287))
 
 ## [1.25.0]
 

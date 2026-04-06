@@ -472,7 +472,6 @@ export class KeyringHandler implements Keyring {
 
     await this.#snapClient.scheduleBackgroundEvent({
       method: BackgroundEventMethod.SynchronizeSelectedAccounts,
-      params: { accountIds },
       duration: 'PT1S',
     });
   }
