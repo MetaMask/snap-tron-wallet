@@ -26,3 +26,17 @@ export function hexToString(value: string): string {
 
   return new TextDecoder().decode(bytes);
 }
+
+/**
+ * Best-effort decoder for fields that may be plain text/decimal or hex-encoded.
+ *
+ * @param value - Input value that may or may not be hex-encoded.
+ * @returns Decoded string when valid hex, otherwise original value.
+ */
+export function hexToStringSafe(value: string): string {
+  try {
+    return hexToString(value);
+  } catch {
+    return value;
+  }
+}

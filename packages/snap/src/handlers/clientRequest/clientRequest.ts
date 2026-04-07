@@ -35,7 +35,13 @@ import {
 } from './validation';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
-import { FEE_LIMIT, Network, Networks, ZERO } from '../../constants';
+import {
+  FEE_LIMIT,
+  Network,
+  Networks,
+  ACCOUNT_SYNC_DELAY,
+  ZERO,
+} from '../../constants';
 import type { AccountsService } from '../../services/accounts/AccountsService';
 import type { AssetsService } from '../../services/assets/AssetsService';
 import type {
@@ -260,6 +266,11 @@ export class ClientRequestHandler {
     });
 
     await this.#transactionsService.save(pendingTransaction);
+
+    await this.#snapClient.scheduleBackgroundEvent({
+      method: BackgroundEventMethod.SynchronizeSelectedAccounts,
+      duration: ACCOUNT_SYNC_DELAY,
+    });
 
     /**
      * Track transaction after a transaction

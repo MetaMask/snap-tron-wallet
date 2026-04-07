@@ -241,17 +241,19 @@ export class KeyringHandler implements Keyring {
       const startIndex = next
         ? transactions.findIndex((tx) => tx.id === next)
         : 0;
+      const normalizedStartIndex = Math.max(startIndex, 0);
 
       // Get transactions from startIndex to startIndex + limit
       const accountTransactions = transactions.slice(
-        startIndex,
-        startIndex + limit,
+        normalizedStartIndex,
+        normalizedStartIndex + limit,
       );
 
       // Determine the next signature for pagination
-      const hasMore = startIndex + pagination.limit < transactions.length;
+      const hasMore =
+        normalizedStartIndex + pagination.limit < transactions.length;
       const nextSignature = hasMore
-        ? (transactions[startIndex + pagination.limit]?.id ?? null)
+        ? (transactions[normalizedStartIndex + pagination.limit]?.id ?? null)
         : null;
 
       return {
@@ -468,11 +470,19 @@ export class KeyringHandler implements Keyring {
    * @param accountIds - The IDs of the accounts to set as selected.
    */
   async setSelectedAccounts(accountIds: string[]): Promise<void> {
+    this.#logger.log(
+      'DEBUG: Set selected account has been called with accountIds:',
+      accountIds,
+    );
+    console.log(
+      'DEBUG: Set selected account has been called with accountIds:',
+      accountIds,
+    );
+
     validateRequest(accountIds, array(UuidStruct));
 
     await this.#snapClient.scheduleBackgroundEvent({
       method: BackgroundEventMethod.SynchronizeSelectedAccounts,
-      params: { accountIds },
       duration: 'PT1S',
     });
   }

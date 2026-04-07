@@ -4,7 +4,21 @@
  * Full Node API response for GetTransactionInfoById
  * Returns detailed transaction info including block number and fees
  */
-export type FullNodeTransactionInfo = {
+export type TronHttpApiInternalTransactionCallValue = {
+  callValue?: number;
+  tokenId?: string;
+};
+
+export type TronHttpApiInternalTransaction = {
+  hash: string;
+  caller_address: string;
+  transferTo_address: string;
+  callValueInfo: TronHttpApiInternalTransactionCallValue[];
+  note: string;
+  rejected: boolean;
+};
+
+export type TronHttpApiTransactionInfo = {
   id?: string;
   fee?: number;
   blockNumber?: number;
@@ -30,17 +44,7 @@ export type FullNodeTransactionInfo = {
   resMessage?: string;
   withdraw_amount?: number;
   unfreeze_amount?: number;
-  internal_transactions?: {
-    hash: string;
-    caller_address: string;
-    transferTo_address: string;
-    callValueInfo: {
-      callValue?: number;
-      tokenId?: string;
-    }[];
-    note: string;
-    rejected: boolean;
-  }[];
+  internal_transactions?: TronHttpApiInternalTransaction[];
   withdraw_expire_amount?: number;
   cancel_unfreezeV2_amount?: Record<string, number>;
 };

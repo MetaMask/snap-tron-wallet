@@ -1,11 +1,18 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { FeeType } from '@metamask/keyring-api';
 import { BigNumber } from 'bignumber.js';
+import { TronWeb } from 'tronweb';
 
 import { SendService } from './SendService';
-import { FEE_LIMIT, Network, Networks } from '../../constants';
+import {
+  FEE_LIMIT,
+  Network,
+  Networks,
+  ACCOUNT_SYNC_DELAY,
+} from '../../constants';
 import type { AssetEntity } from '../../entities/assets';
 import { SendErrorCodes } from '../../handlers/clientRequest/types';
+import { BackgroundEventMethod } from '../../handlers/cronjob';
 import { mockLogger } from '../../utils/mockLogger';
 
 describe('SendService', () => {
@@ -79,6 +86,11 @@ describe('SendService', () => {
           address: TEST_FROM_ADDRESS,
           entropySource: 'test-entropy',
           derivationPath: [],
+          type: 'tron:eoa',
+        }),
+        deriveTronKeypair: jest.fn().mockResolvedValue({
+          privateKeyHex:
+            '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
         }),
       };
 
@@ -111,7 +123,10 @@ describe('SendService', () => {
         computeFee: jest.fn(),
       };
 
-      mockSnapClient = {};
+      mockSnapClient = {
+        trackTransactionSubmitted: jest.fn().mockResolvedValue(undefined),
+        scheduleBackgroundEvent: jest.fn().mockResolvedValue(undefined),
+      };
 
       sendService = new SendService({
         accountsService: mockAccountsService,
@@ -879,6 +894,126 @@ describe('SendService', () => {
           TEST_FROM_ADDRESS,
         );
       });
+    });
+  });
+
+  describe('signAndSendTransaction', () => {
+    let sendService: SendService;
+    let mockAccountsService: any;
+    let mockAssetsService: any;
+    let mockTronWebFactory: any;
+    let mockFeeCalculatorService: any;
+    let mockSnapClient: any;
+    let mockTronWeb: any;
+
+    const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
+    const OWNER_ADDRESS_HEX = '41a2155e688b2baebdfdacd073ba79f5b22946aacf';
+    const TEST_FROM_ADDRESS = TronWeb.address.fromHex(OWNER_ADDRESS_HEX);
+
+    beforeEach(() => {
+      mockAccountsService = {
+        findByIdOrThrow: jest.fn().mockResolvedValue({
+          id: TEST_ACCOUNT_ID,
+          address: TEST_FROM_ADDRESS,
+          entropySource: 'test-entropy',
+          derivationPath: [],
+          type: 'tron:eoa',
+        }),
+        deriveTronKeypair: jest.fn().mockResolvedValue({
+          privateKeyHex:
+            '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        }),
+      };
+
+      mockAssetsService = {
+        getAssetsByAccountId: jest.fn(),
+      };
+
+      mockTronWeb = {
+        trx: {
+          sign: jest.fn().mockResolvedValue({
+            txID: 'broadcasted-tx-id',
+            signature: ['0xdeadbeef'],
+          }),
+          sendRawTransaction: jest.fn().mockResolvedValue({
+            result: true,
+            txid: 'broadcasted-tx-id',
+          }),
+        },
+      };
+
+      mockTronWebFactory = {
+        createClient: jest.fn().mockReturnValue(mockTronWeb),
+      };
+
+      mockFeeCalculatorService = {
+        computeFee: jest.fn(),
+      };
+
+      mockSnapClient = {
+        trackTransactionSubmitted: jest.fn().mockResolvedValue(undefined),
+        scheduleBackgroundEvent: jest.fn().mockResolvedValue(undefined),
+      };
+
+      sendService = new SendService({
+        accountsService: mockAccountsService,
+        assetsService: mockAssetsService,
+        tronWebFactory: mockTronWebFactory,
+        feeCalculatorService: mockFeeCalculatorService,
+        logger: mockLogger,
+        snapClient: mockSnapClient,
+      });
+    });
+
+    it('schedules selected-account sync with PT4S and keeps TrackTransaction scheduling', async () => {
+      const transaction = {
+        txID: 'unsigned-tx-id',
+        raw_data: {
+          contract: [
+            {
+              parameter: {
+                value: {
+                  owner_address: OWNER_ADDRESS_HEX,
+                  to_address: OWNER_ADDRESS_HEX,
+                  amount: 1_000_000,
+                },
+              },
+            },
+          ],
+        },
+      };
+
+      await sendService.signAndSendTransaction({
+        scope: Network.Mainnet,
+        fromAccountId: TEST_ACCOUNT_ID,
+        transaction: transaction as any,
+      });
+
+      expect(mockSnapClient.trackTransactionSubmitted).toHaveBeenCalledWith({
+        origin: 'MetaMask',
+        accountType: 'tron:eoa',
+        chainIdCaip: Network.Mainnet,
+      });
+      expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenNthCalledWith(
+        1,
+        {
+          method: BackgroundEventMethod.SynchronizeSelectedAccounts,
+          duration: ACCOUNT_SYNC_DELAY,
+        },
+      );
+      expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenNthCalledWith(
+        2,
+        {
+          method: BackgroundEventMethod.TrackTransaction,
+          params: {
+            txId: 'broadcasted-tx-id',
+            scope: Network.Mainnet,
+            accountIds: [TEST_ACCOUNT_ID],
+            attempt: 0,
+          },
+          duration: 'PT1S',
+        },
+      );
     });
   });
 });

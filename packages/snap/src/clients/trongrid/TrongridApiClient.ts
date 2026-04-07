@@ -1,16 +1,16 @@
 import { assert } from '@metamask/superstruct';
 
 import {
-  ContractTransactionInfoStruct,
+  TrongridApiTrc20TransferStruct,
   Trc20BalanceStruct,
-  TransactionInfoStruct,
+  TrongridApiTransactionStruct,
   TronAccountStruct,
   TrongridApiMetaStruct,
 } from './structs';
 import type {
-  ContractTransactionInfo,
+  TrongridApiTrc20Transfer,
+  TrongridApiTransaction,
   Trc20Balance,
-  TransactionInfo,
   TronAccount,
   TrongridApiResponse,
 } from './types';
@@ -145,13 +145,13 @@ export class TrongridApiClient {
    * @param address - The TRON address to query
    * @param options - Optional query options for TronGrid.
    * @param options.limit - When set, passed as the TronGrid `limit` query parameter.
-   * @returns Promise<TransactionInfo[]> - Transaction data in camelCase
+   * @returns Promise<TrongridApiTransaction[]> - Transaction data in camelCase
    */
   async getTransactionInfoByAddress(
     scope: Network,
     address: string,
     options?: { limit?: number },
-  ): Promise<TransactionInfo[]> {
+  ): Promise<TrongridApiTransaction[]> {
     const client = this.#clients.get(scope);
     if (!client) {
       throw new Error(`No client configured for network: ${scope}`);
@@ -175,7 +175,7 @@ export class TrongridApiClient {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const rawData: TrongridApiResponse<TransactionInfo[]> =
+    const rawData: TrongridApiResponse<TrongridApiTransaction[]> =
       await response.json();
 
     // Validate API response structure
@@ -190,7 +190,7 @@ export class TrongridApiClient {
 
     // Validate each transaction info
     for (const txInfo of rawData.data) {
-      assert(txInfo, TransactionInfoStruct);
+      assert(txInfo, TrongridApiTransactionStruct);
     }
 
     return rawData.data;
@@ -202,12 +202,12 @@ export class TrongridApiClient {
    * @see https://developers.tron.network/reference/get-trc20-transaction-info-by-account-address
    * @param scope - The network to query (e.g., 'mainnet', 'shasta')
    * @param address - The TRON address to query
-   * @returns Promise<ContractTransactionInfo[]> - Contract transaction data in camelCase
+   * @returns Promise<TrongridApiTrc20Transfer[]> - Contract transaction data in camelCase
    */
   async getContractTransactionInfoByAddress(
     scope: Network,
     address: string,
-  ): Promise<ContractTransactionInfo[]> {
+  ): Promise<TrongridApiTrc20Transfer[]> {
     const client = this.#clients.get(scope);
     if (!client) {
       throw new Error(`No client configured for network: ${scope}`);
@@ -226,7 +226,7 @@ export class TrongridApiClient {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const rawData: TrongridApiResponse<ContractTransactionInfo[]> =
+    const rawData: TrongridApiResponse<TrongridApiTrc20Transfer[]> =
       await response.json();
 
     // Validate API response structure
@@ -241,7 +241,7 @@ export class TrongridApiClient {
 
     // Validate each contract transaction info
     for (const txInfo of rawData.data) {
-      assert(txInfo, ContractTransactionInfoStruct);
+      assert(txInfo, TrongridApiTrc20TransferStruct);
     }
 
     return rawData.data;

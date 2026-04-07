@@ -3,8 +3,8 @@ import { TransactionType, TransactionStatus } from '@metamask/keyring-api';
 
 import type { TRC10TokenMetadata } from '../../clients/tron-http/types';
 import type {
-  TransactionInfo,
-  ContractTransactionInfo,
+  TrongridApiTransaction,
+  TrongridApiTrc20Transfer,
 } from '../../clients/trongrid/types';
 import { Network } from '../../constants';
 import contractInfoMock from './mocks/contract-info.json';
@@ -33,7 +33,7 @@ describe('TransactionMapper', () => {
   describe('mapTransaction', () => {
     describe('TransferContract (Native TRX transfers)', () => {
       it('should map a native TRX send transaction correctly', () => {
-        const rawTransaction = nativeTransferMock as TransactionInfo;
+        const rawTransaction = nativeTransferMock as TrongridApiTransaction;
 
         const result = TransactionMapper.mapTransaction({
           scope: Network.Mainnet,
@@ -102,7 +102,7 @@ describe('TransactionMapper', () => {
       };
 
       it('maps TRC10 send transaction with default 6 decimals when no metadata provided', () => {
-        const rawTransaction = trc10TransferMock as TransactionInfo;
+        const rawTransaction = trc10TransferMock as TrongridApiTransaction;
 
         const result = TransactionMapper.mapTransaction({
           scope: Network.Mainnet,
@@ -163,7 +163,7 @@ describe('TransactionMapper', () => {
       });
 
       it('maps TRC10 send transaction using metadata (decimals and symbol)', () => {
-        const rawTransaction = trc10TransferMock as TransactionInfo;
+        const rawTransaction = trc10TransferMock as TrongridApiTransaction;
 
         const trc10TokenMetadata = new Map<string, TRC10TokenMetadata>([
           [
@@ -199,7 +199,7 @@ describe('TransactionMapper', () => {
       });
 
       it('maps TRC10 send transaction using 0 decimals from token metadata', () => {
-        const rawTransaction = trc10TransferMock as TransactionInfo;
+        const rawTransaction = trc10TransferMock as TrongridApiTransaction;
 
         const trc10TokenMetadata = new Map<string, TRC10TokenMetadata>([
           [
@@ -235,7 +235,7 @@ describe('TransactionMapper', () => {
       });
 
       it('decodes hex-encoded asset_name to resolve token metadata', () => {
-        const rawTransaction = trc10TransferMock as TransactionInfo;
+        const rawTransaction = trc10TransferMock as TrongridApiTransaction;
 
         const trc10TokenMetadata = new Map<string, TRC10TokenMetadata>([
           [
@@ -269,13 +269,51 @@ describe('TransactionMapper', () => {
         expect(toAsset.type).toBe('tron:728126428/trc10:1005119');
         expect(toAsset.unit).toBe('TRC20AdsCOM');
       });
+
+      it('handles decimal asset_name values when mapping TRC10 transactions', () => {
+        const rawTransaction = JSON.parse(
+          JSON.stringify(trc10TransferMock),
+        ) as TrongridApiTransaction;
+
+        const transferAssetContract = rawTransaction.raw_data
+          .contract[0] as unknown as {
+          parameter: { value: Record<string, unknown> };
+        };
+        transferAssetContract.parameter.value.asset_name = '1005119';
+
+        const trc10TokenMetadata = new Map<string, TRC10TokenMetadata>([
+          [
+            '1005119',
+            {
+              name: 'BestAdsCoin',
+              symbol: 'TRC20AdsCOM',
+              decimals: 6,
+            },
+          ],
+        ]);
+
+        const result = TransactionMapper.mapTransaction({
+          scope: Network.Mainnet,
+          account: trc10Account,
+          trongridTransaction: rawTransaction,
+          trc10TokenMetadata,
+        });
+
+        expect(result).not.toBeNull();
+        const fromAsset = result!.from[0]!.asset as {
+          type: string;
+          unit: string;
+        };
+        expect(fromAsset.type).toBe('tron:728126428/trc10:1005119');
+        expect(fromAsset.unit).toBe('TRC20AdsCOM');
+      });
     });
 
     describe('TriggerSmartContract (TRC20 transfers)', () => {
       it('should map a TRC20 send transaction with assistance data correctly', () => {
-        const rawTransaction = trc20TransferMock as TransactionInfo;
+        const rawTransaction = trc20TransferMock as TrongridApiTransaction;
         const trc20Transfers = [
-          contractInfoMock.data[0] as ContractTransactionInfo,
+          contractInfoMock.data[0] as TrongridApiTrc20Transfer,
         ];
 
         const result = TransactionMapper.mapTransaction({
@@ -355,7 +393,7 @@ describe('TransactionMapper', () => {
       });
 
       it('should return null for TriggerSmartContract without assistance data and no call_value', () => {
-        const rawTransaction = trc20TransferMock as TransactionInfo;
+        const rawTransaction = trc20TransferMock as TrongridApiTransaction;
 
         const result = TransactionMapper.mapTransaction({
           scope: Network.Mainnet,
@@ -368,11 +406,13 @@ describe('TransactionMapper', () => {
       });
 
       it('should map a TRC20 approval transaction as Unknown type', () => {
-        const rawTransaction = trc20TransferMock as TransactionInfo;
-        const approvalTransfer: ContractTransactionInfo = {
+        const rawTransaction = trc20TransferMock as TrongridApiTransaction;
+        const approvalTransfer: TrongridApiTrc20Transfer = {
           ...contractInfoMock.data[0],
           type: 'Approval', // TRC20 approve operation
-        } as ContractTransactionInfo;
+          value:
+            '115792089237316195423570985008687907853269984665640564039457584007913129639935',
+        } as TrongridApiTrc20Transfer;
 
         const result = TransactionMapper.mapTransaction({
           scope: Network.Mainnet,
@@ -384,14 +424,18 @@ describe('TransactionMapper', () => {
         expect(result).not.toBeNull();
         expect(result?.type).toBe(TransactionType.Unknown);
         expect(result?.id).toBe(approvalTransfer.transaction_id);
+        const fromAsset = result!.from[0]!.asset as { amount: string };
+        const toAsset = result!.to[0]!.asset as { amount: string };
+        expect(fromAsset.amount).toBe('0');
+        expect(toAsset.amount).toBe('0');
       });
 
       it('should map a TRC20 transfer transaction as Send/Receive type', () => {
-        const rawTransaction = trc20TransferMock as TransactionInfo;
-        const transferTransfer: ContractTransactionInfo = {
+        const rawTransaction = trc20TransferMock as TrongridApiTransaction;
+        const transferTransfer: TrongridApiTrc20Transfer = {
           ...contractInfoMock.data[0],
           type: 'Transfer', // Explicit Transfer type
-        } as ContractTransactionInfo;
+        } as TrongridApiTrc20Transfer;
 
         const result = TransactionMapper.mapTransaction({
           scope: Network.Mainnet,
@@ -408,7 +452,7 @@ describe('TransactionMapper', () => {
 
     describe('TRC20-only transactions', () => {
       it('should map a TRC20-only approval as Unknown type', () => {
-        const approvalTrc20: ContractTransactionInfo = {
+        const approvalTrc20: TrongridApiTrc20Transfer = {
           transaction_id: 'approval-tx-id-123',
           token_info: {
             symbol: 'USDT',
@@ -420,7 +464,8 @@ describe('TransactionMapper', () => {
           from: 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx',
           to: 'TSomeSpenderAddress123456789012',
           type: 'Approval',
-          value: '1000000000',
+          value:
+            '115792089237316195423570985008687907853269984665640564039457584007913129639935',
         };
 
         const result = TransactionMapper.mapTransactions({
@@ -433,10 +478,14 @@ describe('TransactionMapper', () => {
         expect(result).toHaveLength(1);
         expect(result[0]?.type).toBe(TransactionType.Unknown);
         expect(result[0]?.id).toBe('approval-tx-id-123');
+        const fromAsset = result[0]!.from[0]!.asset as { amount: string };
+        const toAsset = result[0]!.to[0]!.asset as { amount: string };
+        expect(fromAsset.amount).toBe('0');
+        expect(toAsset.amount).toBe('0');
       });
 
       it('should map a TRC20-only transfer as Send/Receive type', () => {
-        const transferTrc20: ContractTransactionInfo = {
+        const transferTrc20: TrongridApiTrc20Transfer = {
           transaction_id: 'transfer-tx-id-456',
           token_info: {
             symbol: 'USDT',
@@ -466,7 +515,7 @@ describe('TransactionMapper', () => {
 
     describe('Fee calculation', () => {
       it('should calculate TRX fees for native transfers', () => {
-        const rawTransaction = nativeTransferMock as TransactionInfo;
+        const rawTransaction = nativeTransferMock as TrongridApiTransaction;
 
         const result = TransactionMapper.mapTransaction({
           scope: Network.Mainnet,
@@ -490,9 +539,9 @@ describe('TransactionMapper', () => {
       });
 
       it('should calculate comprehensive fees for TRC20 transfers', () => {
-        const rawTransaction = trc20TransferMock as TransactionInfo;
+        const rawTransaction = trc20TransferMock as TrongridApiTransaction;
         const trc20Transfers = [
-          contractInfoMock.data[0] as ContractTransactionInfo,
+          contractInfoMock.data[0] as TrongridApiTrc20Transfer,
         ];
 
         const result = TransactionMapper.mapTransaction({
@@ -539,7 +588,7 @@ describe('TransactionMapper', () => {
 
   describe('Staking (Freeze/Unfreeze)', () => {
     it('should map FreezeBalanceV2Contract (stake) as send with staked asset', () => {
-      const native = nativeTransferMock as TransactionInfo;
+      const native = nativeTransferMock as TrongridApiTransaction;
       const ownerHex = (native.raw_data.contract?.[0] as any)?.parameter?.value
         ?.owner_address;
 
@@ -576,7 +625,7 @@ describe('TransactionMapper', () => {
           timestamp: native.block_timestamp,
         },
         internal_transactions: [],
-      } as unknown as TransactionInfo;
+      } as unknown as TrongridApiTransaction;
 
       const result = TransactionMapper.mapTransaction({
         scope: Network.Mainnet,
@@ -611,7 +660,7 @@ describe('TransactionMapper', () => {
     });
 
     it('should map UnfreezeBalanceV2Contract (unstake) as receive with staked asset', () => {
-      const native = nativeTransferMock as TransactionInfo;
+      const native = nativeTransferMock as TrongridApiTransaction;
       const ownerHex = (native.raw_data.contract?.[0] as any)?.parameter?.value
         ?.owner_address;
 
@@ -648,7 +697,7 @@ describe('TransactionMapper', () => {
           timestamp: native.block_timestamp,
         },
         internal_transactions: [],
-      } as unknown as TransactionInfo;
+      } as unknown as TrongridApiTransaction;
 
       const result = TransactionMapper.mapTransaction({
         scope: Network.Mainnet,
@@ -688,9 +737,9 @@ describe('TransactionMapper', () => {
         nativeTransferMock,
         trc10TransferMock,
         trc20TransferMock,
-      ] as TransactionInfo[];
+      ] as TrongridApiTransaction[];
       const trc20AssistanceData =
-        contractInfoMock.data as ContractTransactionInfo[];
+        contractInfoMock.data as TrongridApiTrc20Transfer[];
 
       const result = TransactionMapper.mapTransactions({
         scope: Network.Mainnet,
@@ -764,7 +813,7 @@ describe('TransactionMapper', () => {
 
   describe('Network-specific behavior', () => {
     it('should work with different networks (Shasta)', () => {
-      const rawTransaction = nativeTransferMock as TransactionInfo;
+      const rawTransaction = nativeTransferMock as TrongridApiTransaction;
 
       const result = TransactionMapper.mapTransaction({
         scope: Network.Shasta, // Use Shasta instead of Mainnet
@@ -826,7 +875,8 @@ describe('TransactionMapper', () => {
 
   describe('Failed Transactions', () => {
     it('maps a failed TriggerSmartContract transaction (OUT_OF_ENERGY) without TRC20 data', () => {
-      const failedTx = failedTransactionMock as unknown as TransactionInfo;
+      const failedTx =
+        failedTransactionMock as unknown as TrongridApiTransaction;
 
       const result = TransactionMapper.mapTransaction({
         scope: Network.Mainnet,
@@ -846,9 +896,9 @@ describe('TransactionMapper', () => {
 
   describe('Swap Transactions', () => {
     it('maps a TRX → TRC20 swap transaction correctly', () => {
-      const swapTx = swapTransactionMock as unknown as TransactionInfo;
+      const swapTx = swapTransactionMock as unknown as TrongridApiTransaction;
       const trc20Transfers =
-        swapContractInfoMock.data as unknown as ContractTransactionInfo[];
+        swapContractInfoMock.data as unknown as TrongridApiTrc20Transfer[];
 
       const result = TransactionMapper.mapTransaction({
         scope: Network.Mainnet,
@@ -870,9 +920,9 @@ describe('TransactionMapper', () => {
     it('maps a TRC20 ↔ TRC20 swap transaction correctly', () => {
       const mockTrc20Swap = {
         ...swapTransactionMock,
-      } as unknown as TransactionInfo;
+      } as unknown as TrongridApiTransaction;
 
-      const trc20Transfers: ContractTransactionInfo[] = [
+      const trc20Transfers: TrongridApiTrc20Transfer[] = [
         {
           transaction_id: mockTrc20Swap.txID,
           token_info: {
@@ -923,10 +973,25 @@ describe('TransactionMapper', () => {
     it('does not detect a swap when only receiving TRC20 (no TRX movement)', () => {
       const mockTx = {
         ...swapTransactionMock,
+        raw_data: {
+          ...swapTransactionMock.raw_data,
+          contract: [
+            {
+              ...swapTransactionMock.raw_data.contract[0],
+              parameter: {
+                ...swapTransactionMock.raw_data.contract[0]?.parameter,
+                value: {
+                  ...swapTransactionMock.raw_data.contract[0]?.parameter.value,
+                  call_value: 0,
+                },
+              },
+            },
+          ],
+        },
         internal_transactions: [],
-      } as unknown as TransactionInfo;
+      } as unknown as TrongridApiTransaction;
 
-      const trc20Transfers: ContractTransactionInfo[] = [
+      const trc20Transfers: TrongridApiTrc20Transfer[] = [
         {
           transaction_id: mockTx.txID,
           token_info: {
@@ -958,9 +1023,9 @@ describe('TransactionMapper', () => {
       const mockTx = {
         ...swapTransactionMock,
         internal_transactions: [],
-      } as unknown as TransactionInfo;
+      } as unknown as TrongridApiTransaction;
 
-      const trc20Transfers: ContractTransactionInfo[] = [
+      const trc20Transfers: TrongridApiTrc20Transfer[] = [
         {
           transaction_id: mockTx.txID,
           token_info: {
@@ -991,9 +1056,9 @@ describe('TransactionMapper', () => {
     it('does not detect a swap when sending and receiving the same token (send to self)', () => {
       const mockTx = {
         ...swapTransactionMock,
-      } as unknown as TransactionInfo;
+      } as unknown as TrongridApiTransaction;
 
-      const trc20Transfers: ContractTransactionInfo[] = [
+      const trc20Transfers: TrongridApiTrc20Transfer[] = [
         {
           transaction_id: mockTx.txID,
           token_info: {
@@ -1038,10 +1103,25 @@ describe('TransactionMapper', () => {
     it('does not detect TRX swap when there are no internal transactions', () => {
       const mockTx = {
         ...swapTransactionMock,
+        raw_data: {
+          ...swapTransactionMock.raw_data,
+          contract: [
+            {
+              ...swapTransactionMock.raw_data.contract[0],
+              parameter: {
+                ...swapTransactionMock.raw_data.contract[0]?.parameter,
+                value: {
+                  ...swapTransactionMock.raw_data.contract[0]?.parameter.value,
+                  call_value: 0,
+                },
+              },
+            },
+          ],
+        },
         internal_transactions: [],
-      } as unknown as TransactionInfo;
+      } as unknown as TrongridApiTransaction;
 
-      const trc20Transfers: ContractTransactionInfo[] = [
+      const trc20Transfers: TrongridApiTrc20Transfer[] = [
         {
           transaction_id: mockTx.txID,
           token_info: {
@@ -1072,6 +1152,21 @@ describe('TransactionMapper', () => {
     it('handles TRX movements with zero callValue correctly', () => {
       const mockTx = {
         ...swapTransactionMock,
+        raw_data: {
+          ...swapTransactionMock.raw_data,
+          contract: [
+            {
+              ...swapTransactionMock.raw_data.contract[0],
+              parameter: {
+                ...swapTransactionMock.raw_data.contract[0]?.parameter,
+                value: {
+                  ...swapTransactionMock.raw_data.contract[0]?.parameter.value,
+                  call_value: 0,
+                },
+              },
+            },
+          ],
+        },
         internal_transactions: [
           {
             from_address: mockAccount.address.toLowerCase(),
@@ -1084,9 +1179,9 @@ describe('TransactionMapper', () => {
             internal_tx_id: 'internal-0',
           },
         ],
-      } as unknown as TransactionInfo;
+      } as unknown as TrongridApiTransaction;
 
-      const trc20Transfers: ContractTransactionInfo[] = [
+      const trc20Transfers: TrongridApiTrc20Transfer[] = [
         {
           transaction_id: mockTx.txID,
           token_info: {
@@ -1117,11 +1212,11 @@ describe('TransactionMapper', () => {
 
   describe('TRC20-Only Transactions', () => {
     it('maps TRC20-only transactions in mapTransactions', () => {
-      const rawTransactions: TransactionInfo[] = [
+      const rawTransactions: TrongridApiTransaction[] = [
         nativeTransferMock,
         trc10TransferMock,
         trc20TransferMock,
-      ] as TransactionInfo[];
+      ] as TrongridApiTransaction[];
 
       const trc20Transactions = [
         ...contractInfoMock.data,
@@ -1139,7 +1234,7 @@ describe('TransactionMapper', () => {
           type: 'Transfer',
           value: '1000000000000000000',
         },
-      ] as ContractTransactionInfo[];
+      ] as TrongridApiTrc20Transfer[];
 
       const result = TransactionMapper.mapTransactions({
         scope: Network.Mainnet,
@@ -1181,7 +1276,7 @@ describe('TransactionMapper', () => {
             },
           ],
         },
-      } as unknown as TransactionInfo;
+      } as unknown as TrongridApiTransaction;
 
       const result = TransactionMapper.mapTransaction({
         scope: Network.Mainnet,

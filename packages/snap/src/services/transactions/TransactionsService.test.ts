@@ -3,8 +3,8 @@ import type { Transaction } from '@metamask/keyring-api';
 
 import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
 import type {
-  ContractTransactionInfo,
-  TransactionInfo,
+  TrongridApiTrc20Transfer,
+  TrongridApiTransaction,
 } from '../../clients/trongrid/types';
 import { KnownCaip19Id, Network } from '../../constants';
 import contractInfoMock from './mocks/contract-info.json';
@@ -102,7 +102,7 @@ describe('TransactionsService', () => {
     it('returns true when the address has at least one transaction', async () => {
       mockTrongridApiClient.getTransactionInfoByAddress.mockResolvedValue([
         nativeTransferMock,
-      ] as TransactionInfo[]);
+      ] as TrongridApiTransaction[]);
 
       const result = await transactionsService.checkAddressActivity(
         Network.Mainnet,
@@ -148,9 +148,9 @@ describe('TransactionsService', () => {
       // Setup mock responses with simplified single-transaction structure
       mockTrongridApiClient.getTransactionInfoByAddress.mockResolvedValue([
         nativeTransferMock,
-      ] as TransactionInfo[]);
+      ] as TrongridApiTransaction[]);
       mockTrongridApiClient.getContractTransactionInfoByAddress.mockResolvedValue(
-        contractInfoMock.data as ContractTransactionInfo[],
+        contractInfoMock.data as TrongridApiTrc20Transfer[],
       );
 
       await transactionsService.fetchNewTransactionsForAccount(
@@ -179,7 +179,7 @@ describe('TransactionsService', () => {
       // Setup mock responses with simplified single-transaction structure
       mockTrongridApiClient.getTransactionInfoByAddress.mockResolvedValue([
         trc10TransferMock,
-      ] as TransactionInfo[]);
+      ] as TrongridApiTransaction[]);
       mockTrongridApiClient.getContractTransactionInfoByAddress.mockResolvedValue(
         [],
       );
@@ -227,11 +227,47 @@ describe('TransactionsService', () => {
       expect(toAsset.unit).toBe('TRC20AdsCOM');
     });
 
+    it('handles decimal TRC10 asset_name values without throwing', async () => {
+      const trc10TransferWithDecimalTokenId = JSON.parse(
+        JSON.stringify(trc10TransferMock),
+      ) as TrongridApiTransaction;
+
+      const transferAssetContract = trc10TransferWithDecimalTokenId.raw_data
+        .contract[0] as unknown as {
+        parameter: { value: Record<string, unknown> };
+      };
+      transferAssetContract.parameter.value.asset_name = '1005119';
+
+      mockTrongridApiClient.getTransactionInfoByAddress.mockResolvedValue([
+        trc10TransferWithDecimalTokenId,
+      ]);
+      mockTrongridApiClient.getContractTransactionInfoByAddress.mockResolvedValue(
+        [],
+      );
+      mockTronHttpClient.getTRC10TokenMetadata.mockResolvedValue({
+        name: 'BestAdsCoin',
+        symbol: 'TRC20AdsCOM',
+        decimals: 3,
+      });
+
+      const transactions =
+        await transactionsService.fetchNewTransactionsForAccount(
+          Network.Mainnet,
+          mockAccount2,
+        );
+
+      expect(mockTronHttpClient.getTRC10TokenMetadata).toHaveBeenCalledWith(
+        '1005119',
+        Network.Mainnet,
+      );
+      expect(transactions).toHaveLength(1);
+    });
+
     it('falls back to defaults when TRC10 metadata fetch fails', async () => {
       // Setup mock responses with simplified single-transaction structure
       mockTrongridApiClient.getTransactionInfoByAddress.mockResolvedValue([
         trc10TransferMock,
-      ] as TransactionInfo[]);
+      ] as TrongridApiTransaction[]);
       mockTrongridApiClient.getContractTransactionInfoByAddress.mockResolvedValue(
         [],
       );
@@ -354,7 +390,7 @@ describe('TransactionsService', () => {
       mockTrongridApiClient.getTransactionInfoByAddress.mockResolvedValue([
         confirmedTx,
         newTx,
-      ] as TransactionInfo[]);
+      ] as TrongridApiTransaction[]);
       mockTrongridApiClient.getContractTransactionInfoByAddress.mockResolvedValue(
         [],
       );
@@ -379,7 +415,7 @@ describe('TransactionsService', () => {
       // API returns the same transaction (now confirmed on network)
       mockTrongridApiClient.getTransactionInfoByAddress.mockResolvedValue([
         nativeTransferMock,
-      ] as TransactionInfo[]);
+      ] as TrongridApiTransaction[]);
       mockTrongridApiClient.getContractTransactionInfoByAddress.mockResolvedValue(
         [],
       );
@@ -740,9 +776,9 @@ describe('TransactionsService', () => {
       // Setup API responses with simplified single-transaction structure
       mockTrongridApiClient.getTransactionInfoByAddress.mockResolvedValue([
         nativeTransferMock,
-      ] as TransactionInfo[]);
+      ] as TrongridApiTransaction[]);
       mockTrongridApiClient.getContractTransactionInfoByAddress.mockResolvedValue(
-        contractInfoMock.data.slice(0, 1) as ContractTransactionInfo[],
+        contractInfoMock.data.slice(0, 1) as TrongridApiTrc20Transfer[],
       );
 
       // Fetch transactions
@@ -767,7 +803,7 @@ describe('TransactionsService', () => {
         nativeTransferMock, // Native TRX transfer
         trc10TransferMock, // TRC10 transfer
         trc20TransferMock, // TRC20 transfer
-      ] as TransactionInfo[];
+      ] as TrongridApiTransaction[];
 
       mockTrongridApiClient.getTransactionInfoByAddress.mockResolvedValue(
         mixedRawTransactions,

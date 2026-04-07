@@ -4,23 +4,37 @@ import { TronWeb } from 'tronweb';
 
 import type { TRC10TokenMetadata } from '../../clients/tron-http/types';
 import type {
-  ContractTransactionInfo,
-  ContractValue,
-  GeneralContractInfo,
-  TransactionInfo,
-  TransferAssetContractInfo,
-  TransferContractInfo,
+  TrongridApiTrc20Transfer,
+  TrongridApiContractValue,
+  TrongridApiGeneralContract,
+  TrongridApiTransaction,
+  TrongridApiTransferAssetContract,
+  TrongridApiTransferContract,
 } from '../../clients/trongrid/types';
 import type { Network } from '../../constants';
 import { Networks } from '../../constants';
 import type { TronKeyringAccount } from '../../entities/keyring-account';
 import { sunToTrx, toUiAmount } from '../../utils/conversion';
-import { hexToString } from '../../utils/hex';
+import { hexToStringSafe } from '../../utils/hex';
 
 // TRC20 transaction types from TronGrid API
 const TRC20_APPROVAL_TYPE = 'Approval';
+const MAX_UINT256 =
+  '115792089237316195423570985008687907853269984665640564039457584007913129639935';
 
 export class TransactionMapper {
+  static #getTrc20DisplayAmount(transfer: TrongridApiTrc20Transfer): string {
+    if (
+      transfer.type === TRC20_APPROVAL_TYPE &&
+      transfer.value === MAX_UINT256
+    ) {
+      // Infinite approvals do not transfer tokens, so show zero movement.
+      return '0';
+    }
+
+    return toUiAmount(transfer.value, transfer.token_info.decimals).toFixed();
+  }
+
   /**
    * Creates a minimal pending transaction immediately after broadcast.
    * This shows a placeholder transaction to the user while we wait for the
@@ -164,7 +178,7 @@ export class TransactionMapper {
    */
   static #calculateTronFees(
     network: Network,
-    transactionInfo: TransactionInfo,
+    transactionInfo: TrongridApiTransaction,
   ): Transaction['fees'] {
     const fees: Transaction['fees'] = [];
 
@@ -212,7 +226,7 @@ export class TransactionMapper {
    * @returns The transaction status (pending/confirmed/failed).
    */
   static #computeTransactionStatus(
-    trongridTransaction: TransactionInfo,
+    trongridTransaction: TrongridApiTransaction,
   ): TransactionStatus {
     const isPending = !trongridTransaction.blockNumber;
     const contractRet = trongridTransaction.ret?.[0]?.contractRet;
@@ -282,7 +296,7 @@ export class TransactionMapper {
    * @returns True if TRX movement is detected, false otherwise.
    */
   static #hasTrxMovementInTransaction(
-    trongridTransaction: TransactionInfo,
+    trongridTransaction: TrongridApiTransaction,
     accountAddress: string,
   ): boolean {
     const internalTransactions = trongridTransaction.internal_transactions;
@@ -326,10 +340,10 @@ export class TransactionMapper {
   }: {
     scope: Network;
     account: TronKeyringAccount;
-    trongridTransaction: TransactionInfo;
+    trongridTransaction: TrongridApiTransaction;
   }): Transaction | null {
     const firstContract = trongridTransaction.raw_data
-      .contract[0] as TransferContractInfo;
+      .contract[0] as TrongridApiTransferContract;
     const contractValue = firstContract.parameter.value;
 
     const from = this.#toTronAddress(contractValue.owner_address);
@@ -422,11 +436,11 @@ export class TransactionMapper {
   }: {
     scope: Network;
     account: TronKeyringAccount;
-    trongridTransaction: TransactionInfo;
+    trongridTransaction: TrongridApiTransaction;
     trc10TokenMetadata?: Map<string, TRC10TokenMetadata>;
   }): Transaction {
     const firstContract = trongridTransaction.raw_data
-      .contract[0] as TransferAssetContractInfo;
+      .contract[0] as TrongridApiTransferAssetContract;
     const contractValue = firstContract.parameter.value;
 
     const from = this.#toTronAddress(contractValue.owner_address);
@@ -441,7 +455,7 @@ export class TransactionMapper {
       ? Math.floor(Date.now() / 1000)
       : Math.floor(trongridTransaction.block_timestamp / 1000);
 
-    const assetName = hexToString(contractValue.asset_name);
+    const assetName = hexToStringSafe(contractValue.asset_name);
 
     const tokenMetadata = trc10TokenMetadata?.get(assetName);
     const decimals = tokenMetadata?.decimals ?? 6;
@@ -525,19 +539,18 @@ export class TransactionMapper {
   }: {
     scope: Network;
     account: TronKeyringAccount;
-    trc20Transfer: ContractTransactionInfo;
+    trc20Transfer: TrongridApiTrc20Transfer;
   }): Transaction | null {
     const {
       from,
       to,
-      value,
       token_info: tokenInfo,
       block_timestamp: blockTimestamp,
       transaction_id: transactionId,
     } = trc20Transfer;
 
     // Calculate amount in human-readable format
-    const amount = toUiAmount(value, tokenInfo.decimals).toFixed();
+    const amount = this.#getTrc20DisplayAmount(trc20Transfer);
 
     // Determine transaction type
     const type = this.#computeTransactionType({
@@ -612,9 +625,9 @@ export class TransactionMapper {
   }: {
     scope: Network;
     account: TronKeyringAccount;
-    trongridTransaction: TransactionInfo;
-    sentTransfer: ContractTransactionInfo;
-    receivedTransfer: ContractTransactionInfo;
+    trongridTransaction: TrongridApiTransaction;
+    sentTransfer: TrongridApiTrc20Transfer;
+    receivedTransfer: TrongridApiTrc20Transfer;
   }): Transaction {
     const status = this.#computeTransactionStatus(trongridTransaction);
     const isPending = status === TransactionStatus.Unconfirmed;
@@ -696,8 +709,8 @@ export class TransactionMapper {
   }: {
     scope: Network;
     account: TronKeyringAccount;
-    trongridTransaction: TransactionInfo;
-    trc20Transfer: ContractTransactionInfo;
+    trongridTransaction: TrongridApiTransaction;
+    trc20Transfer: TrongridApiTrc20Transfer;
   }): Transaction {
     const status = this.#computeTransactionStatus(trongridTransaction);
     const isPending = status === TransactionStatus.Unconfirmed;
@@ -835,8 +848,8 @@ export class TransactionMapper {
   }: {
     scope: Network;
     account: TronKeyringAccount;
-    trongridTransaction: TransactionInfo;
-    trc20Transfers?: ContractTransactionInfo[];
+    trongridTransaction: TrongridApiTransaction;
+    trc20Transfers?: TrongridApiTrc20Transfer[];
   }): Transaction | null {
     // Determine transaction status first
     const status = this.#computeTransactionStatus(trongridTransaction);
@@ -1027,9 +1040,7 @@ export class TransactionMapper {
 
     const { from, to } = trc20AssistanceData;
 
-    // Convert from smallest unit to human-readable amount using token decimals
-    const valueInSmallestUnit = trc20AssistanceData.value;
-    const { decimals, address, symbol } = trc20AssistanceData.token_info;
+    const { address, symbol } = trc20AssistanceData.token_info;
 
     // Status already computed at the top of the method
     const isPending = status === TransactionStatus.Unconfirmed;
@@ -1040,10 +1051,8 @@ export class TransactionMapper {
       : Math.floor(trc20AssistanceData.block_timestamp / 1000);
 
     // Convert from smallest unit to human-readable amount
-    const valueInReadableUnit = toUiAmount(
-      valueInSmallestUnit,
-      decimals,
-    ).toFixed();
+    const valueInReadableUnit =
+      this.#getTrc20DisplayAmount(trc20AssistanceData);
 
     // Determine transaction type
     const type = this.#computeTransactionType({
@@ -1115,11 +1124,12 @@ export class TransactionMapper {
   }: {
     scope: Network;
     account: TronKeyringAccount;
-    trongridTransaction: TransactionInfo;
+    trongridTransaction: TrongridApiTransaction;
   }): Transaction | null {
     const firstContract = trongridTransaction.raw_data
-      .contract[0] as GeneralContractInfo;
-    const contractValue = firstContract?.parameter?.value as ContractValue & {
+      .contract[0] as TrongridApiGeneralContract;
+    const contractValue = firstContract?.parameter
+      ?.value as TrongridApiContractValue & {
       resource?: 'BANDWIDTH' | 'ENERGY';
     };
     if (!contractValue) {
@@ -1218,11 +1228,12 @@ export class TransactionMapper {
   }: {
     scope: Network;
     account: TronKeyringAccount;
-    trongridTransaction: TransactionInfo;
+    trongridTransaction: TrongridApiTransaction;
   }): Transaction | null {
     const firstContract = trongridTransaction.raw_data
-      .contract[0] as GeneralContractInfo;
-    const contractValue = firstContract?.parameter?.value as ContractValue & {
+      .contract[0] as TrongridApiGeneralContract;
+    const contractValue = firstContract?.parameter
+      ?.value as TrongridApiContractValue & {
       resource?: 'BANDWIDTH' | 'ENERGY';
     };
     if (!contractValue) {
@@ -1317,8 +1328,8 @@ export class TransactionMapper {
   }: {
     scope: Network;
     account: TronKeyringAccount;
-    trongridTransaction: TransactionInfo;
-    trc20Transfers?: ContractTransactionInfo[];
+    trongridTransaction: TrongridApiTransaction;
+    trc20Transfers?: TrongridApiTrc20Transfer[];
     trc10TokenMetadata?: Map<string, TRC10TokenMetadata>;
   }): Transaction | null {
     /**
@@ -1406,15 +1417,15 @@ export class TransactionMapper {
   }: {
     scope: Network;
     account: TronKeyringAccount;
-    rawTransactions: TransactionInfo[];
-    trc20Transactions: ContractTransactionInfo[];
+    rawTransactions: TrongridApiTransaction[];
+    trc20Transactions: TrongridApiTrc20Transfer[];
     trc10TokenMetadata?: Map<string, TRC10TokenMetadata>;
   }): Transaction[] {
     const transactions: Transaction[] = [];
     const processedTxIds = new Set<string>();
 
     // Group TRC20 transactions by transaction_id
-    const trc20ByTxId = new Map<string, ContractTransactionInfo[]>();
+    const trc20ByTxId = new Map<string, TrongridApiTrc20Transfer[]>();
     for (const trc20Tx of trc20Transactions) {
       const existing = trc20ByTxId.get(trc20Tx.transaction_id) ?? [];
       existing.push(trc20Tx);

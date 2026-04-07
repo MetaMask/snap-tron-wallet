@@ -1,9 +1,10 @@
-import type { KeyringRequest } from '@metamask/keyring-api';
+import type { KeyringRequest, Transaction } from '@metamask/keyring-api';
 import { UserRejectedRequestError } from '@metamask/snaps-sdk';
 import { bytesToBase64, bytesToHex, stringToBytes } from '@metamask/utils';
 
 import type { SnapClient } from '../clients/snap/SnapClient';
 import { Network } from '../constants';
+import { BackgroundEventMethod } from './cronjob';
 import { KeyringHandler } from './keyring';
 import { TronMultichainMethod } from './keyring-types';
 import type { TronKeyringAccount } from '../entities/keyring-account';
@@ -59,7 +60,9 @@ describe('KeyringHandler', () => {
   let mockConfirmationHandler: jest.Mocked<ConfirmationHandler>;
 
   beforeEach(() => {
-    mockSnapClient = {} as any;
+    mockSnapClient = {
+      scheduleBackgroundEvent: jest.fn().mockResolvedValue(undefined),
+    } as any;
     mockAccountsService = {
       findById: jest.fn().mockResolvedValue(mockAccount),
       findByIdOrThrow: jest.fn().mockResolvedValue(mockAccount),
@@ -68,6 +71,7 @@ describe('KeyringHandler', () => {
     mockAssetsService = {} as any;
     mockTransactionsService = {
       checkAddressActivity: jest.fn(),
+      findByAccounts: jest.fn().mockResolvedValue([]),
     } as any;
     mockWalletService = {
       handleKeyringRequest: jest
@@ -580,6 +584,75 @@ describe('KeyringHandler', () => {
       expect(
         mockTransactionsService.checkAddressActivity,
       ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listAccountTransactions', () => {
+    it('returns first page when next cursor is not found', async () => {
+      const transactions: Transaction[] = [
+        {
+          id: 'tx-1',
+          type: 'send',
+          account: mockAccount.id,
+          chain: Network.Mainnet,
+          status: 'confirmed',
+          timestamp: 3,
+          from: [],
+          to: [],
+          fees: [],
+          events: [],
+        },
+        {
+          id: 'tx-2',
+          type: 'send',
+          account: mockAccount.id,
+          chain: Network.Mainnet,
+          status: 'confirmed',
+          timestamp: 2,
+          from: [],
+          to: [],
+          fees: [],
+          events: [],
+        },
+        {
+          id: 'tx-3',
+          type: 'send',
+          account: mockAccount.id,
+          chain: Network.Mainnet,
+          status: 'confirmed',
+          timestamp: 1,
+          from: [],
+          to: [],
+          fees: [],
+          events: [],
+        },
+      ];
+
+      mockTransactionsService.findByAccounts.mockResolvedValue(transactions);
+
+      const result = await keyringHandler.listAccountTransactions(
+        mockAccount.id,
+        {
+          limit: 2,
+          next: 'unknown-cursor',
+        },
+      );
+
+      expect(result).toStrictEqual({
+        data: [transactions[0], transactions[1]],
+        next: 'tx-3',
+      });
+    });
+  });
+
+  describe('setSelectedAccounts', () => {
+    it('schedules selected account synchronization', async () => {
+      await keyringHandler.setSelectedAccounts([mockAccount.id]);
+
+      expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith({
+        method: BackgroundEventMethod.SynchronizeSelectedAccounts,
+        duration: 'PT1S',
+      });
     });
   });
 });

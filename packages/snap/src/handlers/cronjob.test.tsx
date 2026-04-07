@@ -456,4 +456,88 @@ describe('CronHandler', () => {
       );
     });
   });
+
+  describe('trackTransaction', () => {
+    it('tracks finalized analytics without scheduling selected-account sync', async () => {
+      const mockAccountsService = {
+        findByIds: jest.fn().mockResolvedValue([{ type: 'tron:eoa' }]),
+        synchronize: jest.fn(),
+      } as unknown as AccountsService;
+      const mockSnapClient = {
+        scheduleBackgroundEvent: jest.fn().mockResolvedValue(undefined),
+        trackTransactionFinalized: jest.fn().mockResolvedValue(undefined),
+      } as unknown as SnapClient;
+      const mockTronHttpClient = {
+        getTransactionInfoById: jest.fn().mockResolvedValue({ blockNumber: 1 }),
+      } as unknown as TronHttpClient;
+
+      const cronHandler = new CronHandler({
+        logger: buildMockLogger(),
+        accountsService: mockAccountsService,
+        snapClient: mockSnapClient,
+        state: {} as State<UnencryptedStateValue>,
+        priceApiClient: {} as PriceApiClient,
+        tronHttpClient: mockTronHttpClient,
+        transactionScanService: {} as TransactionScanService,
+      });
+
+      await cronHandler.trackTransaction({
+        txId: 'tx-1',
+        scope: Network.Mainnet,
+        accountIds: ['account-1'],
+        attempt: 0,
+      });
+
+      expect(
+        (mockSnapClient as any).trackTransactionFinalized,
+      ).toHaveBeenCalledWith({
+        origin: 'MetaMask',
+        accountType: 'tron:eoa',
+        chainIdCaip: Network.Mainnet,
+      });
+      expect(
+        (mockSnapClient as any).scheduleBackgroundEvent,
+      ).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: BackgroundEventMethod.SynchronizeSelectedAccounts,
+        }),
+      );
+      expect((mockAccountsService as any).synchronize).not.toHaveBeenCalled();
+    });
+
+    it('does not synchronize state when tracking times out', async () => {
+      const mockAccountsService = {
+        synchronize: jest.fn(),
+      } as unknown as AccountsService;
+      const mockSnapClient = {
+        scheduleBackgroundEvent: jest.fn().mockResolvedValue(undefined),
+      } as unknown as SnapClient;
+
+      const cronHandler = new CronHandler({
+        logger: buildMockLogger(),
+        accountsService: mockAccountsService,
+        snapClient: mockSnapClient,
+        state: {} as State<UnencryptedStateValue>,
+        priceApiClient: {} as PriceApiClient,
+        tronHttpClient: {} as TronHttpClient,
+        transactionScanService: {} as TransactionScanService,
+      });
+
+      await cronHandler.trackTransaction({
+        txId: 'tx-timeout',
+        scope: Network.Mainnet,
+        accountIds: ['account-1'],
+        attempt: 15,
+      });
+
+      expect((mockAccountsService as any).synchronize).not.toHaveBeenCalled();
+      expect(
+        (mockSnapClient as any).scheduleBackgroundEvent,
+      ).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: BackgroundEventMethod.SynchronizeSelectedAccounts,
+        }),
+      );
+    });
+  });
 });

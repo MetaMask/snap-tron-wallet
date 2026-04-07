@@ -5,19 +5,19 @@ import {
   ChainParametersResponseStruct,
   ChainParameterStruct,
   ContractInfoStruct,
-  FullNodeTransactionInfoStruct,
   GetRewardResponseStruct,
   NextMaintenanceTimeStruct,
   TRC10TokenInfoStruct,
+  TronHttpApiTransactionInfoStruct,
   TriggerConstantContractResponseStruct,
 } from './structs';
 import type { AccountResources, GetRewardResponse } from './structs';
 import type {
   ChainParameter,
   ContractInfo,
-  FullNodeTransactionInfo,
   TRC10TokenInfo,
   TRC10TokenMetadata,
+  TronHttpApiTransactionInfo,
   TriggerConstantContractRequest,
   TriggerConstantContractResponse,
 } from './types';
@@ -172,12 +172,12 @@ export class TronHttpClient {
    * @see https://developers.tron.network/reference/gettransactioninfobyid
    * @param network - Network to query
    * @param txId - Transaction ID
-   * @returns Promise<FullNodeTransactionInfo | null> - Transaction info with block details, or null if not found/confirmed
+   * @returns Promise<TronHttpApiTransactionInfo | null> - Transaction info with block details, or null if not found/confirmed
    */
   async getTransactionInfoById(
     network: Network,
     txId: string,
-  ): Promise<FullNodeTransactionInfo | null> {
+  ): Promise<TronHttpApiTransactionInfo | null> {
     const client = this.#clients.get(network);
     if (!client) {
       throw new Error(`No client configured for network: ${network}`);
@@ -206,7 +206,7 @@ export class TronHttpClient {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const txInfo: FullNodeTransactionInfo = await response.json();
+    const txInfo: TronHttpApiTransactionInfo = await response.json();
 
     // If the response is empty or doesn't have the expected data, return null
     // Note: GetTransactionInfoById only returns data for confirmed transactions
@@ -215,7 +215,7 @@ export class TronHttpClient {
     }
 
     // Validate response schema
-    assert(txInfo, FullNodeTransactionInfoStruct);
+    assert(txInfo, TronHttpApiTransactionInfoStruct);
 
     return txInfo;
   }
