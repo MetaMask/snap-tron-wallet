@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Include memo fee (1 TRX) in fee estimation logic ([#281](https://github.com/MetaMask/snap-tron-wallet/pull/281))
 - Handle NFT asset types in transaction scan simulation ([#285](https://github.com/MetaMask/snap-tron-wallet/pull/285))
 - Relax Trongrid `internal_transactions` validation to avoid sync failures on sparse legacy payloads ([#289](https://github.com/MetaMask/snap-tron-wallet/pull/289))
+- Handle TRC10 token identifiers that arrive in non-hex format without crashing transaction sync or mapping ([#289](https://github.com/MetaMask/snap-tron-wallet/pull/289))
 
 ## [1.25.0]
 
