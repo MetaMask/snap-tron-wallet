@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Relax Trongrid `internal_transactions` validation to avoid sync failures on sparse legacy payloads ([#289](https://github.com/MetaMask/snap-tron-wallet/pull/289))
+- Handle TRC10 token identifiers correctly in the current Trongrid account-history transaction flow, without mis-parsing endpoint-specific `asset_name` formats ([#289](https://github.com/MetaMask/snap-tron-wallet/pull/289))
+- Decouple assets and transactions synchronization so one failure does not prevent the other from completing ([#289](https://github.com/MetaMask/snap-tron-wallet/pull/289))
+
 ## [1.25.1]
 
 ### Fixed
@@ -16,8 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Confirm `fee_limit` is always present when building transaction ([#280](https://github.com/MetaMask/snap-tron-wallet/pull/280))
 - Include memo fee (1 TRX) in fee estimation logic ([#281](https://github.com/MetaMask/snap-tron-wallet/pull/281))
 - Handle NFT asset types in transaction scan simulation ([#285](https://github.com/MetaMask/snap-tron-wallet/pull/285))
-- Relax Trongrid `internal_transactions` validation to avoid sync failures on sparse legacy payloads ([#289](https://github.com/MetaMask/snap-tron-wallet/pull/289))
-- Handle TRC10 token identifiers that arrive in non-hex format without crashing transaction sync or mapping ([#289](https://github.com/MetaMask/snap-tron-wallet/pull/289))
 
 ## [1.25.0]
 
