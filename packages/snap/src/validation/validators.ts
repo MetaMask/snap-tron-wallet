@@ -10,10 +10,13 @@ import { assert } from '@metamask/superstruct';
 import { originPermissions } from '../permissions';
 
 export const validateOrigin = (origin: string, method: string): void => {
+  const allowedMethods = origin ? originPermissions.get(origin) : undefined;
+  const isAllowed = Boolean(allowedMethods?.has(method));
+
   if (!origin) {
     throw new UnauthorizedError('Origin not found');
   }
-  if (!originPermissions.get(origin)?.has(method)) {
+  if (!isAllowed) {
     throw new UnauthorizedError('Permission denied');
   }
 };

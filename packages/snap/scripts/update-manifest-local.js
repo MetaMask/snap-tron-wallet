@@ -14,13 +14,15 @@ if (environment === 'local' || environment === 'test') {
     }
   }
 
-  // Add endowment:rpc permission for local/dev mode
+  // Ensure endowment:rpc permission is present.
   manifest.initialPermissions['endowment:rpc'] = {
     dapps: true,
-    snaps: false
+    snaps: true
   };
 
-  console.log('Added localhost entries and endowment:rpc to snap.manifest.json for local development');
+  console.log(
+    'Added localhost entries and ensured endowment:rpc in snap.manifest.json for local development',
+  );
 } else {
   // Production mode - remove local-only settings
   let changed = false;
@@ -41,9 +43,18 @@ if (environment === 'local' || environment === 'test') {
     }
   }
 
-  // Remove endowment:rpc permission
-  if (manifest.initialPermissions?.['endowment:rpc']) {
-    delete manifest.initialPermissions['endowment:rpc'];
+  // Ensure production keeps RPC permission for onRpcRequest.
+  if (!manifest.initialPermissions?.['endowment:rpc']) {
+    manifest.initialPermissions['endowment:rpc'] = {
+      dapps: true,
+      snaps: true,
+    };
+    changed = true;
+  } else {
+    manifest.initialPermissions['endowment:rpc'] = {
+      dapps: true,
+      snaps: true,
+    };
     changed = true;
   }
 
