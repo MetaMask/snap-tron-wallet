@@ -1,5 +1,6 @@
 import { KeyringRpcMethod } from '@metamask/keyring-api';
 
+import { TronMultichainMethod } from './handlers/keyring-types';
 import { TestDappRpcRequestMethod } from './handlers/rpc/types';
 
 // eslint-disable-next-line no-restricted-globals
@@ -38,6 +39,9 @@ const metamaskPermissions = new Set([
   KeyringRpcMethod.ListAccountAssets,
   KeyringRpcMethod.ResolveAccountAddress,
   KeyringRpcMethod.SetSelectedAccounts,
+  // Canonical onRpcRequest signing methods used by Mobile.
+  TronMultichainMethod.SignMessage,
+  TronMultichainMethod.SignTransaction,
 ]);
 
 const metamask = 'metamask';
