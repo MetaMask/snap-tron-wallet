@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Allow MetaMask-routed canonical RPC signing (`signTransaction`, `signMessage`) by authorizing these methods for `origin = "metamask"` in Snap origin permissions, and preserve `endowment:rpc` in production manifest generation.
+
 ## [1.25.2]
 
 ### Fixed
