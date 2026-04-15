@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Treat asset sync results as per-account, per-network snapshots so disappeared assets are removed from persisted state and emitted as `removed`, with zero-balance updates to clear stale client balances. ([#292](https://github.com/MetaMask/snap-tron-wallet/pull/292))
+
 ## [1.25.2]
 
 ### Fixed

@@ -3,6 +3,7 @@ import { KeyringEvent } from '@metamask/keyring-api';
 import { emitSnapKeyringEvent } from '@metamask/keyring-snap-sdk';
 
 import type { AssetsRepository } from './AssetsRepository';
+import type { NativeCaipAssetType, TokenCaipAssetType } from './types';
 import type { PriceApiClient } from '../../clients/price-api/PriceApiClient';
 import type { SpotPrices } from '../../clients/price-api/types';
 import type { TokenApiClient } from '../../clients/token-api/TokenApiClient';
@@ -1490,6 +1491,77 @@ describe('AssetsService', () => {
       });
     });
 
+    it('removes stale non-essential assets missing from the latest snapshot', async () => {
+      await withAssetsService(async ({ assetsService, mockState }) => {
+        const trc20AssetId = `${Network.Mainnet}/trc20:TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t`;
+        const savedAssets: AssetEntity[] = [
+          {
+            assetType: KnownCaip19Id.TrxMainnet as NativeCaipAssetType,
+            keyringAccountId: mockAccount.id,
+            network: Network.Mainnet,
+            symbol: 'TRX',
+            decimals: 6,
+            rawAmount: '1000000',
+            uiAmount: '1',
+            iconUrl: '',
+          },
+          {
+            assetType: trc20AssetId as TokenCaipAssetType,
+            keyringAccountId: mockAccount.id,
+            network: Network.Mainnet,
+            symbol: 'USDT',
+            decimals: 6,
+            rawAmount: '1658250000',
+            uiAmount: '1658.25',
+            iconUrl: '',
+          },
+        ];
+
+        const updatedAssets: AssetEntity[] = [savedAssets[0] as AssetEntity];
+
+        mockState.getKey.mockResolvedValue({
+          [mockAccount.id]: savedAssets,
+        });
+
+        // If an asset is missing from the received list
+        // - emits the event 'notify:accountAssetListUpdated' with the asset in the 'removed' property
+        // - emits the event 'notify:accountBalancesUpdated' with the balance for the removed asset sets to 0
+        await assetsService.saveMany(updatedAssets);
+
+        expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
+          expect.anything(),
+          KeyringEvent.AccountAssetListUpdated,
+          {
+            assets: {
+              [mockAccount.id]: {
+                added: [KnownCaip19Id.TrxMainnet],
+                removed: [trc20AssetId],
+              },
+            },
+          },
+        );
+
+        expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
+          expect.anything(),
+          KeyringEvent.AccountBalancesUpdated,
+          {
+            balances: {
+              [mockAccount.id]: {
+                [KnownCaip19Id.TrxMainnet]: {
+                  unit: 'TRX',
+                  amount: '1',
+                },
+                [trc20AssetId]: {
+                  unit: 'USDT',
+                  amount: '0',
+                },
+              },
+            },
+          },
+        );
+      });
+    });
+
     it('keeps maximum energy and bandwidth assets even with zero amounts', async () => {
       await withAssetsService(async ({ assetsService, mockState }) => {
         const assets: AssetEntity[] = [
@@ -2237,6 +2309,80 @@ describe('AssetsService', () => {
                     unit: 'BANDWIDTH',
                     amount: '4700',
                   },
+                },
+              },
+            },
+          );
+        });
+      });
+
+      it('updates TRC20 token balance when it decreases but remains >0', async () => {
+        await withAssetsService(async ({ assetsService, mockState }) => {
+          const trc20AssetId = `${Network.Mainnet}/trc20:TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t`;
+
+          const savedAssets: AssetEntity[] = [
+            {
+              assetType: KnownCaip19Id.TrxMainnet,
+              keyringAccountId: mockAccount.id,
+              network: Network.Mainnet,
+              symbol: 'TRX',
+              decimals: 6,
+              rawAmount: '1000000',
+              uiAmount: '1',
+              iconUrl: '',
+            },
+            {
+              assetType: trc20AssetId,
+              keyringAccountId: mockAccount.id,
+              network: Network.Mainnet,
+              symbol: 'USDT',
+              decimals: 6,
+              rawAmount: '100000000',
+              uiAmount: '100',
+              iconUrl: '',
+            },
+          ];
+
+          const updatedAssets: AssetEntity[] = [
+            {
+              assetType: KnownCaip19Id.TrxMainnet,
+              keyringAccountId: mockAccount.id,
+              network: Network.Mainnet,
+              symbol: 'TRX',
+              decimals: 6,
+              rawAmount: '1000000',
+              uiAmount: '1',
+              iconUrl: '',
+            },
+            {
+              assetType: trc20AssetId,
+              keyringAccountId: mockAccount.id,
+              network: Network.Mainnet,
+              symbol: 'USDT',
+              decimals: 6,
+              rawAmount: '50000000',
+              uiAmount: '50',
+              iconUrl: '',
+            },
+          ];
+
+          mockState.getKey.mockResolvedValue({
+            [mockAccount.id]: savedAssets,
+          });
+
+          await assetsService.saveMany(updatedAssets);
+
+          expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
+            expect.anything(),
+            KeyringEvent.AccountAssetListUpdated,
+            {
+              assets: {
+                [mockAccount.id]: {
+                  added: expect.arrayContaining([
+                    KnownCaip19Id.TrxMainnet,
+                    trc20AssetId,
+                  ]),
+                  removed: [],
                 },
               },
             },
