@@ -71,8 +71,8 @@ export class ConfirmationHandler {
   async #clearInterfaceId(interfaceName: string): Promise<void> {
     try {
       await this.#state.setKey(`mapInterfaceNameToId.${interfaceName}`, null);
-    } catch {
-      // Best-effort cleanup; ignore failures
+    } catch (error) {
+      this.#logger.error({ error }, 'Failed to clear interface ID');
     }
   }
 
