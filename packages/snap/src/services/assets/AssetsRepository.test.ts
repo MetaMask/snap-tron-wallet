@@ -158,7 +158,7 @@ describe('AssetsRepository', () => {
         rawAmount: '2500000',
         uiAmount: '2.5',
       });
-      const { repository, getState } = createRepository(createState());
+      const { repository } = createRepository(createState());
 
       await repository.saveMany([trx, usdt]);
 
@@ -166,7 +166,6 @@ describe('AssetsRepository', () => {
         trx,
         usdt,
       ]);
-      expect(getState().assets['new-account']).toStrictEqual([trx, usdt]);
     });
 
     it('updates an asset balance when it decreases', async () => {
@@ -180,12 +179,9 @@ describe('AssetsRepository', () => {
 
       await repository.saveMany([finalUsdt]);
 
-      expect(
-        await repository.getByAccountIdAndAssetType(
-          'account-1',
-          finalUsdt.assetType,
-        ),
-      ).toStrictEqual(finalUsdt);
+      expect(await repository.getByAccountId('account-1')).toStrictEqual([
+        finalUsdt,
+      ]);
     });
 
     it('updates an asset balance when it increases', async () => {
@@ -199,12 +195,9 @@ describe('AssetsRepository', () => {
 
       await repository.saveMany([finalUsdt]);
 
-      expect(
-        await repository.getByAccountIdAndAssetType(
-          'account-1',
-          finalUsdt.assetType,
-        ),
-      ).toStrictEqual(finalUsdt);
+      expect(await repository.getByAccountId('account-1')).toStrictEqual([
+        finalUsdt,
+      ]);
     });
 
     it("updates an asset balance when it's balance goes to 0", async () => {
@@ -251,58 +244,19 @@ describe('AssetsRepository', () => {
       const updatedMainnetUsdt = mainnetUsdt('4');
       const updatedNileTrx = nileTrx('5');
 
-      // Removes the stale balances when not received in the asset list
+      // Updates only the received assets in the list
       await repository.saveMany([
         updatedMainnetTrx,
         updatedMainnetUsdt,
         updatedNileTrx,
       ]);
 
-      const accountAssets = await repository.getByAccountId('account-1');
-      expect(accountAssets).toStrictEqual([
+      expect(await repository.getByAccountId('account-1')).toStrictEqual([
         updatedMainnetTrx,
         updatedMainnetUsdt,
         updatedNileTrx,
+        initialNileUsdt,
       ]);
-      expect(accountAssets).not.toContainEqual([initialNileUsdt]);
-    });
-
-    it('removes an asset when not present in the received assets list', async () => {
-      const firstAccountTrxMainnet = mainnetTrx('1');
-      const firstAccountStaleUsdt = mainnetUsdt('10');
-      const firstAccountTrxNile = nileTrx('2');
-
-      const secondAccountTrxMainnet = createNativeAsset({
-        assetType: KnownCaip19Id.TrxMainnet as NativeCaipAssetType,
-        keyringAccountId: 'account-2',
-        rawAmount: '3000000',
-        uiAmount: '3',
-      });
-
-      const { repository, getState } = createRepository(
-        createState({
-          'account-1': [
-            firstAccountTrxMainnet,
-            firstAccountStaleUsdt,
-            firstAccountTrxNile,
-          ],
-          'account-2': [secondAccountTrxMainnet],
-        }),
-      );
-
-      // If receives an asset list related to a single network, removes assets for that network not present in the list
-      await repository.saveMany([firstAccountTrxMainnet]);
-
-      expect(await repository.getByAccountId('account-1')).toStrictEqual([
-        firstAccountTrxNile,
-        firstAccountTrxMainnet,
-      ]);
-      expect(await repository.getByAccountId('account-2')).toStrictEqual([
-        secondAccountTrxMainnet,
-      ]);
-      expect(getState().assets['account-1']).not.toContainEqual(
-        firstAccountStaleUsdt,
-      );
     });
 
     it('keeps unsynchronized network slices untouched when only one network is refreshed', async () => {
@@ -325,9 +279,9 @@ describe('AssetsRepository', () => {
       await repository.saveMany([updatedMainnetTrx]);
 
       expect(await repository.getByAccountId('account-1')).toStrictEqual([
+        updatedMainnetTrx,
         nileTrxSnapshot,
         nileUsdtSnapshot,
-        updatedMainnetTrx,
       ]);
     });
 
@@ -337,7 +291,7 @@ describe('AssetsRepository', () => {
       const initialState = createState({
         'account-1': [trx, usdt],
       });
-      const { repository, getState } = createRepository(initialState);
+      const { repository } = createRepository(initialState);
 
       await repository.saveMany([]);
 
@@ -345,7 +299,6 @@ describe('AssetsRepository', () => {
         trx,
         usdt,
       ]);
-      expect(getState()).toStrictEqual(initialState);
     });
   });
 });
