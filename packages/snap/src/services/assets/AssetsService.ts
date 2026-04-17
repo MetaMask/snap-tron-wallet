@@ -1304,9 +1304,6 @@ export class AssetsService {
       );
     });
 
-    // Save assets using repository
-    await this.#assetsRepository.saveMany(assets);
-
     // Notify the extension about the new assets in a single event
     const isNew = (asset: AssetEntity): boolean =>
       !savedAssets.find(
@@ -1376,6 +1373,18 @@ export class AssetsService {
         ],
       };
     }
+
+    const savedAssetsByType = new Map<string, AssetEntity>(
+      savedAssets.map((asset) => [asset.assetType, asset]),
+    );
+    const assetsToSave = Object.values(assetListUpdatedPayload)
+      .reduce<string[]>((acc, asset) => {
+        return [...acc, ...asset.added];
+      }, [])
+      .map((assetType) => savedAssetsByType.get(assetType))
+      .filter((asset): asset is AssetEntity => asset !== undefined);
+    // Save assets using repository
+    await this.#assetsRepository.saveMany(assetsToSave);
 
     // If no assets were added or removed, don't emit the event.
     const isEmptyAccountAssetListUpdatedPayload = Object.values(

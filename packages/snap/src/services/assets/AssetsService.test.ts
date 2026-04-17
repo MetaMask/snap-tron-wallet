@@ -7,8 +7,7 @@ import type { NativeCaipAssetType, TokenCaipAssetType } from './types';
 import type { PriceApiClient } from '../../clients/price-api/PriceApiClient';
 import type { SpotPrices } from '../../clients/price-api/types';
 import type { TokenApiClient } from '../../clients/token-api/TokenApiClient';
-import type { AccountResources } from '../../clients/tron-http/structs';
-import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
+import type { AccountResources, TronHttpClient } from '../../clients/tron-http';
 import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
 import type { Trc20Balance, TronAccount } from '../../clients/trongrid/types';
 import { KnownCaip19Id, Network } from '../../constants';
@@ -269,6 +268,29 @@ async function withAssetsService<ReturnValue>(
     mockPriceApiClient,
     mockTokenApiClient,
   });
+}
+
+/**
+ * Mocks the persisted assets for the test account and asserts that `getAll`
+ * returns the expected list.
+ *
+ * @param mockState - Mocked state manager used by the AssetsService.
+ * @param assetsService - AssetsService under test.
+ * @param assets - Expected assets stored for the test account.
+ * @returns A promise that resolves once the assertion completes.
+ */
+async function expectGetAllEquality(
+  mockState: jest.Mocked<
+    Pick<State<UnencryptedStateValue>, 'getKey' | 'setKey'>
+  >,
+  assetsService: typeof AssetsService,
+  assets: AssetEntity[],
+) {
+  mockState.getKey.mockResolvedValue({
+    [mockAccount.id]: assets,
+  });
+
+  expect(await assetsService.getAll()).toStrictEqual(assets);
 }
 
 describe('AssetsService', () => {
@@ -1421,10 +1443,11 @@ describe('AssetsService', () => {
           },
         ];
 
-        mockState.getKey.mockResolvedValue({});
+        mockState.getKey.mockResolvedValue(assets);
 
         await assetsService.saveMany(assets);
 
+        await expectGetAllEquality(mockState, assetsService, assets);
         expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
           expect.anything(),
           KeyringEvent.AccountAssetListUpdated,
@@ -1476,6 +1499,9 @@ describe('AssetsService', () => {
 
         await assetsService.saveMany(assets);
 
+        await expectGetAllEquality(mockState, assetsService, [
+          assets[0] as AssetEntity,
+        ]);
         expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
           expect.anything(),
           KeyringEvent.AccountAssetListUpdated,
@@ -1528,6 +1554,7 @@ describe('AssetsService', () => {
         // - emits the event 'notify:accountBalancesUpdated' with the balance for the removed asset sets to 0
         await assetsService.saveMany(updatedAssets);
 
+        await expectGetAllEquality(mockState, assetsService, updatedAssets);
         expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
           expect.anything(),
           KeyringEvent.AccountAssetListUpdated,
@@ -1597,10 +1624,11 @@ describe('AssetsService', () => {
           },
         ];
 
-        mockState.getKey.mockResolvedValue({});
+        mockState.getKey.mockResolvedValue(assets);
 
         await assetsService.saveMany(assets);
 
+        await expectGetAllEquality(mockState, assetsService, assets);
         expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
           expect.anything(),
           KeyringEvent.AccountAssetListUpdated,
@@ -1655,10 +1683,11 @@ describe('AssetsService', () => {
           },
         ];
 
-        mockState.getKey.mockResolvedValue({});
+        mockState.getKey.mockResolvedValue(assets);
 
         await assetsService.saveMany(assets);
 
+        await expectGetAllEquality(mockState, assetsService, assets);
         expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
           expect.anything(),
           KeyringEvent.AccountAssetListUpdated,
@@ -1703,10 +1732,11 @@ describe('AssetsService', () => {
           },
         ];
 
-        mockState.getKey.mockResolvedValue({});
+        mockState.getKey.mockResolvedValue(assets);
 
         await assetsService.saveMany(assets);
 
+        await expectGetAllEquality(mockState, assetsService, assets);
         expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
           expect.anything(),
           KeyringEvent.AccountAssetListUpdated,
@@ -1780,6 +1810,7 @@ describe('AssetsService', () => {
 
           await assetsService.saveMany(updatedAssets);
 
+          await expectGetAllEquality(mockState, assetsService, updatedAssets);
           expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
             expect.anything(),
             KeyringEvent.AccountAssetListUpdated,
@@ -1852,6 +1883,7 @@ describe('AssetsService', () => {
 
           await assetsService.saveMany(updatedAssets);
 
+          await expectGetAllEquality(mockState, assetsService, updatedAssets);
           expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
             expect.anything(),
             KeyringEvent.AccountAssetListUpdated,
@@ -1926,6 +1958,7 @@ describe('AssetsService', () => {
 
           await assetsService.saveMany(updatedAssets);
 
+          await expectGetAllEquality(mockState, assetsService, updatedAssets);
           expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
             expect.anything(),
             KeyringEvent.AccountAssetListUpdated,
@@ -2040,6 +2073,7 @@ describe('AssetsService', () => {
 
           await assetsService.saveMany(updatedAssets);
 
+          await expectGetAllEquality(mockState, assetsService, updatedAssets);
           expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
             expect.anything(),
             KeyringEvent.AccountAssetListUpdated,
@@ -2114,6 +2148,7 @@ describe('AssetsService', () => {
 
           await assetsService.saveMany(updatedAssets);
 
+          await expectGetAllEquality(mockState, assetsService, updatedAssets);
           expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
             expect.anything(),
             KeyringEvent.AccountAssetListUpdated,
@@ -2188,6 +2223,7 @@ describe('AssetsService', () => {
 
           await assetsService.saveMany(updatedAssets);
 
+          await expectGetAllEquality(mockState, assetsService, updatedAssets);
           expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
             expect.anything(),
             KeyringEvent.AccountAssetListUpdated,
@@ -2279,6 +2315,7 @@ describe('AssetsService', () => {
 
           await assetsService.saveMany(updatedAssets);
 
+          await expectGetAllEquality(mockState, assetsService, updatedAssets);
           expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
             expect.anything(),
             KeyringEvent.AccountAssetListUpdated,
@@ -2372,6 +2409,7 @@ describe('AssetsService', () => {
 
           await assetsService.saveMany(updatedAssets);
 
+          await expectGetAllEquality(mockState, assetsService, updatedAssets);
           expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
             expect.anything(),
             KeyringEvent.AccountAssetListUpdated,
@@ -2444,6 +2482,7 @@ describe('AssetsService', () => {
 
           await assetsService.saveMany(updatedAssets);
 
+          await expectGetAllEquality(mockState, assetsService, updatedAssets);
           expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
             expect.anything(),
             KeyringEvent.AccountAssetListUpdated,
@@ -2516,6 +2555,7 @@ describe('AssetsService', () => {
 
           await assetsService.saveMany(updatedAssets);
 
+          await expectGetAllEquality(mockState, assetsService, updatedAssets);
           expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
             expect.anything(),
             KeyringEvent.AccountAssetListUpdated,
@@ -2608,6 +2648,7 @@ describe('AssetsService', () => {
 
           await assetsService.saveMany(updatedAssets);
 
+          await expectGetAllEquality(mockState, assetsService, updatedAssets);
           expect(emitSnapKeyringEvent).toHaveBeenCalledWith(
             expect.anything(),
             KeyringEvent.AccountAssetListUpdated,
