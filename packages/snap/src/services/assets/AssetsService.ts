@@ -1374,18 +1374,6 @@ export class AssetsService {
       };
     }
 
-    const savedAssetsByType = new Map<string, AssetEntity>(
-      savedAssets.map((asset) => [asset.assetType, asset]),
-    );
-    const assetsToSave = Object.values(assetListUpdatedPayload)
-      .reduce<string[]>((acc, asset) => {
-        return [...acc, ...asset.added];
-      }, [])
-      .map((assetType) => savedAssetsByType.get(assetType))
-      .filter((asset): asset is AssetEntity => asset !== undefined);
-    // Save assets using repository
-    await this.#assetsRepository.saveMany(assetsToSave);
-
     // If no assets were added or removed, don't emit the event.
     const isEmptyAccountAssetListUpdatedPayload = Object.values(
       assetListUpdatedPayload,
@@ -1412,10 +1400,8 @@ export class AssetsService {
       uiAmount: '0',
     }));
 
-    // Broadcast the current snapshot plus synthetic zero-balance removals so the
-    // client can reconcile both visible assets and cached balances in one pass.
-    const balancesUpdatedPayload = [...assets, ...removedAssetsWithZeroBalance]
-      .filter((asset) =>
+    const assetsToSave = [...assets, ...removedAssetsWithZeroBalance].filter(
+      (asset) =>
         isIncremental
           ? removedAssetsWithZeroBalance.some(
               (removedAsset) =>
@@ -1423,20 +1409,27 @@ export class AssetsService {
                 removedAsset.assetType === asset.assetType,
             ) || hasChanged(asset)
           : true,
-      )
-      .reduce<AccountBalancesUpdatedEvent['params']['balances']>(
-        (acc, asset) => ({
-          ...acc,
-          [asset.keyringAccountId]: {
-            ...(acc[asset.keyringAccountId] ?? {}),
-            [asset.assetType]: {
-              unit: asset.symbol,
-              amount: asset.uiAmount,
-            },
+    );
+    // Save assets using repository
+    await this.#assetsRepository.saveMany(assetsToSave);
+
+    // Broadcast the current snapshot plus synthetic zero-balance removals so the
+    // client can reconcile both visible assets and cached balances in one pass.
+    const balancesUpdatedPayload = assetsToSave.reduce<
+      AccountBalancesUpdatedEvent['params']['balances']
+    >(
+      (acc, asset) => ({
+        ...acc,
+        [asset.keyringAccountId]: {
+          ...(acc[asset.keyringAccountId] ?? {}),
+          [asset.assetType]: {
+            unit: asset.symbol,
+            amount: asset.uiAmount,
           },
-        }),
-        {},
-      );
+        },
+      }),
+      {},
+    );
 
     // Traverse the balancesUpdatedPayload object to check if we have at least 1 account that has at least 1 balance updated.
     const isSomeBalanceChanged = Object.values(balancesUpdatedPayload)
