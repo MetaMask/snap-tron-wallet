@@ -1239,41 +1239,11 @@ export class AssetsService {
   async saveMany(assets: AssetEntity[]): Promise<void> {
     this.#logger.info('Saving assets', assets);
 
-    /**
-     * Should we save the assets incrementally?
-     * - If true, only saves and emits events for the assets that have changed (new or balance changed). Better performance because it only informs the client of what has changed.
-     * - If false, saves all assets. More reliable because it enforces that the client has the same state of assets as the snap.
-     */
-    const isIncremental = false;
-
     const hasZeroAmount = (asset: AssetEntity): boolean =>
       asset.rawAmount === '0' || asset.uiAmount === '0';
 
-    const hasNonZeroAmount = (asset: AssetEntity): boolean =>
-      !hasZeroAmount(asset);
-
-    const savedAssets = await this.getAll();
-
     // Save assets using repository
     await this.#assetsRepository.saveMany(assets);
-
-    // Notify the extension about the new assets in a single event
-    const isNew = (asset: AssetEntity): boolean =>
-      !savedAssets.find(
-        (item) =>
-          item.keyringAccountId === asset.keyringAccountId &&
-          item.assetType === asset.assetType,
-      );
-
-    const wasSavedWithZeroAmount = (asset: AssetEntity): boolean => {
-      const savedAsset = savedAssets.find(
-        (item) =>
-          item.keyringAccountId === asset.keyringAccountId &&
-          item.assetType === asset.assetType,
-      );
-
-      return Boolean(savedAsset && hasZeroAmount(savedAsset));
-    };
 
     const isEssentialAsset = (asset: AssetEntity): boolean =>
       ESSENTIAL_ASSETS.includes(asset.assetType);
@@ -1282,10 +1252,7 @@ export class AssetsService {
       hasZeroAmount(asset) && !isEssentialAsset(asset); // Never remove essential assets (including energy & bandwidth) from the account asset list
 
     const shouldBeInAddedList = (asset: AssetEntity): boolean =>
-      !shouldBeInRemovedList(asset) &&
-      (!isIncremental ||
-        ((isNew(asset) || wasSavedWithZeroAmount(asset)) &&
-          hasNonZeroAmount(asset)));
+      !shouldBeInRemovedList(asset);
 
     const assetListUpdatedPayload = assets.reduce<
       AccountAssetListUpdatedEvent['params']['assets']
@@ -1319,25 +1286,21 @@ export class AssetsService {
       });
     }
 
-    // Notify the extension about the changed balances in a single event
-    const hasChanged = (asset: AssetEntity): boolean =>
-      AssetsService.hasChanged(asset, savedAssets);
-
-    const balancesUpdatedPayload = assets
-      .filter(isIncremental ? hasChanged : (): boolean => true)
-      .reduce<AccountBalancesUpdatedEvent['params']['balances']>(
-        (acc, asset) => ({
-          ...acc,
-          [asset.keyringAccountId]: {
-            ...(acc[asset.keyringAccountId] ?? {}),
-            [asset.assetType]: {
-              unit: asset.symbol,
-              amount: asset.uiAmount,
-            },
+    const balancesUpdatedPayload = assets.reduce<
+      AccountBalancesUpdatedEvent['params']['balances']
+    >(
+      (acc, asset) => ({
+        ...acc,
+        [asset.keyringAccountId]: {
+          ...(acc[asset.keyringAccountId] ?? {}),
+          [asset.assetType]: {
+            unit: asset.symbol,
+            amount: asset.uiAmount,
           },
-        }),
-        {},
-      );
+        },
+      }),
+      {},
+    );
 
     // Traverse the balancesUpdatedPayload object to check if we have at least 1 account that has at least 1 balance updated.
     const isSomeBalanceChanged = Object.values(balancesUpdatedPayload)
