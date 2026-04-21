@@ -1271,11 +1271,8 @@ export class AssetsService {
     // That prevents us from treating assets from untouched networks as disappeared.
     const syncedNetworksByAccount = assets.reduce<Record<string, Set<Network>>>(
       (acc, asset) => {
-        const accountNetworks = acc[asset.keyringAccountId] ?? new Set();
-
-        accountNetworks.add(asset.network);
-        acc[asset.keyringAccountId] = accountNetworks;
-
+        acc[asset.keyringAccountId] ??= new Set();
+        acc[asset.keyringAccountId]?.add(asset.network);
         return acc;
       },
       {},
