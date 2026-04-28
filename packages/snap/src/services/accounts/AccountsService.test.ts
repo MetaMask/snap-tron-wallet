@@ -311,12 +311,14 @@ describe('AccountsService', () => {
           });
 
           expect(result).toHaveLength(2);
-          expect(result[0]?.options).toMatchObject(
-            expect.objectContaining({ groupIndex: 0 }),
-          );
-          expect(result[1]?.options).toMatchObject(
-            expect.objectContaining({ groupIndex: 1 }),
-          );
+          expect(result[0]?.options).toMatchObject({
+            exportable: true,
+            entropy: expect.objectContaining({ groupIndex: 0 }),
+          });
+          expect(result[1]?.options).toMatchObject({
+            exportable: true,
+            entropy: expect.objectContaining({ groupIndex: 1 }),
+          });
 
           expect(mockSnapClient.getBip32Entropy).toHaveBeenCalledWith({
             entropySource: 'test-entropy',
