@@ -9,7 +9,7 @@ import { TronWeb } from 'tronweb';
 import { deriveTronAddressFromCoinTypeNodeJson } from './deriveTronFromCoinTypeNode';
 
 const TEST_MNEMONIC =
-  'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+  'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
 
 describe('deriveTronAddressFromCoinTypeNodeJson', () => {
   it('matches full-path Tron addresses for indices 0–3', async () => {

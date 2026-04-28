@@ -90,7 +90,7 @@ const MOCK_CONFIG: Config = {
  */
 async function getTronTestCoinTypeJson(): Promise<JsonBIP44Node> {
   const phrase =
-    'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+    'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
   const coinNode = await BIP44CoinTypeNode.fromDerivationPath([
     mnemonicPhraseToBytes(phrase),
     BIP44PurposeNodeToken,
