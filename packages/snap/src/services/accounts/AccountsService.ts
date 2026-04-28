@@ -334,8 +334,6 @@ export class AccountsService {
             derivationPath,
             groupIndex,
           },
-          exportable: true,
-          groupIndex,
         },
         methods: ['signMessage', 'signTransaction'],
       };
