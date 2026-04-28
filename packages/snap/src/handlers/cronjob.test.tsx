@@ -33,9 +33,11 @@ type MockSnapClient = jest.Mocked<
 /**
  * Subset of State methods exercised by `refreshConfirmationSend`.
  */
-type MockState = jest.Mocked<
-  Pick<State<UnencryptedStateValue>, 'getKey' | 'setKey'>
->;
+type MockState = {
+  getKey: jest.Mock;
+  setKey: jest.Mock;
+  setKeyWith: jest.Mock;
+};
 
 /**
  * Subset of TransactionScanService methods exercised by
@@ -197,6 +199,7 @@ function buildMockState(
 ): MockState {
   return {
     setKey: jest.fn().mockResolvedValue(undefined),
+    setKeyWith: jest.fn().mockResolvedValue(undefined),
     getKey: jest.fn().mockResolvedValue(mapInterfaceNameToId),
   };
 }
