@@ -2,6 +2,7 @@ import { FeeType } from '@metamask/keyring-api';
 import type { JsonRpcRequest } from '@metamask/snaps-sdk';
 import type { Infer } from '@metamask/superstruct';
 import { BigNumber } from 'bignumber.js';
+import { TronWeb } from 'tronweb';
 import type { Transaction, TransferContract } from 'tronweb/lib/esm/types';
 
 import { ClientRequestHandler } from './clientRequest';
@@ -128,6 +129,7 @@ describe('ClientRequestHandler', () => {
 
         mockAccountsService.deriveTronKeypair.mockResolvedValue({
           privateKeyHex: 'test-private-key',
+          address: 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx',
         } as any);
 
         const mockRawData = {
@@ -137,7 +139,9 @@ describe('ClientRequestHandler', () => {
               parameter: {
                 value: {
                   // eslint-disable-next-line @typescript-eslint/naming-convention
-                  owner_address: '41045d01eb63374da930ee0da30d58516ac14ce04c79',
+                  owner_address: TronWeb.address.toHex(
+                    'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx',
+                  ),
                 },
               },
             },
@@ -184,6 +188,56 @@ describe('ClientRequestHandler', () => {
           mockTronWeb.utils.transaction.txPbToRawDataHex,
         ).toHaveBeenCalled();
         expect(mockTronWeb.trx.sign).toHaveBeenCalled();
+      });
+
+      it('rejects signAndSendTransaction when owner_address does not match the signer', async () => {
+        const scope = Network.Mainnet;
+        const request = {
+          jsonrpc: '2.0' as const,
+          id: '1',
+          method: ClientRequestMethod.SignAndSendTransaction,
+          params: {
+            accountId: TEST_ACCOUNT_ID,
+            transaction: TEST_TRANSACTION_BASE64,
+            scope,
+            options: {
+              visible: false,
+              type: 'TriggerSmartContract',
+            },
+          },
+        };
+
+        mockAccountsService.findByIdOrThrow.mockResolvedValue({
+          id: TEST_ACCOUNT_ID,
+          address: 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx',
+          entropySource: 'test-entropy',
+          derivationPath: [],
+        } as any);
+
+        mockAccountsService.deriveTronKeypair.mockResolvedValue({
+          privateKeyHex: 'test-private-key',
+          address: 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx',
+        } as any);
+
+        mockTronWeb.utils.deserializeTx.deserializeTransaction.mockReturnValue({
+          contract: [
+            {
+              type: 'TriggerSmartContract',
+              parameter: {
+                value: {
+                  // eslint-disable-next-line @typescript-eslint/naming-convention
+                  owner_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
+                },
+              },
+            },
+          ],
+        });
+
+        await expect(
+          clientRequestHandler.handle(request as JsonRpcRequest),
+        ).rejects.toThrow(
+          `Transaction owner_address (${TronWeb.address.fromHex('41a614f803b6fd780986a42c78ec9c7f77e6ded13c')}) does not match derived signer address (TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx)`,
+        );
       });
 
       it('computes fee breakdown for TRC20 transfer transaction', async () => {
