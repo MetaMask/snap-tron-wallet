@@ -28,7 +28,7 @@ import {
   asStrictKeyringAccount,
   type TronKeyringAccount,
 } from '../../entities/keyring-account';
-import { deriveTronAddressFromCoinTypeNodeJson } from '../../utils/deriveTronFromCoinTypeNode';
+import { createTronBip44AddressDeriver } from '../../utils/deriveTronFromCoinTypeNode';
 import { sanitizeSensitiveError } from '../../utils/errors';
 import { getLowestUnusedIndex } from '../../utils/getLowestUnusedIndex';
 import { createPrefixedLogger, type ILogger } from '../../utils/logger';
@@ -298,11 +298,23 @@ export class AccountsService {
         ? { from: options.groupIndex, to: options.groupIndex }
         : options.range;
 
-    const coinTypeNodeJson = await this.#snapClient.getBip32Entropy({
-      entropySource,
-      path: ['m', "44'", "195'"],
-      curve: CURVE,
-    });
+    let needsNewAccount = false;
+    for (let groupIndex = range.from; groupIndex <= range.to; groupIndex += 1) {
+      if (!allAccounts.has(groupIndex)) {
+        needsNewAccount = true;
+        break;
+      }
+    }
+
+    const deriveTronAddress = needsNewAccount
+      ? await createTronBip44AddressDeriver(
+          (await this.#snapClient.getBip32Entropy({
+            entropySource,
+            path: ['m', "44'", "195'"],
+            curve: CURVE,
+          })) as JsonBIP44Node,
+        )
+      : undefined;
 
     const newAccounts: Record<string, TronKeyringAccount> = {};
 
@@ -314,10 +326,10 @@ export class AccountsService {
       const id = globalThis.crypto.randomUUID();
       const derivationPath =
         AccountsService.getDefaultDerivationPath(groupIndex);
-      const { address } = await deriveTronAddressFromCoinTypeNodeJson({
-        coinTypeNodeJson: coinTypeNodeJson as unknown as JsonBIP44Node,
-        addressIndex: groupIndex,
-      });
+      if (!deriveTronAddress) {
+        throw new Error('Missing Tron address deriver');
+      }
+      const { address } = await deriveTronAddress(groupIndex);
 
       const tronKeyringAccount: TronKeyringAccount = {
         id,

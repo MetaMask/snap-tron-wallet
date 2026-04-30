@@ -363,7 +363,7 @@ describe('AccountsService', () => {
       };
 
       await withAccountsService(
-        async ({ accountsService, mockAccountsRepository }) => {
+        async ({ accountsService, mockAccountsRepository, mockSnapClient }) => {
           mockAccountsRepository.getAll.mockResolvedValue([
             existing0,
             existing1,
@@ -381,6 +381,7 @@ describe('AccountsService', () => {
           expect(
             mockAccountsRepository.mergeKeyringAccounts,
           ).not.toHaveBeenCalled();
+          expect(mockSnapClient.getBip32Entropy).not.toHaveBeenCalled();
         },
         coinJson,
       );
