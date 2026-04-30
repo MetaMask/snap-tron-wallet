@@ -3,6 +3,7 @@ import {
   KeyringEvent,
   ListAccountAssetsResponseStruct,
   type Balance,
+  type CreateAccountOptions as KeyringBatchCreateAccountOptions,
   type DiscoveredAccount,
   type EntropySourceId,
   type Keyring,
@@ -172,6 +173,19 @@ export class KeyringHandler implements Keyring {
     } catch (error: any) {
       this.#logger.error({ error }, 'Error creating account');
       throw new Error(`Error creating account: ${error.message}`);
+    }
+  }
+
+  async createAccounts(
+    options: KeyringBatchCreateAccountOptions,
+  ): Promise<KeyringAccount[]> {
+    try {
+      return await this.#accountsService.createAccounts(options);
+      // TODO: Replace `any` with type
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      this.#logger.error({ error }, 'Error creating accounts');
+      throw new Error(`Error creating accounts: ${error.message}`);
     }
   }
 

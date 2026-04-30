@@ -175,6 +175,34 @@ export class State<
     });
   }
 
+  async setKeyWith<TValue extends Serializable>(
+    key: string,
+    updater: (currentValue: TValue | undefined) => TValue,
+  ): Promise<void> {
+    await this.#lock.wrapRegularStateOperation(async () => {
+      const rawValue = await snap.request({
+        method: 'snap_getState',
+        params: {
+          key,
+          encrypted: this.#config.encrypted,
+        },
+      });
+
+      const oldValue =
+        rawValue === null ? undefined : (deserialize(rawValue) as TValue);
+      const newValue = updater(oldValue);
+
+      await snap.request({
+        method: 'snap_setState',
+        params: {
+          key,
+          value: serialize(newValue),
+          encrypted: this.#config.encrypted,
+        },
+      });
+    });
+  }
+
   async update(
     updaterFunction: (state: TStateValue) => TStateValue,
   ): Promise<TStateValue> {

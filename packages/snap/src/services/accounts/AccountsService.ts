@@ -1,5 +1,16 @@
-import type { EntropySourceId, KeyringAccount } from '@metamask/keyring-api';
-import { KeyringEvent, TrxAccountType, TrxScope } from '@metamask/keyring-api';
+import type { JsonBIP44Node } from '@metamask/key-tree';
+import type {
+  CreateAccountOptions as KeyringBatchCreateAccountOptions,
+  EntropySourceId,
+  KeyringAccount,
+} from '@metamask/keyring-api';
+import {
+  AccountCreationType,
+  assertCreateAccountOptionIsSupported,
+  KeyringEvent,
+  TrxAccountType,
+  TrxScope,
+} from '@metamask/keyring-api';
 import {
   emitSnapKeyringEvent,
   getSelectedAccounts,
@@ -17,6 +28,7 @@ import {
   asStrictKeyringAccount,
   type TronKeyringAccount,
 } from '../../entities/keyring-account';
+import { createTronBip44AddressDeriver } from '../../utils/deriveTronFromCoinTypeNode';
 import { sanitizeSensitiveError } from '../../utils/errors';
 import { getLowestUnusedIndex } from '../../utils/getLowestUnusedIndex';
 import { createPrefixedLogger, type ILogger } from '../../utils/logger';
@@ -250,6 +262,112 @@ export class AccountsService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Batch-creates Tron accounts for a BIP-44 index or index range. Existing accounts for the
+   * same entropy source and index are returned without duplicate state writes.
+   *
+   * @param options - The options for the account creation.
+   * @param options.entropySource - The entropy source to use for the account creation.
+   * @param options.type - The type of account creation.
+   * @param options.groupIndex - The group index to use for the account creation.
+   * @returns The created accounts.
+   */
+  async createAccounts(
+    options: KeyringBatchCreateAccountOptions,
+  ): Promise<KeyringAccount[]> {
+    assertCreateAccountOptionIsSupported(options, [
+      `${AccountCreationType.Bip44DeriveIndex}`,
+      `${AccountCreationType.Bip44DeriveIndexRange}`,
+    ]);
+
+    const { entropySource } = options;
+
+    // Get all accounts for the same entropy source to avoid duplicate state writes
+    const allAccounts = new Map<number, TronKeyringAccount>();
+    for (const account of await this.#accountsRepository.getAll()) {
+      if (account.entropySource === entropySource) {
+        allAccounts.set(account.index, account);
+      }
+    }
+
+    // Get the range of accounts to create
+    const range =
+      options.type === AccountCreationType.Bip44DeriveIndex
+        ? { from: options.groupIndex, to: options.groupIndex }
+        : options.range;
+
+    let needsNewAccount = false;
+    for (let groupIndex = range.from; groupIndex <= range.to; groupIndex += 1) {
+      if (!allAccounts.has(groupIndex)) {
+        needsNewAccount = true;
+        break;
+      }
+    }
+
+    const deriveTronAddress = needsNewAccount
+      ? await createTronBip44AddressDeriver(
+          (await this.#snapClient.getBip32Entropy({
+            entropySource,
+            path: ['m', "44'", "195'"],
+            curve: CURVE,
+          })) as JsonBIP44Node,
+        )
+      : undefined;
+
+    const newAccounts: Record<string, TronKeyringAccount> = {};
+
+    for (let groupIndex = range.from; groupIndex <= range.to; groupIndex += 1) {
+      if (allAccounts.has(groupIndex)) {
+        continue;
+      }
+
+      const id = globalThis.crypto.randomUUID();
+      const derivationPath =
+        AccountsService.getDefaultDerivationPath(groupIndex);
+      if (!deriveTronAddress) {
+        throw new Error('Missing Tron address deriver');
+      }
+      const { address } = await deriveTronAddress(groupIndex);
+
+      const tronKeyringAccount: TronKeyringAccount = {
+        id,
+        entropySource,
+        derivationPath,
+        index: groupIndex,
+        type: TrxAccountType.Eoa,
+        address,
+        scopes: [TrxScope.Mainnet, TrxScope.Nile, TrxScope.Shasta],
+        options: {
+          entropy: {
+            type: 'mnemonic',
+            id: entropySource,
+            derivationPath,
+            groupIndex,
+          },
+          exportable: true,
+        },
+        methods: ['signMessage', 'signTransaction'],
+      };
+
+      allAccounts.set(groupIndex, tronKeyringAccount);
+      newAccounts[id] = tronKeyringAccount;
+    }
+
+    if (Object.keys(newAccounts).length > 0) {
+      await this.#accountsRepository.mergeKeyringAccounts(newAccounts);
+    }
+
+    const result: KeyringAccount[] = [];
+    for (let groupIndex = range.from; groupIndex <= range.to; groupIndex += 1) {
+      const account = allAccounts.get(groupIndex);
+      if (account) {
+        result.push(asStrictKeyringAccount(account));
+      }
+    }
+
+    return result;
   }
 
   async getAll(): Promise<TronKeyringAccount[]> {

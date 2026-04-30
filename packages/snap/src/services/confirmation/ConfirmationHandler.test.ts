@@ -164,12 +164,13 @@ async function withConfirmationHandler<ReturnValue>(
     trackTransactionRejected: jest.fn().mockResolvedValue(undefined),
   };
 
-  const mockState: jest.Mocked<
-    Pick<State<UnencryptedStateValue>, 'getKey' | 'setKey'>
-  > = {
+  const mockState = {
     getKey: jest.fn(),
     setKey: jest.fn(),
-  };
+    setKeyWith: jest.fn(),
+  } as unknown as jest.Mocked<
+    Pick<State<UnencryptedStateValue>, 'getKey' | 'setKey' | 'setKeyWith'>
+  >;
 
   const handler = new ConfirmationHandler({
     snapClient: mockSnapClient,

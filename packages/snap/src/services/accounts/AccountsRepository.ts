@@ -46,6 +46,23 @@ export class AccountsRepository {
     return account;
   }
 
+  /**
+   * Merges multiple keyring accounts into `keyringAccounts` in a single atomic state update.
+   *
+   * @param newAccounts - The new accounts to merge.
+   */
+  async mergeKeyringAccounts(
+    newAccounts: Record<string, TronKeyringAccount>,
+  ): Promise<void> {
+    await this.#state.setKeyWith<Record<string, TronKeyringAccount>>(
+      this.#storageKey,
+      (current) => ({
+        ...(current ?? {}),
+        ...newAccounts,
+      }),
+    );
+  }
+
   async delete(id: string): Promise<void> {
     await Promise.all([
       this.#state.deleteKey(`${this.#storageKey}.${id}`),

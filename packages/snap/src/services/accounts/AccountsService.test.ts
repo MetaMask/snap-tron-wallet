@@ -1,5 +1,16 @@
+import {
+  BIP44CoinTypeNode,
+  BIP44PurposeNodeToken,
+  mnemonicPhraseToBytes,
+} from '@metamask/key-tree';
+import type { JsonBIP44Node } from '@metamask/key-tree';
 import type { Transaction } from '@metamask/keyring-api';
-import { KeyringEvent, TrxAccountType, TrxScope } from '@metamask/keyring-api';
+import {
+  AccountCreationType,
+  KeyringEvent,
+  TrxAccountType,
+  TrxScope,
+} from '@metamask/keyring-api';
 import {
   emitSnapKeyringEvent,
   getSelectedAccounts,
@@ -72,6 +83,22 @@ const MOCK_CONFIG: Config = {
   tronHttpApi: { baseUrls: EMPTY_NETWORK_URLS },
 };
 
+/**
+ * Returns a mock Tron coin type JSON for testing.
+ *
+ * @returns A mock Tron coin type JSON.
+ */
+async function getTronTestCoinTypeJson(): Promise<JsonBIP44Node> {
+  const phrase =
+    'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+  const coinNode = await BIP44CoinTypeNode.fromDerivationPath([
+    mnemonicPhraseToBytes(phrase),
+    BIP44PurposeNodeToken,
+    `bip32:195'`,
+  ]);
+  return coinNode.toJSON();
+}
+
 type WithAccountsServiceCallback = (payload: {
   accountsService: AccountsService;
   mockAccountsRepository: jest.Mocked<
@@ -82,6 +109,7 @@ type WithAccountsServiceCallback = (payload: {
       | 'findByIds'
       | 'findByAddress'
       | 'create'
+      | 'mergeKeyringAccounts'
       | 'delete'
     >
   >;
@@ -103,9 +131,11 @@ type WithAccountsServiceCallback = (payload: {
  * to the test callback. Resets globals and mocks before each invocation.
  *
  * @param testFn - Callback that receives the service and mocks for testing.
+ * @param tronCoinTypeBatchJson - When set, `getBip32Entropy` returns this for `m/44'/195'` (batch path).
  */
 async function withAccountsService(
   testFn: WithAccountsServiceCallback,
+  tronCoinTypeBatchJson?: JsonBIP44Node,
 ): Promise<void> {
   Object.defineProperty(globalThis, 'snap', {
     value: { request: jest.fn() },
@@ -121,6 +151,7 @@ async function withAccountsService(
       | 'findByIds'
       | 'findByAddress'
       | 'create'
+      | 'mergeKeyringAccounts'
       | 'delete'
     >
   > = {
@@ -129,6 +160,7 @@ async function withAccountsService(
     findByIds: jest.fn().mockResolvedValue([]),
     findByAddress: jest.fn().mockResolvedValue(null),
     create: jest.fn().mockResolvedValue(undefined),
+    mergeKeyringAccounts: jest.fn().mockResolvedValue(undefined),
     delete: jest.fn().mockResolvedValue(undefined),
   };
 
@@ -139,7 +171,27 @@ async function withAccountsService(
   const mockSnapClient: jest.Mocked<
     Pick<SnapClient, 'getBip32Entropy' | 'listEntropySources'>
   > = {
-    getBip32Entropy: jest.fn().mockResolvedValue(TEST_KEY_PAIR),
+    getBip32Entropy: jest
+      .fn()
+      .mockImplementation(
+        async (params: {
+          path: string[];
+          curve: string;
+          entropySource?: string;
+        }) => {
+          if (
+            tronCoinTypeBatchJson &&
+            params.curve === 'secp256k1' &&
+            params.path.length === 3 &&
+            params.path[0] === 'm' &&
+            params.path[1] === "44'" &&
+            params.path[2] === "195'"
+          ) {
+            return Promise.resolve(tronCoinTypeBatchJson);
+          }
+          return Promise.resolve(TEST_KEY_PAIR);
+        },
+      ),
     listEntropySources: jest
       .fn()
       .mockResolvedValue([{ id: 'test-entropy', primary: true }]),
@@ -243,6 +295,96 @@ describe('AccountsService', () => {
           }),
         );
       });
+    });
+  });
+
+  describe('createAccounts', () => {
+    it('persists new accounts with a single merge and one coin-type entropy call', async () => {
+      const coinJson = await getTronTestCoinTypeJson();
+
+      await withAccountsService(
+        async ({ accountsService, mockAccountsRepository, mockSnapClient }) => {
+          const result = await accountsService.createAccounts({
+            type: AccountCreationType.Bip44DeriveIndexRange,
+            entropySource: 'test-entropy',
+            range: { from: 0, to: 1 },
+          });
+
+          expect(result).toHaveLength(2);
+          expect(result[0]?.options).toMatchObject({
+            exportable: true,
+            entropy: expect.objectContaining({ groupIndex: 0 }),
+          });
+          expect(result[1]?.options).toMatchObject({
+            exportable: true,
+            entropy: expect.objectContaining({ groupIndex: 1 }),
+          });
+
+          expect(mockSnapClient.getBip32Entropy).toHaveBeenCalledWith({
+            entropySource: 'test-entropy',
+            path: ['m', "44'", "195'"],
+            curve: 'secp256k1',
+          });
+
+          expect(
+            mockAccountsRepository.mergeKeyringAccounts,
+          ).toHaveBeenCalledTimes(1);
+          const merged = mockAccountsRepository.mergeKeyringAccounts.mock
+            .calls[0]?.[0] as Record<string, TronKeyringAccount>;
+          expect(Object.keys(merged)).toHaveLength(2);
+        },
+        coinJson,
+      );
+    });
+
+    it('does not merge when accounts already exist for the range', async () => {
+      const coinJson = await getTronTestCoinTypeJson();
+      const existing0: TronKeyringAccount = {
+        id: 'existing-0',
+        entropySource: 'test-entropy',
+        derivationPath: "m/44'/195'/0'/0/0",
+        index: 0,
+        type: TrxAccountType.Eoa,
+        address: 'TExisting0',
+        scopes: [TrxScope.Mainnet, TrxScope.Nile, TrxScope.Shasta],
+        options: {},
+        methods: ['signMessage', 'signTransaction'],
+      };
+      const existing1: TronKeyringAccount = {
+        id: 'existing-1',
+        entropySource: 'test-entropy',
+        derivationPath: "m/44'/195'/0'/0/1",
+        index: 1,
+        type: TrxAccountType.Eoa,
+        address: 'TExisting1',
+        scopes: [TrxScope.Mainnet, TrxScope.Nile, TrxScope.Shasta],
+        options: {},
+        methods: ['signMessage', 'signTransaction'],
+      };
+
+      await withAccountsService(
+        async ({ accountsService, mockAccountsRepository, mockSnapClient }) => {
+          mockAccountsRepository.getAll.mockResolvedValue([
+            existing0,
+            existing1,
+          ]);
+
+          const result = await accountsService.createAccounts({
+            type: AccountCreationType.Bip44DeriveIndexRange,
+            entropySource: 'test-entropy',
+            range: { from: 0, to: 1 },
+          });
+
+          expect(result).toHaveLength(2);
+          expect(result[0]?.id).toBe('existing-0');
+          expect(result[1]?.id).toBe('existing-1');
+          expect(
+            mockAccountsRepository.mergeKeyringAccounts,
+          ).not.toHaveBeenCalled();
+          expect(mockSnapClient.getBip32Entropy).not.toHaveBeenCalled();
+        },
+        coinJson,
+      );
     });
   });
 
