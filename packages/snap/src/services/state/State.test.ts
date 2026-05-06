@@ -10,6 +10,48 @@ const snap = {
 
 (globalThis as any).snap = snap;
 
+const flushPromises = async () => {
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  });
+};
+
+type DelayedStateRequest =
+  | {
+      method: 'snap_getState';
+      params: { key: string };
+    }
+  | {
+      method: 'snap_setState';
+      params: { key: string; value: Record<string, number> };
+    };
+
+/**
+ * Mocks state reads so tests can hold pending `snap_getState` calls.
+ *
+ * @param storedValues - Mutable backing store returned from mocked state reads.
+ * @param getResolvers - Resolver queue for delayed mocked state reads.
+ */
+function mockDelayedStateRequests(
+  storedValues: Record<string, Record<string, number>>,
+  getResolvers: (() => void)[],
+): void {
+  snap.request.mockImplementation(async (request: DelayedStateRequest) => {
+    if (request.method === 'snap_getState') {
+      await new Promise<void>((resolve) => {
+        getResolvers.push(resolve);
+      });
+      return storedValues[request.params.key] ?? null;
+    }
+
+    if (request.method === 'snap_setState') {
+      storedValues[request.params.key] = request.params.value;
+    }
+
+    return undefined;
+  });
+}
+
 type User = {
   name: string;
   age: BigNumber | bigint | number | undefined | null;
@@ -219,6 +261,50 @@ describe('State', () => {
       await state.setKeyWith('scores', updater);
 
       expect(updater).toHaveBeenCalledWith(undefined);
+    });
+
+    it('serializes concurrent read-modify-write updates', async () => {
+      const storedValues: Record<string, Record<string, number>> = {
+        scores: { alice: 10 },
+      };
+      const getResolvers: (() => void)[] = [];
+
+      mockDelayedStateRequests(storedValues, getResolvers);
+
+      const firstUpdate = state.setKeyWith<Record<string, number>>(
+        'scores',
+        (current) => ({
+          ...current,
+          bob: 20,
+        }),
+      );
+      const secondUpdate = state.setKeyWith<Record<string, number>>(
+        'scores',
+        (current) => ({
+          ...current,
+          carol: 30,
+        }),
+      );
+
+      await flushPromises();
+
+      expect(getResolvers).toHaveLength(1);
+
+      getResolvers[0]?.();
+
+      await flushPromises();
+
+      expect(getResolvers).toHaveLength(2);
+
+      getResolvers[1]?.();
+
+      await Promise.all([firstUpdate, secondUpdate]);
+
+      expect(storedValues.scores).toStrictEqual({
+        alice: 10,
+        bob: 20,
+        carol: 30,
+      });
     });
   });
 

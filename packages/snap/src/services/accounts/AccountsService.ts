@@ -42,6 +42,53 @@ import type { TransactionsService } from '../transactions/TransactionsService';
  */
 const CURVE = 'secp256k1' as const;
 
+const MAX_BIP44_ACCOUNT_INDEX = 0x7fffffff;
+
+const MAX_CREATE_ACCOUNTS_BATCH_SIZE = 100;
+
+type AccountCreationRange = {
+  from: number;
+  to: number;
+};
+
+/**
+ * Validates account creation ranges before any expensive state or entropy work.
+ *
+ * @param range - Inclusive account index range to validate.
+ */
+function validateAccountCreationRange(range: AccountCreationRange): void {
+  if (!Number.isSafeInteger(range.from) || !Number.isSafeInteger(range.to)) {
+    throw new Error('Invalid account creation range: bounds must be integers');
+  }
+
+  if (range.from < 0 || range.to < 0) {
+    throw new Error(
+      'Invalid account creation range: bounds must be non-negative',
+    );
+  }
+
+  if (
+    range.from > MAX_BIP44_ACCOUNT_INDEX ||
+    range.to > MAX_BIP44_ACCOUNT_INDEX
+  ) {
+    throw new Error(
+      `Invalid account creation range: bounds must be at most ${MAX_BIP44_ACCOUNT_INDEX}`,
+    );
+  }
+
+  if (range.from > range.to) {
+    throw new Error(
+      'Invalid account creation range: from must be less than or equal to to',
+    );
+  }
+
+  if (range.to - range.from + 1 > MAX_CREATE_ACCOUNTS_BATCH_SIZE) {
+    throw new Error(
+      `Invalid account creation range: cannot create more than ${MAX_CREATE_ACCOUNTS_BATCH_SIZE} accounts at once`,
+    );
+  }
+}
+
 export class AccountsService {
   readonly #accountsRepository: AccountsRepository;
 
@@ -284,6 +331,13 @@ export class AccountsService {
 
     const { entropySource } = options;
 
+    // Get the range of accounts to create
+    const range =
+      options.type === AccountCreationType.Bip44DeriveIndex
+        ? { from: options.groupIndex, to: options.groupIndex }
+        : options.range;
+    validateAccountCreationRange(range);
+
     // Get all accounts for the same entropy source to avoid duplicate state writes
     const allAccounts = new Map<number, TronKeyringAccount>();
     for (const account of await this.#accountsRepository.getAll()) {
@@ -291,12 +345,6 @@ export class AccountsService {
         allAccounts.set(account.index, account);
       }
     }
-
-    // Get the range of accounts to create
-    const range =
-      options.type === AccountCreationType.Bip44DeriveIndex
-        ? { from: options.groupIndex, to: options.groupIndex }
-        : options.range;
 
     let needsNewAccount = false;
     for (let groupIndex = range.from; groupIndex <= range.to; groupIndex += 1) {
@@ -317,6 +365,7 @@ export class AccountsService {
       : undefined;
 
     const newAccounts: Record<string, TronKeyringAccount> = {};
+    let newAccountCount = 0;
 
     for (let groupIndex = range.from; groupIndex <= range.to; groupIndex += 1) {
       if (allAccounts.has(groupIndex)) {
@@ -353,9 +402,10 @@ export class AccountsService {
 
       allAccounts.set(groupIndex, tronKeyringAccount);
       newAccounts[id] = tronKeyringAccount;
+      newAccountCount += 1;
     }
 
-    if (Object.keys(newAccounts).length > 0) {
+    if (newAccountCount > 0) {
       await this.#accountsRepository.mergeKeyringAccounts(newAccounts);
     }
 

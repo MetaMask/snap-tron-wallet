@@ -4,7 +4,10 @@ import {
   mnemonicPhraseToBytes,
 } from '@metamask/key-tree';
 import type { JsonBIP44Node } from '@metamask/key-tree';
-import type { Transaction } from '@metamask/keyring-api';
+import type {
+  CreateAccountOptions as KeyringBatchCreateAccountOptions,
+  Transaction,
+} from '@metamask/keyring-api';
 import {
   AccountCreationType,
   KeyringEvent,
@@ -384,6 +387,44 @@ describe('AccountsService', () => {
           expect(mockSnapClient.getBip32Entropy).not.toHaveBeenCalled();
         },
         coinJson,
+      );
+    });
+
+    it('throws before storage or entropy access when the range is invalid', async () => {
+      await withAccountsService(
+        async ({ accountsService, mockAccountsRepository, mockSnapClient }) => {
+          const invalidOptions: KeyringBatchCreateAccountOptions[] = [
+            {
+              type: AccountCreationType.Bip44DeriveIndex,
+              entropySource: 'test-entropy',
+              groupIndex: -1,
+            },
+            {
+              type: AccountCreationType.Bip44DeriveIndex,
+              entropySource: 'test-entropy',
+              groupIndex: 1.5,
+            },
+            {
+              type: AccountCreationType.Bip44DeriveIndexRange,
+              entropySource: 'test-entropy',
+              range: { from: 2, to: 1 },
+            },
+            {
+              type: AccountCreationType.Bip44DeriveIndexRange,
+              entropySource: 'test-entropy',
+              range: { from: 0, to: 100 },
+            },
+          ];
+
+          for (const options of invalidOptions) {
+            await expect(
+              accountsService.createAccounts(options),
+            ).rejects.toThrow('Invalid account creation range');
+          }
+
+          expect(mockAccountsRepository.getAll).not.toHaveBeenCalled();
+          expect(mockSnapClient.getBip32Entropy).not.toHaveBeenCalled();
+        },
       );
     });
   });

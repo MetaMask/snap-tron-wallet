@@ -52,8 +52,8 @@ export type IStateManager<TStateValue extends Record<string, Serializable>> = {
   setKey(key: string, value: any): Promise<void>;
   /**
    * Atomically reads the current value at `key`, applies `updater`, and writes the result back.
-   * Both the read and the write are protected by the same exclusive lock so no concurrent
-   * operation can interleave between them.
+   * Both the read and the write are protected by the same exclusive write lock so no
+   * concurrent state write can interleave between them.
    *
    * Prefer this over a manual `getKey` + `setKey` sequence whenever the new value depends on
    * the current one (e.g. merging objects).

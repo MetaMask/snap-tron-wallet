@@ -46,6 +46,8 @@ class StateLock {
 
   readonly #regularStateUpdateMutex = new Mutex();
 
+  readonly #regularStateWriteMutex = new Mutex();
+
   #pendingRegularStateUpdates = 0;
 
   #releaseRegularStateUpdateMutex: MutexInterface.Releaser | null = null;
@@ -81,6 +83,14 @@ class StateLock {
         this.#releaseRegularStateUpdateMutex();
       }
     }
+  }
+
+  async wrapRegularStateWriteOperation<ReturnType>(
+    callback: MutexInterface.Worker<ReturnType>,
+  ): Promise<ReturnType> {
+    return await this.#regularStateWriteMutex.runExclusive(async () =>
+      this.wrapRegularStateOperation(callback),
+    );
   }
 
   async wrapManageStateOperation<ReturnType>(
@@ -163,7 +173,7 @@ export class State<
   }
 
   async setKey(key: string, value: Serializable): Promise<void> {
-    await this.#lock.wrapRegularStateOperation(async () => {
+    await this.#lock.wrapRegularStateWriteOperation(async () => {
       await snap.request({
         method: 'snap_setState',
         params: {
@@ -179,7 +189,7 @@ export class State<
     key: string,
     updater: (currentValue: TValue | undefined) => TValue,
   ): Promise<void> {
-    await this.#lock.wrapRegularStateOperation(async () => {
+    await this.#lock.wrapRegularStateWriteOperation(async () => {
       const rawValue = await snap.request({
         method: 'snap_getState',
         params: {
