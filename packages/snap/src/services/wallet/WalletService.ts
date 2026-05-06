@@ -224,11 +224,6 @@ export class WalletService {
         rawDataHex,
       );
       assertTransactionStructure(rawData);
-      // assertTransactionSignerConsistency(
-      //   rawData,
-      //   account.address,
-      //   signerAddress,
-      // );
       assertTransactionSignerConsistency(rawData, signerAddress);
 
       const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);

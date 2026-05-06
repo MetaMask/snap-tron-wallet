@@ -235,7 +235,6 @@ export class ClientRequestHandler {
     rawDataHex = this.#setRawDataFeeLimit(tronWeb, rawData);
 
     assertTransactionStructure(rawData);
-    // assertTransactionSignerConsistency(rawData, account.address, signerAddress);
     assertTransactionSignerConsistency(rawData, signerAddress);
 
     const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);

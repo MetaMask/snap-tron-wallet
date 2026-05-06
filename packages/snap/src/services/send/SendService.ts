@@ -400,11 +400,6 @@ export class SendService {
         derivationPath: account.derivationPath,
       });
 
-    // assertTransactionSignerConsistency(
-    //   transaction.raw_data,
-    //   account.address,
-    //   signerAddress,
-    // );
     assertTransactionSignerConsistency(transaction.raw_data, signerAddress);
 
     const tronWeb = this.#tronWebFactory.createClient(scope, privateKeyHex);

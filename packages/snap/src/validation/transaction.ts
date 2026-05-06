@@ -90,30 +90,18 @@ export function extractTransactionOwnerAddress(
 }
 
 /**
- * Verifies that the derived signer address matches the persisted account and
- * the transaction sender encoded in owner_address.
+ * Verifies that the `owner_address` extracted from the transaction's `raw_data` matches the persisted account address
  *
  * @param rawData - The raw transaction data.
- // * @param expectedAccountAddress - The account address stored by the Snap.
  * @param signerAddress - The address derived from the private key used to sign.
  */
 export function assertTransactionSignerConsistency(
   rawData: Types.Transaction['raw_data'],
-  // expectedAccountAddress: string,
   signerAddress: string,
 ): void {
-  // if (expectedAccountAddress !== signerAddress) {
-  //   throw new Error(
-  //     `Resolved account address (${expectedAccountAddress}) does not match derived signer address (${signerAddress})`,
-  //   );
-  // }
-
   const transactionOwnerAddress = extractTransactionOwnerAddress(rawData);
 
   if (!transactionOwnerAddress) {
-    // throw new Error(
-    //   'Transaction is missing owner_address - cannot verify sender',
-    // );
     // eslint-disable-next-line @typescript-eslint/only-throw-error
     throw new InvalidParamsError(
       `'Transaction is missing owner_address - cannot verify sender`,
@@ -125,8 +113,5 @@ export function assertTransactionSignerConsistency(
     throw new InvalidParamsError(
       `Transaction owner_address (${transactionOwnerAddress}) does not match derived signer address (${signerAddress})`,
     );
-    // throw new Error(
-    //   `Transaction owner_address (${transactionOwnerAddress}) does not match derived signer address (${signerAddress})`,
-    // );
   }
 }
