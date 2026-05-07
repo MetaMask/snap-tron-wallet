@@ -47,7 +47,7 @@ const CURVE = 'secp256k1' as const;
 
 const MAX_BIP44_ACCOUNT_INDEX = 0x7fffffff;
 
-const MAX_CREATE_ACCOUNTS_BATCH_SIZE = 100;
+const CREATE_ACCOUNTS_BATCH_SIZE = 100;
 
 type AccountCreationRange = {
   from: number;
@@ -105,12 +105,6 @@ function validateAccountCreationRange(range: AccountCreationRange): void {
   if (range.from > range.to) {
     throw new Error(
       'Invalid account creation range: from must be less than or equal to to',
-    );
-  }
-
-  if (range.to - range.from + 1 > MAX_CREATE_ACCOUNTS_BATCH_SIZE) {
-    throw new Error(
-      `Invalid account creation range: cannot create more than ${MAX_CREATE_ACCOUNTS_BATCH_SIZE} accounts at once`,
     );
   }
 }
@@ -376,17 +370,9 @@ export class AccountsService {
     }
     logPerformance('GET_EXISTING_ACCOUNTS', getExistingAccountsStart);
 
-    let needsNewAccount = false;
-    for (let groupIndex = range.from; groupIndex <= range.to; groupIndex += 1) {
-      if (!allAccounts.has(groupIndex)) {
-        needsNewAccount = true;
-        break;
-      }
-    }
+    let deriveTronAddressPromise: Promise<TronAddressDeriver> | undefined;
 
-    let deriveTronAddress: TronAddressDeriver | undefined;
-
-    if (needsNewAccount) {
+    const createTronAddressDeriver = async (): Promise<TronAddressDeriver> => {
       const getEntropyStart = Date.now();
       const bip44Node = (await this.#snapClient.getBip32Entropy({
         entropySource,
@@ -396,58 +382,76 @@ export class AccountsService {
       logPerformance('GET_BIP32_ENTROPY', getEntropyStart);
 
       const createDeriverStart = Date.now();
-      deriveTronAddress = await createTronBip44AddressDeriver(bip44Node);
+      const tronAddressDeriver = await createTronBip44AddressDeriver(bip44Node);
       logPerformance('CREATE_TRON_BIP44_ADDRESS_DERIVER', createDeriverStart);
-    }
+      return tronAddressDeriver;
+    };
 
-    const newAccounts: Record<string, TronKeyringAccount> = {};
-    let newAccountCount = 0;
+    const getTronAddressDeriver = async (): Promise<TronAddressDeriver> => {
+      deriveTronAddressPromise ??= createTronAddressDeriver();
+      return deriveTronAddressPromise;
+    };
 
     const deriveMissingAccountsStart = Date.now();
-    for (let groupIndex = range.from; groupIndex <= range.to; groupIndex += 1) {
-      if (allAccounts.has(groupIndex)) {
-        continue;
-      }
+    for (
+      let batchStart = range.from;
+      batchStart <= range.to;
+      batchStart += CREATE_ACCOUNTS_BATCH_SIZE
+    ) {
+      const batchEnd = Math.min(
+        batchStart + CREATE_ACCOUNTS_BATCH_SIZE - 1,
+        range.to,
+      );
+      const newAccounts: Record<string, TronKeyringAccount> = {};
+      let newAccountCount = 0;
 
-      const id = globalThis.crypto.randomUUID();
-      const derivationPath =
-        AccountsService.getDefaultDerivationPath(groupIndex);
-      if (!deriveTronAddress) {
-        throw new Error('Missing Tron address deriver');
-      }
-      const { address } = await deriveTronAddress(groupIndex);
+      for (
+        let groupIndex = batchStart;
+        groupIndex <= batchEnd;
+        groupIndex += 1
+      ) {
+        if (allAccounts.has(groupIndex)) {
+          continue;
+        }
 
-      const tronKeyringAccount: TronKeyringAccount = {
-        id,
-        entropySource,
-        derivationPath,
-        index: groupIndex,
-        type: TrxAccountType.Eoa,
-        address,
-        scopes: [TrxScope.Mainnet, TrxScope.Nile, TrxScope.Shasta],
-        options: {
-          entropy: {
-            type: 'mnemonic',
-            id: entropySource,
-            derivationPath,
-            groupIndex,
+        const id = globalThis.crypto.randomUUID();
+        const derivationPath =
+          AccountsService.getDefaultDerivationPath(groupIndex);
+        const tronAddressDeriver = await getTronAddressDeriver();
+        const { address } = await tronAddressDeriver(groupIndex);
+
+        const tronKeyringAccount: TronKeyringAccount = {
+          id,
+          entropySource,
+          derivationPath,
+          index: groupIndex,
+          type: TrxAccountType.Eoa,
+          address,
+          scopes: [TrxScope.Mainnet, TrxScope.Nile, TrxScope.Shasta],
+          options: {
+            entropy: {
+              type: 'mnemonic',
+              id: entropySource,
+              derivationPath,
+              groupIndex,
+            },
+            exportable: true,
           },
-          exportable: true,
-        },
-        methods: ['signMessage', 'signTransaction'],
-      };
+          methods: ['signMessage', 'signTransaction'],
+        };
 
-      allAccounts.set(groupIndex, tronKeyringAccount);
-      newAccounts[id] = tronKeyringAccount;
-      newAccountCount += 1;
+        allAccounts.set(groupIndex, tronKeyringAccount);
+        newAccounts[id] = tronKeyringAccount;
+        newAccountCount += 1;
+      }
+
+      if (newAccountCount > 0) {
+        const mergeKeyringAccountsStart = Date.now();
+        await this.#accountsRepository.mergeKeyringAccounts(newAccounts);
+        logPerformance('MERGE_KEYRING_ACCOUNTS', mergeKeyringAccountsStart);
+      }
     }
     logPerformance('DERIVE_MISSING_ACCOUNTS', deriveMissingAccountsStart);
-
-    if (newAccountCount > 0) {
-      const mergeKeyringAccountsStart = Date.now();
-      await this.#accountsRepository.mergeKeyringAccounts(newAccounts);
-      logPerformance('MERGE_KEYRING_ACCOUNTS', mergeKeyringAccountsStart);
-    }
 
     const result: KeyringAccount[] = [];
     for (let groupIndex = range.from; groupIndex <= range.to; groupIndex += 1) {

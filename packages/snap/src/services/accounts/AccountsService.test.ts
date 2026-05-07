@@ -307,6 +307,20 @@ describe('AccountsService', () => {
 
       await withAccountsService(
         async ({ accountsService, mockAccountsRepository, mockSnapClient }) => {
+          mockAccountsRepository.getAll.mockResolvedValue([
+            {
+              id: 'other-entropy-account',
+              entropySource: 'other-entropy',
+              derivationPath: "m/44'/195'/0'/0/0",
+              index: 0,
+              type: TrxAccountType.Eoa,
+              address: 'TOtherEntropy',
+              scopes: [TrxScope.Mainnet, TrxScope.Nile, TrxScope.Shasta],
+              options: {},
+              methods: ['signMessage', 'signTransaction'],
+            },
+          ]);
+
           const result = await accountsService.createAccounts({
             type: AccountCreationType.Bip44DeriveIndexRange,
             entropySource: 'test-entropy',
@@ -335,6 +349,43 @@ describe('AccountsService', () => {
           const merged = mockAccountsRepository.mergeKeyringAccounts.mock
             .calls[0]?.[0] as Record<string, TronKeyringAccount>;
           expect(Object.keys(merged)).toHaveLength(2);
+        },
+        coinJson,
+      );
+    });
+
+    it('creates more than 100 accounts in internal batches', async () => {
+      const coinJson = await getTronTestCoinTypeJson();
+
+      await withAccountsService(
+        async ({ accountsService, mockAccountsRepository, mockSnapClient }) => {
+          const result = await accountsService.createAccounts({
+            type: AccountCreationType.Bip44DeriveIndexRange,
+            entropySource: 'test-entropy',
+            range: { from: 0, to: 100 },
+          });
+
+          expect(result).toHaveLength(101);
+          expect(result[0]?.options).toMatchObject({
+            entropy: expect.objectContaining({ groupIndex: 0 }),
+          });
+          expect(result[100]?.options).toMatchObject({
+            entropy: expect.objectContaining({ groupIndex: 100 }),
+          });
+
+          expect(mockSnapClient.getBip32Entropy).toHaveBeenCalledTimes(1);
+          expect(
+            mockAccountsRepository.mergeKeyringAccounts,
+          ).toHaveBeenCalledTimes(2);
+
+          const firstBatch = mockAccountsRepository.mergeKeyringAccounts.mock
+            .calls[0]?.[0] as Record<string, TronKeyringAccount>;
+          const secondBatch = mockAccountsRepository.mergeKeyringAccounts.mock
+            .calls[1]?.[0] as Record<string, TronKeyringAccount>;
+
+          expect(Object.keys(firstBatch)).toHaveLength(100);
+          expect(Object.keys(secondBatch)).toHaveLength(1);
+          expect(Object.values(secondBatch)[0]?.index).toBe(100);
         },
         coinJson,
       );
@@ -410,9 +461,9 @@ describe('AccountsService', () => {
               range: { from: 2, to: 1 },
             },
             {
-              type: AccountCreationType.Bip44DeriveIndexRange,
+              type: AccountCreationType.Bip44DeriveIndex,
               entropySource: 'test-entropy',
-              range: { from: 0, to: 100 },
+              groupIndex: 0x80000000,
             },
           ];
 
@@ -470,6 +521,61 @@ describe('AccountsService', () => {
             expect.objectContaining({
               account: expect.objectContaining({ id: 'test-uuid-123' }),
             }),
+          );
+        },
+      );
+    });
+
+    it('uses default entropy source and lowest unused index when options are omitted', async () => {
+      mockedEmitSnapKeyringEvent.mockResolvedValue();
+
+      const existingAccount: TronKeyringAccount = {
+        id: 'existing-default-0',
+        entropySource: 'test-entropy',
+        derivationPath: "m/44'/195'/0'/0/0",
+        index: 0,
+        type: TrxAccountType.Eoa,
+        address: 'TExistingDefault0',
+        scopes: [TrxScope.Mainnet, TrxScope.Nile, TrxScope.Shasta],
+        options: {},
+        methods: ['signMessage', 'signTransaction'],
+      };
+
+      await withAccountsService(
+        async ({ accountsService, mockAccountsRepository, mockSnapClient }) => {
+          mockAccountsRepository.getAll.mockResolvedValue([existingAccount]);
+          const deriveAccount = jest
+            .spyOn(accountsService, 'deriveAccount')
+            .mockResolvedValue({
+              id: 'default-create-id',
+              entropySource: 'test-entropy',
+              derivationPath: "m/44'/195'/0'/0/1",
+              index: 1,
+              type: TrxAccountType.Eoa,
+              address: 'TDefaultCreate1',
+              scopes: [TrxScope.Mainnet, TrxScope.Nile, TrxScope.Shasta],
+              options: {
+                entropy: {
+                  type: 'mnemonic',
+                  id: 'test-entropy',
+                  derivationPath: "m/44'/195'/0'/0/1",
+                  groupIndex: 1,
+                },
+                exportable: true,
+              },
+              methods: ['signMessage', 'signTransaction'],
+            });
+
+          const result = await accountsService.create();
+
+          expect(result.id).toBe('default-create-id');
+          expect(mockSnapClient.listEntropySources).toHaveBeenCalledTimes(1);
+          expect(deriveAccount).toHaveBeenCalledWith({
+            entropySource: 'test-entropy',
+            index: 1,
+          });
+          expect(mockAccountsRepository.create).toHaveBeenCalledWith(
+            expect.objectContaining({ id: 'default-create-id', index: 1 }),
           );
         },
       );
