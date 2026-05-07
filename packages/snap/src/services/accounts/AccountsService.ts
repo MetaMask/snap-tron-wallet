@@ -31,7 +31,10 @@ import {
 import { createTronBip44AddressDeriver } from '../../utils/deriveTronFromCoinTypeNode';
 import { sanitizeSensitiveError } from '../../utils/errors';
 import { getLowestUnusedIndex } from '../../utils/getLowestUnusedIndex';
-import { createPrefixedLogger, type ILogger } from '../../utils/logger';
+import baseLogger, {
+  createPrefixedLogger,
+  type ILogger,
+} from '../../utils/logger';
 import { DerivationPathStruct } from '../../validation/structs';
 import type { AssetsService } from '../assets/AssetsService';
 import type { ConfigProvider } from '../config';
@@ -50,6 +53,29 @@ type AccountCreationRange = {
   from: number;
   to: number;
 };
+
+type TronAddressDeriver = Awaited<
+  ReturnType<typeof createTronBip44AddressDeriver>
+>;
+
+/**
+ * Logs elapsed execution time for performance debugging.
+ *
+ * @param operation - The operation being measured.
+ * @param start - The timestamp captured before the operation started.
+ * @param end - The timestamp captured after the operation completed.
+ */
+function logPerformance(
+  operation: string,
+  start: number,
+  end = Date.now(),
+): void {
+  baseLogger.log(
+    `[PERFORMANCE DEBUG - TRON SNAP] ${operation} took ${
+      end - start
+    } ms to execute`,
+  );
+}
 
 /**
  * Validates account creation ranges before any expensive state or entropy work.
@@ -324,7 +350,7 @@ export class AccountsService {
   async createAccounts(
     options: KeyringBatchCreateAccountOptions,
   ): Promise<KeyringAccount[]> {
-    const start = Date.now();
+    const createAccountsStart = Date.now();
     assertCreateAccountOptionIsSupported(options, [
       `${AccountCreationType.Bip44DeriveIndex}`,
       `${AccountCreationType.Bip44DeriveIndexRange}`,
@@ -340,12 +366,15 @@ export class AccountsService {
     validateAccountCreationRange(range);
 
     // Get all accounts for the same entropy source to avoid duplicate state writes
+    const getExistingAccountsStart = Date.now();
     const allAccounts = new Map<number, TronKeyringAccount>();
-    for (const account of await this.#accountsRepository.getAll()) {
+    const existingAccounts = await this.#accountsRepository.getAll();
+    for (const account of existingAccounts) {
       if (account.entropySource === entropySource) {
         allAccounts.set(account.index, account);
       }
     }
+    logPerformance('GET_EXISTING_ACCOUNTS', getExistingAccountsStart);
 
     let needsNewAccount = false;
     for (let groupIndex = range.from; groupIndex <= range.to; groupIndex += 1) {
@@ -355,19 +384,26 @@ export class AccountsService {
       }
     }
 
-    const deriveTronAddress = needsNewAccount
-      ? await createTronBip44AddressDeriver(
-          (await this.#snapClient.getBip32Entropy({
-            entropySource,
-            path: ['m', "44'", "195'"],
-            curve: CURVE,
-          })) as JsonBIP44Node,
-        )
-      : undefined;
+    let deriveTronAddress: TronAddressDeriver | undefined;
+
+    if (needsNewAccount) {
+      const getEntropyStart = Date.now();
+      const bip44Node = (await this.#snapClient.getBip32Entropy({
+        entropySource,
+        path: ['m', "44'", "195'"],
+        curve: CURVE,
+      })) as JsonBIP44Node;
+      logPerformance('GET_BIP32_ENTROPY', getEntropyStart);
+
+      const createDeriverStart = Date.now();
+      deriveTronAddress = await createTronBip44AddressDeriver(bip44Node);
+      logPerformance('CREATE_TRON_BIP44_ADDRESS_DERIVER', createDeriverStart);
+    }
 
     const newAccounts: Record<string, TronKeyringAccount> = {};
     let newAccountCount = 0;
 
+    const deriveMissingAccountsStart = Date.now();
     for (let groupIndex = range.from; groupIndex <= range.to; groupIndex += 1) {
       if (allAccounts.has(groupIndex)) {
         continue;
@@ -405,9 +441,12 @@ export class AccountsService {
       newAccounts[id] = tronKeyringAccount;
       newAccountCount += 1;
     }
+    logPerformance('DERIVE_MISSING_ACCOUNTS', deriveMissingAccountsStart);
 
     if (newAccountCount > 0) {
+      const mergeKeyringAccountsStart = Date.now();
       await this.#accountsRepository.mergeKeyringAccounts(newAccounts);
+      logPerformance('MERGE_KEYRING_ACCOUNTS', mergeKeyringAccountsStart);
     }
 
     const result: KeyringAccount[] = [];
@@ -418,10 +457,7 @@ export class AccountsService {
       }
     }
 
-    const end = Date.now();
-    console.log(
-      `[PERFORMANCE DEBUG - TRON SNAP] createAccounts took ${end - start} ms to create ${result.length} accounts`,
-    );
+    logPerformance('CREATE_ACCOUNTS', createAccountsStart);
     return result;
   }
 
