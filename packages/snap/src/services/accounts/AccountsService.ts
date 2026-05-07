@@ -31,10 +31,7 @@ import {
 import { createTronBip44AddressDeriver } from '../../utils/deriveTronFromCoinTypeNode';
 import { sanitizeSensitiveError } from '../../utils/errors';
 import { getLowestUnusedIndex } from '../../utils/getLowestUnusedIndex';
-import baseLogger, {
-  createPrefixedLogger,
-  type ILogger,
-} from '../../utils/logger';
+import { createPrefixedLogger, type ILogger } from '../../utils/logger';
 import { DerivationPathStruct } from '../../validation/structs';
 import type { AssetsService } from '../assets/AssetsService';
 import type { ConfigProvider } from '../config';
@@ -70,7 +67,7 @@ function logPerformance(
   start: number,
   end = Date.now(),
 ): void {
-  baseLogger.log(
+  console.log(
     `[PERFORMANCE DEBUG - TRON SNAP] ${operation} took ${
       end - start
     } ms to execute`,
