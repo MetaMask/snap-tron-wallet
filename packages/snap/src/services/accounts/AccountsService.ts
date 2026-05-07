@@ -420,7 +420,7 @@ export class AccountsService {
 
     const end = Date.now();
     console.log(
-      `[PERFORMANCE DEBUG - BITCOIN SNAP] createAccounts took ${end - start} ms to create ${result.length} accounts`,
+      `[PERFORMANCE DEBUG - TRON SNAP] createAccounts took ${end - start} ms to create ${result.length} accounts`,
     );
     return result;
   }
