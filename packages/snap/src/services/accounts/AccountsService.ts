@@ -324,6 +324,7 @@ export class AccountsService {
   async createAccounts(
     options: KeyringBatchCreateAccountOptions,
   ): Promise<KeyringAccount[]> {
+    const start = Date.now();
     assertCreateAccountOptionIsSupported(options, [
       `${AccountCreationType.Bip44DeriveIndex}`,
       `${AccountCreationType.Bip44DeriveIndexRange}`,
@@ -417,6 +418,10 @@ export class AccountsService {
       }
     }
 
+    const end = Date.now();
+    console.log(
+      `[PERFORMANCE DEBUG - BITCOIN SNAP] createAccounts took ${end - start} ms to create ${result.length} accounts`,
+    );
     return result;
   }
 
