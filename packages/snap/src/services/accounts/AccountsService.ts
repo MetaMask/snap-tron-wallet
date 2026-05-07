@@ -78,6 +78,22 @@ function logPerformance(
 }
 
 /**
+ * Builds a stable operation name for a create-accounts index batch.
+ *
+ * @param operation - The operation being measured.
+ * @param from - The first account index in the batch.
+ * @param to - The last account index in the batch.
+ * @returns The operation name.
+ */
+function getBatchOperationName(
+  operation: string,
+  from: number,
+  to: number,
+): string {
+  return `${operation}_${from}_${to}`;
+}
+
+/**
  * Validates account creation ranges before any expensive state or entropy work.
  *
  * @param range - Inclusive account index range to validate.
@@ -357,17 +373,24 @@ export class AccountsService {
       options.type === AccountCreationType.Bip44DeriveIndex
         ? { from: options.groupIndex, to: options.groupIndex }
         : options.range;
+    const validateRangeStart = Date.now();
     validateAccountCreationRange(range);
+    logPerformance('VALIDATE_ACCOUNT_CREATION_RANGE', validateRangeStart);
 
     // Get all accounts for the same entropy source to avoid duplicate state writes
     const getExistingAccountsStart = Date.now();
-    const allAccounts = new Map<number, TronKeyringAccount>();
+    const getAllAccountsStart = Date.now();
     const existingAccounts = await this.#accountsRepository.getAll();
+    logPerformance('GET_ALL_ACCOUNTS', getAllAccountsStart);
+
+    const indexExistingAccountsStart = Date.now();
+    const allAccounts = new Map<number, TronKeyringAccount>();
     for (const account of existingAccounts) {
       if (account.entropySource === entropySource) {
         allAccounts.set(account.index, account);
       }
     }
+    logPerformance('INDEX_EXISTING_ACCOUNTS', indexExistingAccountsStart);
     logPerformance('GET_EXISTING_ACCOUNTS', getExistingAccountsStart);
 
     let deriveTronAddressPromise: Promise<TronAddressDeriver> | undefined;
@@ -405,6 +428,8 @@ export class AccountsService {
       const newAccounts: Record<string, TronKeyringAccount> = {};
       let newAccountCount = 0;
 
+      const createAccountsBatchStart = Date.now();
+      const deriveMissingAccountsBatchStart = Date.now();
       for (
         let groupIndex = batchStart;
         groupIndex <= batchEnd;
@@ -444,15 +469,36 @@ export class AccountsService {
         newAccounts[id] = tronKeyringAccount;
         newAccountCount += 1;
       }
+      logPerformance(
+        getBatchOperationName(
+          'DERIVE_MISSING_ACCOUNTS_BATCH',
+          batchStart,
+          batchEnd,
+        ),
+        deriveMissingAccountsBatchStart,
+      );
 
       if (newAccountCount > 0) {
         const mergeKeyringAccountsStart = Date.now();
         await this.#accountsRepository.mergeKeyringAccounts(newAccounts);
+        logPerformance(
+          getBatchOperationName(
+            'MERGE_KEYRING_ACCOUNTS_BATCH',
+            batchStart,
+            batchEnd,
+          ),
+          mergeKeyringAccountsStart,
+        );
         logPerformance('MERGE_KEYRING_ACCOUNTS', mergeKeyringAccountsStart);
       }
+      logPerformance(
+        getBatchOperationName('CREATE_ACCOUNTS_BATCH', batchStart, batchEnd),
+        createAccountsBatchStart,
+      );
     }
     logPerformance('DERIVE_MISSING_ACCOUNTS', deriveMissingAccountsStart);
 
+    const buildCreateAccountsResultStart = Date.now();
     const result: KeyringAccount[] = [];
     for (let groupIndex = range.from; groupIndex <= range.to; groupIndex += 1) {
       const account = allAccounts.get(groupIndex);
@@ -460,6 +506,10 @@ export class AccountsService {
         result.push(asStrictKeyringAccount(account));
       }
     }
+    logPerformance(
+      'BUILD_CREATE_ACCOUNTS_RESULT',
+      buildCreateAccountsResultStart,
+    );
 
     logPerformance('CREATE_ACCOUNTS', createAccountsStart);
     return result;
