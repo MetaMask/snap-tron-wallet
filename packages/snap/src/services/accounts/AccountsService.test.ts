@@ -111,6 +111,7 @@ type WithAccountsServiceCallback = (payload: {
       | 'findById'
       | 'findByIds'
       | 'findByAddress'
+      | 'findByEntropySourceAndRange'
       | 'create'
       | 'mergeKeyringAccounts'
       | 'delete'
@@ -153,6 +154,7 @@ async function withAccountsService(
       | 'findById'
       | 'findByIds'
       | 'findByAddress'
+      | 'findByEntropySourceAndRange'
       | 'create'
       | 'mergeKeyringAccounts'
       | 'delete'
@@ -162,6 +164,7 @@ async function withAccountsService(
     findById: jest.fn().mockResolvedValue(null),
     findByIds: jest.fn().mockResolvedValue([]),
     findByAddress: jest.fn().mockResolvedValue(null),
+    findByEntropySourceAndRange: jest.fn().mockResolvedValue([]),
     create: jest.fn().mockResolvedValue(undefined),
     mergeKeyringAccounts: jest.fn().mockResolvedValue(undefined),
     delete: jest.fn().mockResolvedValue(undefined),
@@ -307,20 +310,6 @@ describe('AccountsService', () => {
 
       await withAccountsService(
         async ({ accountsService, mockAccountsRepository, mockSnapClient }) => {
-          mockAccountsRepository.getAll.mockResolvedValue([
-            {
-              id: 'other-entropy-account',
-              entropySource: 'other-entropy',
-              derivationPath: "m/44'/195'/0'/0/0",
-              index: 0,
-              type: TrxAccountType.Eoa,
-              address: 'TOtherEntropy',
-              scopes: [TrxScope.Mainnet, TrxScope.Nile, TrxScope.Shasta],
-              options: {},
-              methods: ['signMessage', 'signTransaction'],
-            },
-          ]);
-
           const result = await accountsService.createAccounts({
             type: AccountCreationType.Bip44DeriveIndexRange,
             entropySource: 'test-entropy',
@@ -342,6 +331,10 @@ describe('AccountsService', () => {
             path: ['m', "44'", "195'"],
             curve: 'secp256k1',
           });
+          expect(
+            mockAccountsRepository.findByEntropySourceAndRange,
+          ).toHaveBeenCalledWith('test-entropy', { from: 0, to: 1 });
+          expect(mockAccountsRepository.getAll).not.toHaveBeenCalled();
 
           expect(
             mockAccountsRepository.mergeKeyringAccounts,
@@ -376,16 +369,17 @@ describe('AccountsService', () => {
           expect(mockSnapClient.getBip32Entropy).toHaveBeenCalledTimes(1);
           expect(
             mockAccountsRepository.mergeKeyringAccounts,
-          ).toHaveBeenCalledTimes(2);
+          ).toHaveBeenCalledTimes(1);
 
-          const firstBatch = mockAccountsRepository.mergeKeyringAccounts.mock
-            .calls[0]?.[0] as Record<string, TronKeyringAccount>;
-          const secondBatch = mockAccountsRepository.mergeKeyringAccounts.mock
-            .calls[1]?.[0] as Record<string, TronKeyringAccount>;
+          const mergedAccounts = mockAccountsRepository.mergeKeyringAccounts
+            .mock.calls[0]?.[0] as Record<string, TronKeyringAccount>;
 
-          expect(Object.keys(firstBatch)).toHaveLength(100);
-          expect(Object.keys(secondBatch)).toHaveLength(1);
-          expect(Object.values(secondBatch)[0]?.index).toBe(100);
+          expect(Object.keys(mergedAccounts)).toHaveLength(101);
+          expect(
+            Object.values(mergedAccounts).some(
+              (account) => account.index === 100,
+            ),
+          ).toBe(true);
         },
         coinJson,
       );
@@ -418,7 +412,7 @@ describe('AccountsService', () => {
 
       await withAccountsService(
         async ({ accountsService, mockAccountsRepository, mockSnapClient }) => {
-          mockAccountsRepository.getAll.mockResolvedValue([
+          mockAccountsRepository.findByEntropySourceAndRange.mockResolvedValue([
             existing0,
             existing1,
           ]);
@@ -474,6 +468,9 @@ describe('AccountsService', () => {
           }
 
           expect(mockAccountsRepository.getAll).not.toHaveBeenCalled();
+          expect(
+            mockAccountsRepository.findByEntropySourceAndRange,
+          ).not.toHaveBeenCalled();
           expect(mockSnapClient.getBip32Entropy).not.toHaveBeenCalled();
         },
       );

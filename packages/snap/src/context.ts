@@ -45,6 +45,7 @@ const state = new State({
   encrypted: false,
   defaultState: {
     keyringAccounts: {},
+    keyringAccountIndex: {},
     assets: {},
     tokenPrices: {},
     transactions: {},

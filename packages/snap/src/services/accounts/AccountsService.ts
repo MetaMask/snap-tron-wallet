@@ -374,18 +374,23 @@ export class AccountsService {
     validateAccountCreationRange(range);
     logPerformance('VALIDATE_ACCOUNT_CREATION_RANGE', validateRangeStart);
 
-    // Get all accounts for the same entropy source to avoid duplicate state writes
+    // Get existing accounts for the same entropy source/range to avoid duplicate state writes.
     const getExistingAccountsStart = Date.now();
-    const getAllAccountsStart = Date.now();
-    const existingAccounts = await this.#accountsRepository.getAll();
-    logPerformance('GET_ALL_ACCOUNTS', getAllAccountsStart);
+    const findExistingAccountsStart = Date.now();
+    const existingAccounts =
+      await this.#accountsRepository.findByEntropySourceAndRange(
+        entropySource,
+        range,
+      );
+    logPerformance(
+      'FIND_EXISTING_ACCOUNTS_BY_RANGE',
+      findExistingAccountsStart,
+    );
 
     const indexExistingAccountsStart = Date.now();
     const allAccounts = new Map<number, TronKeyringAccount>();
     for (const account of existingAccounts) {
-      if (account.entropySource === entropySource) {
-        allAccounts.set(account.index, account);
-      }
+      allAccounts.set(account.index, account);
     }
     logPerformance('INDEX_EXISTING_ACCOUNTS', indexExistingAccountsStart);
     logPerformance('GET_EXISTING_ACCOUNTS', getExistingAccountsStart);
@@ -413,6 +418,9 @@ export class AccountsService {
     };
 
     const deriveMissingAccountsStart = Date.now();
+    const newAccounts: Record<string, TronKeyringAccount> = {};
+    let newAccountCount = 0;
+
     for (
       let batchStart = range.from;
       batchStart <= range.to;
@@ -422,8 +430,6 @@ export class AccountsService {
         batchStart + CREATE_ACCOUNTS_BATCH_SIZE - 1,
         range.to,
       );
-      const newAccounts: Record<string, TronKeyringAccount> = {};
-      let newAccountCount = 0;
 
       const createAccountsBatchStart = Date.now();
       const deriveMissingAccountsBatchStart = Date.now();
@@ -474,26 +480,18 @@ export class AccountsService {
         ),
         deriveMissingAccountsBatchStart,
       );
-
-      if (newAccountCount > 0) {
-        const mergeKeyringAccountsStart = Date.now();
-        await this.#accountsRepository.mergeKeyringAccounts(newAccounts);
-        logPerformance(
-          getBatchOperationName(
-            'MERGE_KEYRING_ACCOUNTS_BATCH',
-            batchStart,
-            batchEnd,
-          ),
-          mergeKeyringAccountsStart,
-        );
-        logPerformance('MERGE_KEYRING_ACCOUNTS', mergeKeyringAccountsStart);
-      }
       logPerformance(
         getBatchOperationName('CREATE_ACCOUNTS_BATCH', batchStart, batchEnd),
         createAccountsBatchStart,
       );
     }
     logPerformance('DERIVE_MISSING_ACCOUNTS', deriveMissingAccountsStart);
+
+    if (newAccountCount > 0) {
+      const mergeKeyringAccountsStart = Date.now();
+      await this.#accountsRepository.mergeKeyringAccounts(newAccounts);
+      logPerformance('MERGE_KEYRING_ACCOUNTS', mergeKeyringAccountsStart);
+    }
 
     const buildCreateAccountsResultStart = Date.now();
     const result: KeyringAccount[] = [];
