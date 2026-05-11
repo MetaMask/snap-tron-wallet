@@ -16,7 +16,7 @@ import trc10TransferMock from './mocks/trongrid/account-transactions/trc10-trans
 import trc20TransferMock from './mocks/trongrid/account-transactions/trc20-transfer.json';
 import contractInfoMock from './mocks/trongrid/account-trc20-transactions/contract-info.json';
 import swapContractInfoMock from './mocks/trongrid/account-trc20-transactions/swap-contract-info.json';
-import { TransactionMapper } from './TransactionsMapper';
+import { TransactionMapper } from './TransactionMapper';
 
 describe('TransactionMapper', () => {
   const mockAccount: TronKeyringAccount = {

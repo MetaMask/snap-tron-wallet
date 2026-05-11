@@ -1,27 +1,31 @@
 import { parseCaipAssetType } from '@metamask/utils';
 import { BigNumber } from 'bignumber.js';
-import { TronWeb } from 'tronweb';
+import type { TronWeb } from 'tronweb';
 import type {
-  BroadcastReturn,
   Transaction,
   TransferAssetContract,
   TransferContract,
   TriggerSmartContract,
 } from 'tronweb/lib/esm/types';
 
-import type { FeeCalculatorService } from './FeeCalculatorService';
 import type { SendValidationResult } from './types';
-import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
 import type { Network } from '../../constants';
 import { Networks, ZERO } from '../../constants';
 import type { AssetEntity } from '../../entities/assets';
 import { SendErrorCodes } from '../../handlers/clientRequest/types';
-import { BackgroundEventMethod } from '../../handlers/cronjob';
 import { toRawAmount, trxToSun } from '../../utils/conversion';
 import { createPrefixedLogger, type ILogger } from '../../utils/logger';
+import {
+  assertTransactionOwnerAddress,
+  assertTransactionStructure,
+} from '../../validation/transaction';
 import type { AccountsService } from '../accounts/AccountsService';
 import type { AssetsService } from '../assets/AssetsService';
+import type {
+  BroadcastTransactionResult,
+  TransactionService,
+} from '../transaction';
 
 export class SendService {
   readonly #accountsService: AccountsService;
@@ -30,33 +34,28 @@ export class SendService {
 
   readonly #tronWebFactory: TronWebFactory;
 
-  readonly #feeCalculatorService: FeeCalculatorService;
+  readonly #transactionService: TransactionService;
 
   readonly #logger: ILogger;
-
-  readonly #snapClient: SnapClient;
 
   constructor({
     accountsService,
     assetsService,
     tronWebFactory,
-    feeCalculatorService,
+    transactionService,
     logger,
-    snapClient,
   }: {
     accountsService: AccountsService;
     assetsService: AssetsService;
     tronWebFactory: TronWebFactory;
-    feeCalculatorService: FeeCalculatorService;
+    transactionService: TransactionService;
     logger: ILogger;
-    snapClient: SnapClient;
   }) {
     this.#accountsService = accountsService;
     this.#assetsService = assetsService;
     this.#tronWebFactory = tronWebFactory;
-    this.#feeCalculatorService = feeCalculatorService;
+    this.#transactionService = transactionService;
     this.#logger = createPrefixedLogger(logger, '[💸 SendService]');
-    this.#snapClient = snapClient;
   }
 
   /**
@@ -102,12 +101,10 @@ export class SendService {
     /**
      * Get the user's current balances for the asset being sent and TRX (for fees).
      */
-    const [assetBalance, nativeTokenAsset, bandwidthAsset, energyAsset] =
+    const [assetBalance, nativeTokenAsset] =
       await this.#assetsService.getAssetsByAccountId(fromAccountId, [
         asset.assetType,
         nativeTokenId,
-        Networks[scope].bandwidth.id,
-        Networks[scope].energy.id,
       ]);
 
     const assetToSendBalance = assetBalance
@@ -115,12 +112,6 @@ export class SendService {
       : ZERO;
     const nativeTokenBalance = nativeTokenAsset
       ? new BigNumber(nativeTokenAsset.uiAmount)
-      : ZERO;
-    const availableBandwidth = bandwidthAsset
-      ? new BigNumber(bandwidthAsset.rawAmount)
-      : ZERO;
-    const availableEnergy = energyAsset
-      ? new BigNumber(energyAsset.rawAmount)
       : ZERO;
 
     /**
@@ -155,11 +146,10 @@ export class SendService {
      * - Energy costs (or TRX if insufficient energy)
      * - Account activation fee (1 TRX if recipient is not activated)
      */
-    const fees = await this.#feeCalculatorService.computeFee({
+    const fees = await this.#transactionService.estimateFee({
       scope,
+      accountId: fromAccountId,
       transaction,
-      availableEnergy,
-      availableBandwidth,
       feeLimit,
     });
 
@@ -296,6 +286,8 @@ export class SendService {
       account.address,
     );
     this.#setFeeLimit(tronWeb, transaction, feeLimit);
+    assertTransactionStructure(transaction.raw_data);
+    assertTransactionOwnerAddress(transaction.raw_data, account.address);
     return transaction;
   }
 
@@ -329,6 +321,8 @@ export class SendService {
       account.address,
     );
     this.#setFeeLimit(tronWeb, transaction, feeLimit);
+    assertTransactionStructure(transaction.raw_data);
+    assertTransactionOwnerAddress(transaction.raw_data, account.address);
     return transaction;
   }
 
@@ -369,36 +363,13 @@ export class SendService {
         account.address,
       );
 
+    assertTransactionStructure(contractResult.transaction.raw_data);
+    assertTransactionOwnerAddress(
+      contractResult.transaction.raw_data,
+      account.address,
+    );
+
     return contractResult.transaction;
-  }
-
-  /**
-   * Extracts the owner address (sender) from a transaction.
-   * The owner_address is stored in hex format in the transaction's raw_data.
-   *
-   * @param transaction - The transaction to extract the owner address from.
-   * @returns The owner address in base58 format, or null if not found.
-   */
-  #extractTransactionOwnerAddress(
-    transaction:
-      | Transaction<TransferContract>
-      | Transaction<TransferAssetContract>
-      | Transaction<TriggerSmartContract>,
-  ): string | null {
-    const contract = transaction.raw_data?.contract?.[0];
-    // TODO: Replace `any` with type
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ownerAddressHex = (contract?.parameter?.value as any)?.owner_address;
-
-    if (!ownerAddressHex) {
-      return null;
-    }
-
-    try {
-      return TronWeb.address.fromHex(ownerAddressHex);
-    } catch {
-      return null;
-    }
   }
 
   async signAndSendTransaction({
@@ -409,69 +380,14 @@ export class SendService {
   }: {
     scope: Network;
     fromAccountId: string;
-    transaction:
-      | Transaction<TransferContract>
-      | Transaction<TransferAssetContract>
-      | Transaction<TriggerSmartContract>;
+    transaction: Transaction;
     origin?: string;
-    // TODO: Replace `any` with type
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }): Promise<BroadcastReturn<any>> {
-    /**
-     * Validate that the fromAccountId resolves to a snap-managed account
-     * and that its address matches the transaction's owner_address.
-     */
-    const account = await this.#accountsService.findByIdOrThrow(fromAccountId);
-
-    const transactionOwnerAddress =
-      this.#extractTransactionOwnerAddress(transaction);
-
-    if (!transactionOwnerAddress) {
-      throw new Error(
-        'Transaction is missing owner_address - cannot verify sender',
-      );
-    }
-
-    if (transactionOwnerAddress !== account.address) {
-      throw new Error(
-        `Transaction owner_address (${transactionOwnerAddress}) does not match the account address (${account.address})`,
-      );
-    }
-
-    /**
-     * Derive the private key for signing
-     */
-    const { privateKeyHex } = await this.#accountsService.deriveTronKeypair({
-      entropySource: account.entropySource,
-      derivationPath: account.derivationPath,
-    });
-    const tronWeb = this.#tronWebFactory.createClient(scope, privateKeyHex);
-
-    /**
-     * Sign and send the transaction atomically after user confirmation
-     */
-    const signedTransaction = await tronWeb.trx.sign(transaction);
-    const result = await tronWeb.trx.sendRawTransaction(signedTransaction);
-
-    if (!result.result) {
-      throw new Error(`Failed to send transaction: ${result.message}`);
-    }
-
-    await this.#snapClient.trackTransactionSubmitted({
-      origin,
-      accountType: account.type,
-      chainIdCaip: scope,
-    });
-
-    await this.#snapClient.scheduleBackgroundEvent({
-      method: BackgroundEventMethod.TrackTransaction,
-      params: {
-        txId: result.txid,
-        scope,
-        accountIds: [fromAccountId],
-        attempt: 0,
-      },
-      duration: 'PT1S',
+  }): Promise<BroadcastTransactionResult['result']> {
+    const { result } = await this.#transactionService.broadcast({
+      scope,
+      accountId: fromAccountId,
+      transaction,
+      tracking: { type: 'transaction', origin },
     });
 
     return result;

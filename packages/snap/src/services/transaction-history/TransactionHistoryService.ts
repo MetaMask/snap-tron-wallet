@@ -3,8 +3,8 @@ import { KeyringEvent } from '@metamask/keyring-api';
 import { emitSnapKeyringEvent } from '@metamask/keyring-snap-sdk';
 import { groupBy } from 'lodash';
 
-import { TransactionMapper } from './TransactionsMapper';
-import type { TransactionsRepository } from './TransactionsRepository';
+import type { TransactionHistoryRepository } from './TransactionHistoryRepository';
+import { TransactionMapper } from './TransactionMapper';
 import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
 import type { TRC10TokenMetadata } from '../../clients/tron-http/types';
 import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
@@ -18,10 +18,10 @@ import type { TronKeyringAccount } from '../../entities/keyring-account';
 import type { ILogger } from '../../utils/logger';
 import { createPrefixedLogger } from '../../utils/logger';
 
-export class TransactionsService {
+export class TransactionHistoryService {
   readonly #logger: ILogger;
 
-  readonly #transactionsRepository: TransactionsRepository;
+  readonly #transactionsRepository: TransactionHistoryRepository;
 
   readonly #trongridApiClient: TrongridApiClient;
 
@@ -34,11 +34,14 @@ export class TransactionsService {
     tronHttpClient,
   }: {
     logger: ILogger;
-    transactionsRepository: TransactionsRepository;
+    transactionsRepository: TransactionHistoryRepository;
     trongridApiClient: TrongridApiClient;
     tronHttpClient: TronHttpClient;
   }) {
-    this.#logger = createPrefixedLogger(logger, '[🧾 TransactionsService]');
+    this.#logger = createPrefixedLogger(
+      logger,
+      '[🧾 TransactionHistoryService]',
+    );
     this.#transactionsRepository = transactionsRepository;
     this.#trongridApiClient = trongridApiClient;
     this.#tronHttpClient = tronHttpClient;

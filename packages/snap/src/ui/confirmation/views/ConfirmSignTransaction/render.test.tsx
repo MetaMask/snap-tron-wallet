@@ -1,5 +1,4 @@
 import type { KeyringRequest } from '@metamask/keyring-api';
-import { bytesToBase64, stringToBytes } from '@metamask/utils';
 
 import { render } from './render';
 import type { SnapClient } from '../../../../clients/snap/SnapClient';
@@ -19,21 +18,14 @@ jest.mock('../../../../context', () => ({
   default: {
     snapClient: null,
     transactionScanService: null,
+    transactionService: null,
+    priceApiClient: null,
     state: null,
   },
 }));
 
-/**
- * Helper function to convert string to base64.
- *
- * @param str - The string to convert.
- * @returns Base64 encoded string.
- */
-function toBase64(str: string): string {
-  return bytesToBase64(stringToBytes(str));
-}
-
 describe('ConfirmSignTransaction render', () => {
+  const rawDataHex = '0a0b0c';
   const mockAccount: TronKeyringAccount = {
     id: '123e4567-e89b-42d3-a456-426614174000',
     address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
@@ -87,6 +79,8 @@ describe('ConfirmSignTransaction render', () => {
 
   let mockSnapClient: jest.Mocked<SnapClient>;
   let mockTransactionScanService: jest.Mocked<TransactionScanService>;
+  let mockTransactionService: any;
+  let mockPriceApiClient: any;
 
   beforeEach(() => {
     mockSnapClient = {
@@ -107,26 +101,12 @@ describe('ConfirmSignTransaction render', () => {
       getKey: jest.fn().mockResolvedValue({}),
     } as any;
 
-    const mockAssetsService = {
-      getAssetsByAccountId: jest.fn().mockResolvedValue([
-        { rawAmount: '1000000' }, // bandwidth
-        { rawAmount: '50000' }, // energy
-      ]),
-    } as any;
-
-    const mockFeeCalculatorService = {
-      computeFee: jest.fn().mockResolvedValue([]),
-    } as any;
-
-    const mockTronWebFactory = {
-      createClient: jest.fn().mockReturnValue({
-        utils: {
-          crypto: {
-            getTransactionID: jest.fn().mockReturnValue('mock-tx-id'),
-          },
-        },
-      }),
-    } as any;
+    mockTransactionService = {
+      estimateFee: jest.fn().mockResolvedValue([]),
+    };
+    mockPriceApiClient = {
+      getMultipleSpotPrices: jest.fn().mockResolvedValue({}),
+    };
 
     // Update mocked context with our mocks
     // eslint-disable-next-line @typescript-eslint/no-require-imports, no-restricted-globals
@@ -134,14 +114,12 @@ describe('ConfirmSignTransaction render', () => {
     snapContext.snapClient = mockSnapClient;
     snapContext.transactionScanService = mockTransactionScanService;
     snapContext.state = mockState;
-    snapContext.assetsService = mockAssetsService;
-    snapContext.feeCalculatorService = mockFeeCalculatorService;
-    snapContext.tronWebFactory = mockTronWebFactory;
+    snapContext.transactionService = mockTransactionService;
+    snapContext.priceApiClient = mockPriceApiClient;
   });
 
   it('renders the confirmation dialog with security scan', async () => {
     const testOrigin = 'https://example.com';
-    const testTransaction = toBase64('mock-transaction-data');
 
     const request: KeyringRequest = {
       id: '00000000-0000-4000-8000-000000000001',
@@ -153,7 +131,7 @@ describe('ConfirmSignTransaction render', () => {
         params: {
           address: mockAccount.address,
           transaction: {
-            rawDataHex: testTransaction,
+            rawDataHex,
             type: 'TransferContract',
           },
         },
@@ -212,7 +190,7 @@ describe('ConfirmSignTransaction render', () => {
         params: {
           address: mockAccount.address,
           transaction: {
-            rawDataHex: toBase64('transaction'),
+            rawDataHex,
             type: 'TransferContract',
           },
         },
@@ -252,7 +230,7 @@ describe('ConfirmSignTransaction render', () => {
         params: {
           address: mockAccount.address,
           transaction: {
-            rawDataHex: toBase64('transaction'),
+            rawDataHex,
             type: 'TransferContract',
           },
         },
@@ -287,7 +265,7 @@ describe('ConfirmSignTransaction render', () => {
         params: {
           address: mockAccount.address,
           transaction: {
-            rawDataHex: toBase64('transaction'),
+            rawDataHex,
             type: 'TransferContract',
           },
         },
@@ -319,7 +297,7 @@ describe('ConfirmSignTransaction render', () => {
         params: {
           address: mockAccount.address,
           transaction: {
-            rawDataHex: toBase64('transaction'),
+            rawDataHex,
             type: 'TransferContract',
           },
         },
@@ -345,7 +323,7 @@ describe('ConfirmSignTransaction render', () => {
         params: {
           address: mockAccount.address,
           transaction: {
-            rawDataHex: toBase64('transaction'),
+            rawDataHex,
             type: 'TransferContract',
           },
         },
@@ -376,7 +354,7 @@ describe('ConfirmSignTransaction render', () => {
         params: {
           address: mockAccount.address,
           transaction: {
-            rawDataHex: toBase64('transaction'),
+            rawDataHex,
             type: 'TransferContract',
           },
         },
@@ -406,7 +384,7 @@ describe('ConfirmSignTransaction render', () => {
         params: {
           address: mockAccount.address,
           transaction: {
-            rawDataHex: toBase64('transaction'),
+            rawDataHex,
             type: 'TransferContract',
           },
         },
@@ -448,7 +426,7 @@ describe('ConfirmSignTransaction render', () => {
         params: {
           address: mockAccount.address,
           transaction: {
-            rawDataHex: toBase64('transaction'),
+            rawDataHex,
             type: 'TransferContract',
           },
         },

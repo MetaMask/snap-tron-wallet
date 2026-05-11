@@ -12,11 +12,11 @@ import snapContext from '../../../../context';
 import type { AssetEntity } from '../../../../entities/assets';
 import type { TronKeyringAccount } from '../../../../entities/keyring-account';
 import { BackgroundEventMethod } from '../../../../handlers/cronjob';
-import type { ComputeFeeResult } from '../../../../services/send/types';
 import type {
   State,
   UnencryptedStateValue,
 } from '../../../../services/state/State';
+import type { ComputeFeeResult } from '../../../../services/transaction/types';
 import { TRX_IMAGE_SVG } from '../../../../static/tron-logo';
 import { FetchStatus } from '../../../../types/snap';
 import { getIconUrlForKnownAsset } from '../../utils/getIconUrlForKnownAsset';

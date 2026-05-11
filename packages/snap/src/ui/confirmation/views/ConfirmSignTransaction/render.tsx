@@ -2,13 +2,12 @@ import type { KeyringRequest } from '@metamask/keyring-api';
 import type { DialogResult } from '@metamask/snaps-sdk';
 import { assert } from '@metamask/superstruct';
 import { bytesToHex, hexToBytes, sha256 } from '@metamask/utils';
-import { BigNumber } from 'bignumber.js';
 import type { Transaction } from 'tronweb/lib/esm/types';
 
 import { ConfirmSignTransaction } from './ConfirmSignTransaction';
 import { CONFIRM_SIGN_TRANSACTION_INTERFACE_NAME } from './types';
 import type { ConfirmSignTransactionContext } from './types';
-import { Network, Networks, ZERO } from '../../../../constants';
+import { Network } from '../../../../constants';
 import snapContext from '../../../../context';
 import type { TronKeyringAccount } from '../../../../entities/keyring-account';
 import { BackgroundEventMethod } from '../../../../handlers/cronjob';
@@ -82,81 +81,54 @@ export async function render(
     feesFetchStatus: FetchStatus.Initial,
   };
 
-  const { assetsService, feeCalculatorService, priceApiClient } = snapContext;
+  const { transactionService, priceApiClient } = snapContext;
 
-  // Parallelize: Get preferences + Fetch account assets
-  const [preferences, accountAssets] = await Promise.all([
-    snapClient.getPreferences().catch(() => DEFAULT_CONTEXT.preferences),
-    assetsService.getAssetsByAccountId(account.id, [
-      Networks[scope as Network].bandwidth.id,
-      Networks[scope as Network].energy.id,
-    ]),
-  ]);
+  const preferences = await snapClient
+    .getPreferences()
+    .catch(() => DEFAULT_CONTEXT.preferences);
 
   context.preferences = preferences;
 
   const { useSecurityAlerts, simulateOnChainActions, useExternalPricingData } =
     context.preferences;
 
-  // Calculate fees
-  try {
-    const [bandwidthAsset, energyAsset] = accountAssets;
+  const txID = bytesToHex(
+    await sha256(hexToBytes(transaction.rawDataHex)),
+  ).slice(2);
+  const transactionObj: Transaction = {
+    visible: true,
+    txID,
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    raw_data: rawData,
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    raw_data_hex: transaction.rawDataHex,
+  };
 
-    const availableEnergy = energyAsset
-      ? new BigNumber(energyAsset.rawAmount)
-      : ZERO;
-    const availableBandwidth = bandwidthAsset
-      ? new BigNumber(bandwidthAsset.rawAmount)
-      : ZERO;
+  const fees = await transactionService.estimateFee({
+    scope: scope as Network,
+    accountId: account.id,
+    transaction: transactionObj,
+  });
 
-    // Build transaction object from raw data
-    const txID = bytesToHex(
-      await sha256(hexToBytes(transaction.rawDataHex)),
-    ).slice(2);
+  fees.forEach((fee) => {
+    fee.asset.iconUrl = getIconUrlForKnownAsset(fee.asset.type);
+  });
 
-    const transactionObj: Transaction = {
-      visible: true,
-      txID,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      raw_data: rawData,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      raw_data_hex: transaction.rawDataHex,
-    };
+  const tokenPrices = useExternalPricingData
+    ? await priceApiClient
+        .getMultipleSpotPrices(
+          // TODO: Replace `any` with type
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          [`${scope}/slip44:195`] as any,
+          context.preferences.currency,
+        )
+        .catch(() => ({}))
+    : {};
 
-    const fees = await feeCalculatorService.computeFee({
-      scope: scope as Network,
-      transaction: transactionObj,
-      availableEnergy,
-      availableBandwidth,
-    });
-
-    // Resolve icon URLs for fee assets
-    fees.forEach((fee) => {
-      fee.asset.iconUrl = getIconUrlForKnownAsset(fee.asset.type);
-    });
-
-    // Fetch prices if enabled
-    const tokenPrices = useExternalPricingData
-      ? await priceApiClient
-          .getMultipleSpotPrices(
-            // TODO: Replace `any` with type
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            [`${scope}/slip44:195`] as any,
-            context.preferences.currency,
-          )
-          .catch(() => ({}))
-      : {};
-
-    context.fees = fees;
-    context.feesFetchStatus = FetchStatus.Fetched;
-    context.tokenPrices = tokenPrices;
-    context.tokenPricesFetchStatus = FetchStatus.Fetched;
-  } catch {
-    context.fees = [];
-    context.feesFetchStatus = FetchStatus.Error;
-    context.tokenPrices = {};
-    context.tokenPricesFetchStatus = FetchStatus.Error;
-  }
+  context.fees = fees;
+  context.feesFetchStatus = FetchStatus.Fetched;
+  context.tokenPrices = tokenPrices;
+  context.tokenPricesFetchStatus = FetchStatus.Fetched;
 
   // Create initial interface with loading state
   const id = await snapClient.createInterface(

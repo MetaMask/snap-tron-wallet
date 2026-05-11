@@ -10,7 +10,7 @@ import type { TronKeyringAccount } from '../entities/keyring-account';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { AssetsService } from '../services/assets/AssetsService';
 import type { ConfirmationHandler } from '../services/confirmation/ConfirmationHandler';
-import type { TransactionsService } from '../services/transactions/TransactionsService';
+import type { TransactionHistoryService } from '../services/transaction-history/TransactionHistoryService';
 import type { WalletService } from '../services/wallet/WalletService';
 import { mockLogger } from '../utils/mockLogger';
 
@@ -54,7 +54,7 @@ describe('KeyringHandler', () => {
   let mockSnapClient: jest.Mocked<SnapClient>;
   let mockAccountsService: jest.Mocked<AccountsService>;
   let mockAssetsService: jest.Mocked<AssetsService>;
-  let mockTransactionsService: jest.Mocked<TransactionsService>;
+  let mockTransactionHistoryService: jest.Mocked<TransactionHistoryService>;
   let mockWalletService: jest.Mocked<WalletService>;
   let mockConfirmationHandler: jest.Mocked<ConfirmationHandler>;
 
@@ -66,7 +66,7 @@ describe('KeyringHandler', () => {
       deriveAccount: jest.fn(),
     } as any;
     mockAssetsService = {} as any;
-    mockTransactionsService = {
+    mockTransactionHistoryService = {
       checkAddressActivity: jest.fn(),
     } as any;
     mockWalletService = {
@@ -83,7 +83,7 @@ describe('KeyringHandler', () => {
       snapClient: mockSnapClient,
       accountsService: mockAccountsService,
       assetsService: mockAssetsService,
-      transactionsService: mockTransactionsService,
+      transactionsService: mockTransactionHistoryService,
       walletService: mockWalletService,
       confirmationHandler: mockConfirmationHandler,
     });
@@ -497,12 +497,12 @@ describe('KeyringHandler', () => {
         .mockImplementation()
         .mockResolvedValue(mockDerivedAccount);
       jest
-        .spyOn(mockTransactionsService, 'checkAddressActivity')
+        .spyOn(mockTransactionHistoryService, 'checkAddressActivity')
         .mockImplementation();
     });
 
     it('returns empty array if there is no activity on any of the scopes', async () => {
-      mockTransactionsService.checkAddressActivity
+      mockTransactionHistoryService.checkAddressActivity
         .mockResolvedValueOnce(false)
         .mockResolvedValueOnce(false);
 
@@ -520,7 +520,7 @@ describe('KeyringHandler', () => {
     });
 
     it('returns discovered accounts when there is activity on any scope', async () => {
-      mockTransactionsService.checkAddressActivity
+      mockTransactionHistoryService.checkAddressActivity
         .mockResolvedValueOnce(false)
         .mockResolvedValueOnce(true);
 
@@ -540,7 +540,7 @@ describe('KeyringHandler', () => {
     });
 
     it('throws error if there is an error fetching transactions', async () => {
-      mockTransactionsService.checkAddressActivity.mockRejectedValue(
+      mockTransactionHistoryService.checkAddressActivity.mockRejectedValue(
         new Error('Network error'),
       );
 
@@ -554,7 +554,7 @@ describe('KeyringHandler', () => {
         keyringHandler.discoverAccounts?.([], 'test', 0),
       ).rejects.toThrow('Expected a nonempty array but received an empty one');
       expect(
-        mockTransactionsService.checkAddressActivity,
+        mockTransactionHistoryService.checkAddressActivity,
       ).not.toHaveBeenCalled();
     });
 
@@ -567,7 +567,7 @@ describe('KeyringHandler', () => {
         ),
       ).rejects.toThrow(/Expected one of/u);
       expect(
-        mockTransactionsService.checkAddressActivity,
+        mockTransactionHistoryService.checkAddressActivity,
       ).not.toHaveBeenCalled();
     });
 
@@ -578,7 +578,7 @@ describe('KeyringHandler', () => {
         'Expected a number greater than or equal to 0 but received `-1`',
       );
       expect(
-        mockTransactionsService.checkAddressActivity,
+        mockTransactionHistoryService.checkAddressActivity,
       ).not.toHaveBeenCalled();
     });
   });

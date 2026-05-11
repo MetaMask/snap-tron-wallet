@@ -1,6 +1,6 @@
 import { InvalidParamsError } from '@metamask/snaps-sdk';
 import { assert, define, is } from '@metamask/superstruct';
-import type { Types } from 'tronweb';
+import { TronWeb, type Types } from 'tronweb';
 
 /**
  * Superstruct validator for Tron transaction raw data.
@@ -62,5 +62,70 @@ export function assertTransactionStructure(
       error instanceof Error ? error.message : 'Unknown validation error';
     // eslint-disable-next-line @typescript-eslint/only-throw-error
     throw new InvalidParamsError(`Malformed transaction: ${message}`);
+  }
+}
+
+/**
+ * Extracts the owner address (sender) from transaction raw data.
+ *
+ * Tron transactions normally store `owner_address` as a hexadecimal address.
+ * Some tests and builder mocks use base58 directly, so this accepts either
+ * representation and normalizes hex addresses to base58.
+ *
+ * @param rawData - The raw transaction data.
+ * @returns The owner address in base58 format, or null if not found.
+ */
+export function getTransactionOwnerAddress(
+  rawData: Types.Transaction['raw_data'],
+): string | null {
+  const contract = rawData?.contract?.[0];
+  const value = contract?.parameter?.value as
+    | {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        owner_address?: unknown;
+      }
+    | undefined;
+  const ownerAddress = value?.owner_address;
+
+  if (typeof ownerAddress !== 'string' || ownerAddress.length === 0) {
+    return null;
+  }
+
+  if (ownerAddress.startsWith('T')) {
+    return ownerAddress;
+  }
+
+  try {
+    return TronWeb.address.fromHex(ownerAddress);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Asserts that the raw transaction belongs to the account that will sign it.
+ *
+ * @param rawData - The raw transaction data.
+ * @param accountAddress - The expected signing account address in base58.
+ * @throws {InvalidParamsError} If the owner address is missing or mismatched.
+ */
+export function assertTransactionOwnerAddress(
+  rawData: Types.Transaction['raw_data'],
+  accountAddress: string,
+): void {
+  const transactionOwnerAddress = getTransactionOwnerAddress(rawData);
+
+  if (!transactionOwnerAddress) {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
+    throw new InvalidParamsError(
+      'Transaction is missing owner_address - cannot verify sender',
+    );
+  }
+
+  if (transactionOwnerAddress !== accountAddress) {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
+    throw new InvalidParamsError(
+      `Transaction owner_address (${transactionOwnerAddress}) does not match the account address (${accountAddress})`,
+    );
   }
 }

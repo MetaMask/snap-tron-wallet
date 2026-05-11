@@ -1,43 +1,99 @@
 import { parseCaipAssetType } from '@metamask/utils';
 import { BigNumber } from 'bignumber.js';
-import type { Resource } from 'tronweb/lib/esm/types';
+import type { Resource, Transaction } from 'tronweb/lib/esm/types';
 
-import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
 import type { Network } from '../../constants';
 import { CONSENSYS_SR_NODE_ADDRESS, KnownCaip19Id } from '../../constants';
 import type { TronKeyringAccount } from '../../entities/keyring-account';
 import { trxToSun } from '../../utils/conversion';
-import { executeOnChainActions } from '../../utils/executeOnChainActions';
 import type { ILogger } from '../../utils/logger';
 import { createPrefixedLogger } from '../../utils/logger';
-import type { AccountsService } from '../accounts/AccountsService';
 import type { NativeCaipAssetType, StakedCaipAssetType } from '../assets/types';
+import type { ComputeFeeResult, TransactionService } from '../transaction';
 
 export class StakingService {
   readonly #logger: ILogger;
 
-  readonly #accountsService: AccountsService;
-
   readonly #tronWebFactory: TronWebFactory;
 
-  readonly #snapClient: SnapClient;
+  readonly #transactionService: TransactionService;
 
   constructor({
     logger,
-    accountsService,
     tronWebFactory,
-    snapClient,
+    transactionService,
   }: {
     logger: ILogger;
-    accountsService: AccountsService;
     tronWebFactory: TronWebFactory;
-    snapClient: SnapClient;
+    transactionService: TransactionService;
   }) {
     this.#logger = createPrefixedLogger(logger, '[💸 StakingService]');
-    this.#accountsService = accountsService;
     this.#tronWebFactory = tronWebFactory;
-    this.#snapClient = snapClient;
+    this.#transactionService = transactionService;
+  }
+
+  async buildStakeTransactions({
+    account,
+    assetId,
+    amount,
+    purpose,
+    srNodeAddress,
+  }: {
+    account: TronKeyringAccount;
+    assetId: NativeCaipAssetType;
+    amount: BigNumber;
+    purpose: 'BANDWIDTH' | 'ENERGY';
+    srNodeAddress?: string;
+  }): Promise<Transaction[]> {
+    const { chainId } = parseCaipAssetType(assetId);
+    const amountInSun = Number(trxToSun(amount));
+    const availableVotes = amount.integerValue(BigNumber.ROUND_DOWN).toNumber();
+    const voteRecipient = srNodeAddress ?? CONSENSYS_SR_NODE_ADDRESS;
+    const tronWeb = this.#tronWebFactory.createClient(chainId as Network);
+
+    return [
+      await tronWeb.transactionBuilder.freezeBalanceV2(
+        amountInSun,
+        purpose,
+        account.address,
+      ),
+      await tronWeb.transactionBuilder.vote(
+        { [voteRecipient]: availableVotes },
+        account.address,
+      ),
+    ];
+  }
+
+  async estimateStakeFee({
+    account,
+    assetId,
+    amount,
+    purpose,
+    srNodeAddress,
+  }: {
+    account: TronKeyringAccount;
+    assetId: NativeCaipAssetType;
+    amount: BigNumber;
+    purpose: 'BANDWIDTH' | 'ENERGY';
+    srNodeAddress?: string;
+  }): Promise<ComputeFeeResult> {
+    const { chainId } = parseCaipAssetType(assetId);
+    const transactions = await this.buildStakeTransactions({
+      account,
+      assetId,
+      amount,
+      purpose,
+      srNodeAddress,
+    });
+
+    const feeResults = await this.#transactionService.estimateFees({
+      scope: chainId as Network,
+      accountId: account.id,
+      transactions,
+    });
+
+    return this.#mergeFeeResults(feeResults);
   }
 
   async stake({
@@ -58,32 +114,48 @@ export class StakingService {
     srNodeAddress?: string;
   }): Promise<void> {
     const { chainId } = parseCaipAssetType(assetId);
-    const amountInSun = Number(trxToSun(amount));
-    const availableVotes = amount.integerValue(BigNumber.ROUND_DOWN).toNumber();
-    const voteRecipient = srNodeAddress ?? CONSENSYS_SR_NODE_ADDRESS;
 
     this.#logger.info(
       `Staking ${amount.toString()} ${assetId} for ${purpose} for ${account.address} on ${chainId}...`,
     );
 
-    await executeOnChainActions({
-      accountsService: this.#accountsService,
-      tronWebFactory: this.#tronWebFactory,
-      snapClient: this.#snapClient,
+    const transactions = await this.buildStakeTransactions({
       account,
-      scope: chainId as Network,
-      buildTransactions: async (tronWeb) => [
-        await tronWeb.transactionBuilder.freezeBalanceV2(
-          amountInSun,
-          purpose,
-          account.address,
-        ),
-        await tronWeb.transactionBuilder.vote(
-          { [voteRecipient]: availableVotes },
-          account.address,
-        ),
-      ],
+      assetId,
+      amount,
+      purpose,
+      srNodeAddress,
     });
+
+    await this.#transactionService.broadcastMany({
+      scope: chainId as Network,
+      accountId: account.id,
+      transactions,
+      tracking: { type: 'accountSync' },
+    });
+  }
+
+  async buildUnstakeTransactions({
+    account,
+    assetId,
+    amount,
+  }: {
+    account: TronKeyringAccount;
+    assetId: StakedCaipAssetType;
+    amount: BigNumber;
+  }): Promise<Transaction[]> {
+    const { chainId } = parseCaipAssetType(assetId);
+    const purpose = this.#getPurposeFromStakedAssetId(assetId);
+    const amountInSun = Number(trxToSun(amount));
+    const tronWeb = this.#tronWebFactory.createClient(chainId as Network);
+
+    return [
+      await tronWeb.transactionBuilder.unfreezeBalanceV2(
+        amountInSun,
+        purpose,
+        account.address,
+      ),
+    ];
   }
 
   async unstake({
@@ -97,55 +169,36 @@ export class StakingService {
   }): Promise<void> {
     const { chainId } = parseCaipAssetType(assetId);
 
-    /**
-     * Check which resource we are unstaking.
-     */
-    let purpose: Resource | undefined;
-
-    if (
-      [
-        KnownCaip19Id.TrxStakedForBandwidthMainnet,
-        KnownCaip19Id.TrxStakedForBandwidthNile,
-        KnownCaip19Id.TrxStakedForBandwidthShasta,
-      ].includes(assetId as KnownCaip19Id)
-    ) {
-      purpose = 'BANDWIDTH';
-    }
-
-    if (
-      [
-        KnownCaip19Id.TrxStakedForEnergyMainnet,
-        KnownCaip19Id.TrxStakedForEnergyNile,
-        KnownCaip19Id.TrxStakedForEnergyShasta,
-      ].includes(assetId as KnownCaip19Id)
-    ) {
-      purpose = 'ENERGY';
-    }
-
-    if (!purpose) {
-      throw new Error('Invalid asset ID');
-    }
-
-    const amountInSun = Number(trxToSun(amount));
-
     this.#logger.info(
       `Unstaking ${amount.toString()} ${assetId} for ${account.address} on ${chainId}...`,
     );
 
-    await executeOnChainActions({
-      accountsService: this.#accountsService,
-      tronWebFactory: this.#tronWebFactory,
-      snapClient: this.#snapClient,
+    const transactions = await this.buildUnstakeTransactions({
       account,
-      scope: chainId as Network,
-      buildTransactions: async (tronWeb) => [
-        await tronWeb.transactionBuilder.unfreezeBalanceV2(
-          amountInSun,
-          purpose,
-          account.address,
-        ),
-      ],
+      assetId,
+      amount,
     });
+
+    await this.#transactionService.broadcastMany({
+      scope: chainId as Network,
+      accountId: account.id,
+      transactions,
+      tracking: { type: 'accountSync' },
+    });
+  }
+
+  async buildClaimUnstakedTrxTransactions({
+    account,
+    scope,
+  }: {
+    account: TronKeyringAccount;
+    scope: Network;
+  }): Promise<Transaction[]> {
+    const tronWeb = this.#tronWebFactory.createClient(scope);
+
+    return [
+      await tronWeb.transactionBuilder.withdrawExpireUnfreeze(account.address),
+    ];
   }
 
   async claimUnstakedTrx({
@@ -159,18 +212,31 @@ export class StakingService {
       `Claiming unstaked TRX for ${account.address} on ${scope}...`,
     );
 
-    await executeOnChainActions({
-      accountsService: this.#accountsService,
-      tronWebFactory: this.#tronWebFactory,
-      snapClient: this.#snapClient,
+    const transactions = await this.buildClaimUnstakedTrxTransactions({
       account,
       scope,
-      buildTransactions: async (tronWeb) => [
-        await tronWeb.transactionBuilder.withdrawExpireUnfreeze(
-          account.address,
-        ),
-      ],
     });
+
+    await this.#transactionService.broadcastMany({
+      scope,
+      accountId: account.id,
+      transactions,
+      tracking: { type: 'accountSync' },
+    });
+  }
+
+  async buildClaimTrxStakingRewardsTransactions({
+    account,
+    scope,
+  }: {
+    account: TronKeyringAccount;
+    scope: Network;
+  }): Promise<Transaction[]> {
+    const tronWeb = this.#tronWebFactory.createClient(scope);
+
+    return [
+      await tronWeb.transactionBuilder.withdrawBlockRewards(account.address),
+    ];
   }
 
   async claimTrxStakingRewards({
@@ -184,15 +250,64 @@ export class StakingService {
       `Claiming staking rewards for ${account.address} on ${scope}...`,
     );
 
-    await executeOnChainActions({
-      accountsService: this.#accountsService,
-      tronWebFactory: this.#tronWebFactory,
-      snapClient: this.#snapClient,
+    const transactions = await this.buildClaimTrxStakingRewardsTransactions({
       account,
       scope,
-      buildTransactions: async (tronWeb) => [
-        await tronWeb.transactionBuilder.withdrawBlockRewards(account.address),
-      ],
     });
+
+    await this.#transactionService.broadcastMany({
+      scope,
+      accountId: account.id,
+      transactions,
+      tracking: { type: 'accountSync' },
+    });
+  }
+
+  #getPurposeFromStakedAssetId(assetId: StakedCaipAssetType): Resource {
+    if (
+      [
+        KnownCaip19Id.TrxStakedForBandwidthMainnet,
+        KnownCaip19Id.TrxStakedForBandwidthNile,
+        KnownCaip19Id.TrxStakedForBandwidthShasta,
+      ].includes(assetId as KnownCaip19Id)
+    ) {
+      return 'BANDWIDTH';
+    }
+
+    if (
+      [
+        KnownCaip19Id.TrxStakedForEnergyMainnet,
+        KnownCaip19Id.TrxStakedForEnergyNile,
+        KnownCaip19Id.TrxStakedForEnergyShasta,
+      ].includes(assetId as KnownCaip19Id)
+    ) {
+      return 'ENERGY';
+    }
+
+    throw new Error('Invalid asset ID');
+  }
+
+  #mergeFeeResults(feeResults: ComputeFeeResult[]): ComputeFeeResult {
+    const feesByAssetType = new Map<string, ComputeFeeResult[number]>();
+
+    for (const fees of feeResults) {
+      for (const fee of fees) {
+        const existingFee = feesByAssetType.get(fee.asset.type);
+
+        if (!existingFee) {
+          feesByAssetType.set(fee.asset.type, {
+            ...fee,
+            asset: { ...fee.asset },
+          });
+          continue;
+        }
+
+        existingFee.asset.amount = BigNumber(existingFee.asset.amount)
+          .plus(fee.asset.amount)
+          .toString();
+      }
+    }
+
+    return [...feesByAssetType.values()];
   }
 }

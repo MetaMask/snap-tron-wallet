@@ -19,14 +19,19 @@ import { AssetsRepository } from './services/assets/AssetsRepository';
 import { AssetsService } from './services/assets/AssetsService';
 import { ConfigProvider } from './services/config';
 import { ConfirmationHandler } from './services/confirmation/ConfirmationHandler';
-import { FeeCalculatorService } from './services/send/FeeCalculatorService';
 import { SendService } from './services/send/SendService';
 import { StakingService } from './services/staking/StakingService';
 import type { UnencryptedStateValue } from './services/state/State';
 import { State } from './services/state/State';
+import {
+  RawTransactionParser,
+  TransactionBroadcaster,
+  TransactionFeeEstimator,
+  TransactionService,
+} from './services/transaction';
+import { TransactionHistoryRepository } from './services/transaction-history/TransactionHistoryRepository';
+import { TransactionHistoryService } from './services/transaction-history/TransactionHistoryService';
 import { TransactionScanService } from './services/transaction-scan/TransactionScanService';
-import { TransactionsRepository } from './services/transactions/TransactionsRepository';
-import { TransactionsService } from './services/transactions/TransactionsService';
 import { WalletService } from './services/wallet/WalletService';
 import logger, { noOpLogger } from './utils/logger';
 
@@ -35,8 +40,8 @@ import logger, { noOpLogger } from './utils/logger';
  *
  * Dependency injection order:
  * 1. Core services (ConfigProvider, State, Connection)
- * 2. Repositories (AssetsRepository, TransactionsRepository, AccountsRepository)
- * 3. Business services (AssetsService, TransactionsService, AccountsService)
+ * 2. Repositories (AssetsRepository, TransactionHistoryRepository, AccountsRepository)
+ * 3. Business services (AssetsService, TransactionHistoryService, AccountsService)
  * 4. Handlers (AssetsHandler, CronHandler, KeyringHandler, RpcHandler, UserInputHandler)
  */
 export const configProvider = new ConfigProvider();
@@ -57,7 +62,7 @@ const snapClient = new SnapClient();
 // Repositories - depend on State
 const accountsRepository = new AccountsRepository(state);
 const assetsRepository = new AssetsRepository(state);
-const transactionsRepository = new TransactionsRepository(state);
+const transactionsRepository = new TransactionHistoryRepository(state);
 
 // Clients
 const tronHttpClient = new TronHttpClient({ configProvider });
@@ -98,7 +103,7 @@ const assetsService = new AssetsService({
   tokenApiClient,
 });
 
-const transactionsService = new TransactionsService({
+const transactionsService = new TransactionHistoryService({
   logger,
   transactionsRepository,
   trongridApiClient,
@@ -114,26 +119,43 @@ const accountsService = new AccountsService({
   transactionsService,
 });
 
-const feeCalculatorService = new FeeCalculatorService({
+const transactionFeeEstimator = new TransactionFeeEstimator({
   logger,
   trongridApiClient,
   tronHttpClient,
 });
 
+const rawTransactionParser = new RawTransactionParser({
+  tronWebFactory,
+});
+
+const transactionBroadcaster = new TransactionBroadcaster({
+  accountsService,
+  tronWebFactory,
+  snapClient,
+});
+
+const transactionService = new TransactionService({
+  rawTransactionParser,
+  transactionFeeEstimator,
+  transactionBroadcaster,
+  accountsService,
+  assetsService,
+  snapClient,
+});
+
 const sendService = new SendService({
   logger,
-  snapClient,
   accountsService,
   assetsService,
   tronWebFactory,
-  feeCalculatorService,
+  transactionService,
 });
 
 const stakingService = new StakingService({
   logger,
-  snapClient,
-  accountsService,
   tronWebFactory,
+  transactionService,
 });
 
 const walletService = new WalletService({
@@ -152,8 +174,6 @@ const confirmationHandler = new ConfirmationHandler({
   snapClient,
   state,
   tronWebFactory,
-  assetsService,
-  feeCalculatorService,
 });
 
 /**
@@ -170,7 +190,7 @@ const clientRequestHandler = new ClientRequestHandler({
   assetsService,
   sendService,
   tronWebFactory,
-  feeCalculatorService,
+  transactionService,
   stakingService,
   confirmationHandler,
   transactionsService,
@@ -211,10 +231,10 @@ export type SnapExecutionContext = {
    */
   state: State<UnencryptedStateValue>;
   priceApiClient: PriceApiClient;
-  feeCalculatorService: FeeCalculatorService;
+  transactionService: TransactionService;
   assetsService: AssetsService;
   accountsService: AccountsService;
-  transactionsService: TransactionsService;
+  transactionsService: TransactionHistoryService;
   sendService: SendService;
   walletService: WalletService;
   tronHttpClient: TronHttpClient;
@@ -242,7 +262,7 @@ const snapContext: SnapExecutionContext = {
    */
   state,
   priceApiClient,
-  feeCalculatorService,
+  transactionService,
   assetsService,
   accountsService,
   transactionsService,

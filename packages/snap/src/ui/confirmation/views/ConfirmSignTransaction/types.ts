@@ -1,7 +1,7 @@
 import type { SpotPrices } from '../../../../clients/price-api/types';
 import type { Network } from '../../../../constants';
 import type { TronKeyringAccount } from '../../../../entities/keyring-account';
-import type { ComputeFeeResult } from '../../../../services/send/types';
+import type { ComputeFeeResult } from '../../../../services/transaction/types';
 import type { TransactionScanResult } from '../../../../services/transaction-scan/types';
 import type { FetchStatus, Preferences } from '../../../../types/snap';
 

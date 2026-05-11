@@ -23,7 +23,7 @@ import { createPrefixedLogger, type ILogger } from '../../utils/logger';
 import { DerivationPathStruct } from '../../validation/structs';
 import type { AssetsService } from '../assets/AssetsService';
 import type { ConfigProvider } from '../config';
-import type { TransactionsService } from '../transactions/TransactionsService';
+import type { TransactionHistoryService } from '../transaction-history/TransactionHistoryService';
 
 /**
  * Elliptic curve for TRON (same as Ethereum)
@@ -39,7 +39,7 @@ export class AccountsService {
 
   readonly #assetsService: AssetsService;
 
-  readonly #transactionsService: TransactionsService;
+  readonly #transactionsService: TransactionHistoryService;
 
   readonly #snapClient: SnapClient;
 
@@ -56,7 +56,7 @@ export class AccountsService {
     logger: ILogger;
     assetsService: AssetsService;
     snapClient: SnapClient;
-    transactionsService: TransactionsService;
+    transactionsService: TransactionHistoryService;
   }) {
     this.#logger = createPrefixedLogger(logger, '[🔑 AccountsService]');
     this.#configProvider = configProvider;

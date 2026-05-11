@@ -115,7 +115,7 @@ const ZERO_ENERGY_SYSTEM_CONTRACTS = new Set([
   'ShieldedTransferContract',
 ]);
 
-export class FeeCalculatorService {
+export class TransactionFeeEstimator {
   readonly #logger: ILogger;
 
   readonly #trongridApiClient: TrongridApiClient;
@@ -131,7 +131,7 @@ export class FeeCalculatorService {
     trongridApiClient: TrongridApiClient;
     tronHttpClient: TronHttpClient;
   }) {
-    this.#logger = createPrefixedLogger(logger, '[💸 FeeCalculatorService]');
+    this.#logger = createPrefixedLogger(logger, '[💸 TransactionFeeEstimator]');
     this.#trongridApiClient = trongridApiClient;
     this.#tronHttpClient = tronHttpClient;
   }

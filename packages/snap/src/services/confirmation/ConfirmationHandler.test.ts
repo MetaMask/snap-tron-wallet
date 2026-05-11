@@ -1,17 +1,14 @@
 import { FeeType } from '@metamask/keyring-api';
-import { BigNumber } from 'bignumber.js';
 
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
-import { KnownCaip19Id, Network, Networks, ZERO } from '../../constants';
-import type { AssetEntity, ResourceAsset } from '../../entities/assets';
+import { Network } from '../../constants';
+import type { AssetEntity } from '../../entities/assets';
 import type { TronKeyringAccount } from '../../entities/keyring-account';
 import { getIconUrlForKnownAsset } from '../../ui/confirmation/utils/getIconUrlForKnownAsset';
 import { render as renderConfirmTransactionRequest } from '../../ui/confirmation/views/ConfirmTransactionRequest/render';
-import type { AssetsService } from '../assets/AssetsService';
-import type { FeeCalculatorService } from '../send/FeeCalculatorService';
-import type { ComputeFeeResult } from '../send/types';
 import type { State, UnencryptedStateValue } from '../state/State';
+import type { ComputeFeeResult } from '../transaction/types';
 
 jest.mock(
   '../../ui/confirmation/views/ConfirmSignTransaction/ConfirmSignTransaction',
@@ -87,15 +84,6 @@ type WithConfirmationHandlerCallback<ReturnValue> = (payload: {
     Pick<State<UnencryptedStateValue>, 'getKey' | 'setKey'>
   >;
   mockTronWebFactory: jest.Mocked<Pick<TronWebFactory, 'createClient'>>;
-  mockTronWeb: {
-    transactionBuilder: {
-      withdrawExpireUnfreeze: jest.Mock;
-    };
-  };
-  mockAssetsService: jest.Mocked<Pick<AssetsService, 'getAssetsByAccountId'>>;
-  mockFeeCalculatorService: jest.Mocked<
-    Pick<FeeCalculatorService, 'computeFee'>
-  >;
 }) => Promise<ReturnValue> | ReturnValue;
 
 /**
@@ -108,31 +96,10 @@ type WithConfirmationHandlerCallback<ReturnValue> = (payload: {
 async function withConfirmationHandler<ReturnValue>(
   testFunction: WithConfirmationHandlerCallback<ReturnValue>,
 ): Promise<ReturnValue> {
-  const mockTronWeb = {
-    transactionBuilder: {
-      withdrawExpireUnfreeze: jest
-        .fn()
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        .mockResolvedValue({ raw_data: {} }),
-    },
-  };
-
   const mockTronWebFactory: jest.Mocked<Pick<TronWebFactory, 'createClient'>> =
     {
-      createClient: jest.fn().mockReturnValue(mockTronWeb),
+      createClient: jest.fn(),
     };
-
-  const mockAssetsService: jest.Mocked<
-    Pick<AssetsService, 'getAssetsByAccountId'>
-  > = {
-    getAssetsByAccountId: jest.fn().mockResolvedValue([null, null]),
-  };
-
-  const mockFeeCalculatorService: jest.Mocked<
-    Pick<FeeCalculatorService, 'computeFee'>
-  > = {
-    computeFee: jest.fn().mockResolvedValue(defaultFees),
-  };
 
   const mockSnapClient: jest.Mocked<
     Pick<
@@ -175,8 +142,6 @@ async function withConfirmationHandler<ReturnValue>(
     snapClient: mockSnapClient,
     state: mockState,
     tronWebFactory: mockTronWebFactory,
-    assetsService: mockAssetsService,
-    feeCalculatorService: mockFeeCalculatorService,
   });
 
   return await testFunction({
@@ -184,9 +149,6 @@ async function withConfirmationHandler<ReturnValue>(
     mockSnapClient,
     mockState,
     mockTronWebFactory,
-    mockTronWeb,
-    mockAssetsService,
-    mockFeeCalculatorService,
   });
 }
 
@@ -194,24 +156,15 @@ describe('ConfirmationHandler', () => {
   describe('confirmClaimUnstakedTrx', () => {
     it('returns true when user confirms the dialog', async () => {
       await withConfirmationHandler(
-        async ({
-          handler,
-          mockTronWebFactory,
-          mockTronWeb,
-          mockSnapClient,
-        }) => {
+        async ({ handler, mockTronWebFactory, mockSnapClient }) => {
           const result = await handler.confirmClaimUnstakedTrx({
             account: mockAccount,
             scope: Network.Mainnet,
+            fees: defaultFees,
           });
 
           expect(result).toBe(true);
-          expect(mockTronWebFactory.createClient).toHaveBeenCalledWith(
-            Network.Mainnet,
-          );
-          expect(
-            mockTronWeb.transactionBuilder.withdrawExpireUnfreeze,
-          ).toHaveBeenCalledWith(mockAccount.address);
+          expect(mockTronWebFactory.createClient).not.toHaveBeenCalled();
           expect(mockSnapClient.createInterface).toHaveBeenCalled();
           expect(mockSnapClient.showDialog).toHaveBeenCalledWith(
             'mock-interface-id',
@@ -227,95 +180,11 @@ describe('ConfirmationHandler', () => {
         const result = await handler.confirmClaimUnstakedTrx({
           account: mockAccount,
           scope: Network.Mainnet,
+          fees: defaultFees,
         });
 
         expect(result).toBe(false);
       });
-    });
-
-    it('fetches bandwidth and energy assets for fee computation', async () => {
-      await withConfirmationHandler(async ({ handler, mockAssetsService }) => {
-        await handler.confirmClaimUnstakedTrx({
-          account: mockAccount,
-          scope: Network.Mainnet,
-        });
-
-        expect(mockAssetsService.getAssetsByAccountId).toHaveBeenCalledWith(
-          TEST_ACCOUNT_ID,
-          [
-            Networks[Network.Mainnet].bandwidth.id,
-            Networks[Network.Mainnet].energy.id,
-          ],
-        );
-      });
-    });
-
-    it('uses ZERO when bandwidth and energy assets are null', async () => {
-      await withConfirmationHandler(
-        async ({ handler, mockAssetsService, mockFeeCalculatorService }) => {
-          mockAssetsService.getAssetsByAccountId.mockResolvedValue([
-            null,
-            null,
-          ]);
-
-          await handler.confirmClaimUnstakedTrx({
-            account: mockAccount,
-            scope: Network.Mainnet,
-          });
-
-          expect(mockFeeCalculatorService.computeFee).toHaveBeenCalledWith({
-            scope: Network.Mainnet,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            transaction: { raw_data: {} },
-            availableEnergy: ZERO,
-            availableBandwidth: ZERO,
-          });
-        },
-      );
-    });
-
-    it('uses actual asset amounts when bandwidth and energy assets exist', async () => {
-      await withConfirmationHandler(
-        async ({ handler, mockAssetsService, mockFeeCalculatorService }) => {
-          const bandwidthAsset: ResourceAsset = {
-            assetType: KnownCaip19Id.BandwidthMainnet,
-            keyringAccountId: TEST_ACCOUNT_ID,
-            network: Network.Mainnet,
-            symbol: 'Bandwidth',
-            decimals: 0,
-            rawAmount: '5000',
-            uiAmount: '5000',
-            iconUrl: '',
-          };
-          const energyAsset: ResourceAsset = {
-            assetType: KnownCaip19Id.EnergyMainnet,
-            keyringAccountId: TEST_ACCOUNT_ID,
-            network: Network.Mainnet,
-            symbol: 'Energy',
-            decimals: 0,
-            rawAmount: '3000',
-            uiAmount: '3000',
-            iconUrl: '',
-          };
-          mockAssetsService.getAssetsByAccountId.mockResolvedValue([
-            bandwidthAsset,
-            energyAsset,
-          ]);
-
-          await handler.confirmClaimUnstakedTrx({
-            account: mockAccount,
-            scope: Network.Mainnet,
-          });
-
-          expect(mockFeeCalculatorService.computeFee).toHaveBeenCalledWith({
-            scope: Network.Mainnet,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            transaction: { raw_data: {} },
-            availableEnergy: new BigNumber('3000'),
-            availableBandwidth: new BigNumber('5000'),
-          });
-        },
-      );
     });
 
     it('throws InternalError when getPreferences fails', async () => {
@@ -328,38 +197,35 @@ describe('ConfirmationHandler', () => {
           handler.confirmClaimUnstakedTrx({
             account: mockAccount,
             scope: Network.Mainnet,
+            fees: defaultFees,
           }),
         ).rejects.toThrow('Failed to retrieve Snap preferences.');
       });
     });
 
     it('sets iconUrl on each fee asset via getIconUrlForKnownAsset', async () => {
-      await withConfirmationHandler(
-        async ({ handler, mockFeeCalculatorService }) => {
-          const feeAssetType = `${Network.Mainnet}/slip44:195`;
-          const feesWithIcon: ComputeFeeResult = [
-            {
-              type: FeeType.Base,
-              asset: {
-                unit: 'TRX',
-                type: feeAssetType,
-                amount: '1000000',
-                fungible: true,
-              },
+      await withConfirmationHandler(async ({ handler }) => {
+        const feeAssetType = `${Network.Mainnet}/slip44:195`;
+        const feesWithIcon: ComputeFeeResult = [
+          {
+            type: FeeType.Base,
+            asset: {
+              unit: 'TRX',
+              type: feeAssetType,
+              amount: '1000000',
+              fungible: true,
             },
-          ];
-          mockFeeCalculatorService.computeFee.mockResolvedValue(feesWithIcon);
+          },
+        ];
 
-          await handler.confirmClaimUnstakedTrx({
-            account: mockAccount,
-            scope: Network.Mainnet,
-          });
+        await handler.confirmClaimUnstakedTrx({
+          account: mockAccount,
+          scope: Network.Mainnet,
+          fees: feesWithIcon,
+        });
 
-          expect(mockGetIconUrlForKnownAsset).toHaveBeenCalledWith(
-            feeAssetType,
-          );
-        },
-      );
+        expect(mockGetIconUrlForKnownAsset).toHaveBeenCalledWith(feeAssetType);
+      });
     });
   });
 

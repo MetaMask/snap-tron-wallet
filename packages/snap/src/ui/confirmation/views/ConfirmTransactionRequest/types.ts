@@ -3,7 +3,7 @@ import type { Json } from '@metamask/snaps-sdk';
 import type { SpotPrices } from '../../../../clients/price-api/types';
 import type { Network } from '../../../../constants';
 import type { AssetEntity } from '../../../../entities/assets';
-import type { ComputeFeeResult } from '../../../../services/send/types';
+import type { ComputeFeeResult } from '../../../../services/transaction/types';
 import type { TransactionScanResult } from '../../../../services/transaction-scan/types';
 import type { FetchStatus, Preferences } from '../../../../types/snap';
 

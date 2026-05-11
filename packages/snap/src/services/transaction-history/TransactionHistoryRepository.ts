@@ -4,7 +4,7 @@ import { chain } from 'lodash';
 
 import type { State, UnencryptedStateValue } from '../state/State';
 
-export class TransactionsRepository {
+export class TransactionHistoryRepository {
   readonly #state: State<UnencryptedStateValue>;
 
   readonly #stateKey = 'transactions';

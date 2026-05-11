@@ -1,11 +1,10 @@
 import { InternalError } from '@metamask/snaps-sdk';
 import { assert } from '@metamask/superstruct';
-import { BigNumber } from 'bignumber.js';
 import type { Types } from 'tronweb';
 
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
-import { type Network, Networks, ZERO } from '../../constants';
+import type { Network } from '../../constants';
 import type { AssetEntity } from '../../entities/assets';
 import type { TronKeyringAccount } from '../../entities/keyring-account';
 import { TronMultichainMethod } from '../../handlers/keyring-types';
@@ -28,11 +27,12 @@ import {
   SignTransactionRequestStruct,
   type TronWalletKeyringRequest,
 } from '../../validation/structs';
-import { assertTransactionStructure } from '../../validation/transaction';
-import type { AssetsService } from '../assets/AssetsService';
-import type { FeeCalculatorService } from '../send/FeeCalculatorService';
-import type { ComputeFeeResult } from '../send/types';
+import {
+  assertTransactionOwnerAddress,
+  assertTransactionStructure,
+} from '../../validation/transaction';
 import type { State, UnencryptedStateValue } from '../state/State';
+import type { ComputeFeeResult } from '../transaction/types';
 
 export class ConfirmationHandler {
   readonly #logger: ILogger;
@@ -43,29 +43,19 @@ export class ConfirmationHandler {
 
   readonly #tronWebFactory: TronWebFactory;
 
-  readonly #assetsService: AssetsService;
-
-  readonly #feeCalculatorService: FeeCalculatorService;
-
   constructor({
     snapClient,
     state,
     tronWebFactory,
-    assetsService,
-    feeCalculatorService,
   }: {
     snapClient: SnapClient;
     state: State<UnencryptedStateValue>;
     tronWebFactory: TronWebFactory;
-    assetsService: AssetsService;
-    feeCalculatorService: FeeCalculatorService;
   }) {
     this.#logger = createPrefixedLogger(logger, '[🔑 ConfirmationHandler]');
     this.#snapClient = snapClient;
     this.#state = state;
     this.#tronWebFactory = tronWebFactory;
-    this.#assetsService = assetsService;
-    this.#feeCalculatorService = feeCalculatorService;
   }
 
   async #clearInterfaceId(interfaceName: string): Promise<void> {
@@ -136,6 +126,7 @@ export class ConfirmationHandler {
       rawDataHex,
     );
     assertTransactionStructure(rawData);
+    assertTransactionOwnerAddress(rawData, account.address);
 
     const result = await renderConfirmSignTransaction(
       request,
@@ -216,46 +207,23 @@ export class ConfirmationHandler {
    * Shows a confirmation dialog for claiming unstaked TRX,
    * reusing the ConfirmSignTransaction UI component.
    *
-   * Builds an unsigned transaction to estimate fees, then presents
-   * the user with an approval dialog before any signing occurs.
+   * Presents the user with an approval dialog before any signing occurs.
    *
    * @param params - The parameters for the confirmation.
    * @param params.account - The account claiming the unstaked TRX.
    * @param params.scope - The network scope.
+   * @param params.fees - Precomputed fees for the claim transaction.
    * @returns True if the user confirmed, false otherwise.
    */
   async confirmClaimUnstakedTrx({
     account,
     scope,
+    fees,
   }: {
     account: TronKeyringAccount;
     scope: Network;
+    fees: ComputeFeeResult;
   }): Promise<boolean> {
-    const tronWeb = this.#tronWebFactory.createClient(scope);
-    const unsignedTx = await tronWeb.transactionBuilder.withdrawExpireUnfreeze(
-      account.address,
-    );
-
-    const [bandwidthAsset, energyAsset] =
-      await this.#assetsService.getAssetsByAccountId(account.id, [
-        Networks[scope].bandwidth.id,
-        Networks[scope].energy.id,
-      ]);
-
-    const availableEnergy = energyAsset
-      ? new BigNumber(energyAsset.rawAmount)
-      : ZERO;
-    const availableBandwidth = bandwidthAsset
-      ? new BigNumber(bandwidthAsset.rawAmount)
-      : ZERO;
-
-    const fees = await this.#feeCalculatorService.computeFee({
-      scope,
-      transaction: unsignedTx,
-      availableEnergy,
-      availableBandwidth,
-    });
-
     fees.forEach((fee) => {
       fee.asset.iconUrl = getIconUrlForKnownAsset(fee.asset.type);
     });

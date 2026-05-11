@@ -16,7 +16,7 @@ import { mockLogger } from '../../utils/mockLogger';
 import type { AssetsService } from '../assets/AssetsService';
 import type { ConfigProvider } from '../config';
 import type { Config } from '../config/ConfigProvider';
-import type { TransactionsService } from '../transactions/TransactionsService';
+import type { TransactionHistoryService } from '../transaction-history/TransactionHistoryService';
 
 jest.mock('@metamask/keyring-snap-sdk', () => ({
   emitSnapKeyringEvent: jest.fn(),
@@ -93,8 +93,11 @@ type WithAccountsServiceCallback = (payload: {
   mockSnapClient: jest.Mocked<
     Pick<SnapClient, 'getBip32Entropy' | 'listEntropySources'>
   >;
-  mockTransactionsService: jest.Mocked<
-    Pick<TransactionsService, 'fetchNewTransactionsForAccount' | 'saveMany'>
+  mockTransactionHistoryService: jest.Mocked<
+    Pick<
+      TransactionHistoryService,
+      'fetchNewTransactionsForAccount' | 'saveMany'
+    >
   >;
 }) => void | Promise<void>;
 
@@ -152,8 +155,11 @@ async function withAccountsService(
     saveMany: jest.fn().mockResolvedValue(undefined),
   };
 
-  const mockTransactionsService: jest.Mocked<
-    Pick<TransactionsService, 'fetchNewTransactionsForAccount' | 'saveMany'>
+  const mockTransactionHistoryService: jest.Mocked<
+    Pick<
+      TransactionHistoryService,
+      'fetchNewTransactionsForAccount' | 'saveMany'
+    >
   > = {
     fetchNewTransactionsForAccount: jest.fn().mockResolvedValue([]),
     saveMany: jest.fn().mockResolvedValue(undefined),
@@ -165,7 +171,7 @@ async function withAccountsService(
     logger: mockLogger,
     assetsService: mockAssetsService,
     snapClient: mockSnapClient,
-    transactionsService: mockTransactionsService,
+    transactionsService: mockTransactionHistoryService,
   } as unknown as ConstructorParameters<typeof AccountsService>[0]);
 
   await testFn({
@@ -175,7 +181,7 @@ async function withAccountsService(
     mockLogger,
     mockAssetsService,
     mockSnapClient,
-    mockTransactionsService,
+    mockTransactionHistoryService,
   });
 }
 
@@ -798,22 +804,22 @@ describe('AccountsService', () => {
         async ({
           accountsService,
           mockConfigProvider,
-          mockTransactionsService,
+          mockTransactionHistoryService,
         }) => {
           mockConfigProvider.get.mockReturnValue({
             ...MOCK_CONFIG,
             activeNetworks: [Network.Mainnet],
           });
-          mockTransactionsService.fetchNewTransactionsForAccount.mockResolvedValue(
+          mockTransactionHistoryService.fetchNewTransactionsForAccount.mockResolvedValue(
             mockTransactions,
           );
 
           await accountsService.synchronizeTransactions([account]);
 
           expect(
-            mockTransactionsService.fetchNewTransactionsForAccount,
+            mockTransactionHistoryService.fetchNewTransactionsForAccount,
           ).toHaveBeenCalledWith(Network.Mainnet, account);
-          expect(mockTransactionsService.saveMany).toHaveBeenCalledWith(
+          expect(mockTransactionHistoryService.saveMany).toHaveBeenCalledWith(
             mockTransactions,
           );
         },
@@ -840,7 +846,7 @@ describe('AccountsService', () => {
           accountsService,
           mockConfigProvider,
           mockAssetsService,
-          mockTransactionsService,
+          mockTransactionHistoryService,
         }) => {
           mockConfigProvider.get.mockReturnValue({
             ...MOCK_CONFIG,
@@ -853,7 +859,7 @@ describe('AccountsService', () => {
             mockAssetsService.fetchAssetsAndBalancesForAccount,
           ).toHaveBeenCalledWith(Network.Mainnet, account);
           expect(
-            mockTransactionsService.fetchNewTransactionsForAccount,
+            mockTransactionHistoryService.fetchNewTransactionsForAccount,
           ).toHaveBeenCalledWith(Network.Mainnet, account);
         },
       );

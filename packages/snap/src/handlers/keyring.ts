@@ -39,7 +39,7 @@ import type { AccountsService } from '../services/accounts/AccountsService';
 import type { CreateAccountOptions } from '../services/accounts/types';
 import type { AssetsService } from '../services/assets/AssetsService';
 import type { ConfirmationHandler } from '../services/confirmation/ConfirmationHandler';
-import type { TransactionsService } from '../services/transactions/TransactionsService';
+import type { TransactionHistoryService } from '../services/transaction-history/TransactionHistoryService';
 import type { WalletService } from '../services/wallet/WalletService';
 import { withCatchAndThrowSnapError } from '../utils/errors';
 import { createPrefixedLogger, type ILogger } from '../utils/logger';
@@ -70,7 +70,7 @@ export class KeyringHandler implements Keyring {
 
   readonly #assetsService: AssetsService;
 
-  readonly #transactionsService: TransactionsService;
+  readonly #transactionsService: TransactionHistoryService;
 
   readonly #walletService: WalletService;
 
@@ -89,7 +89,7 @@ export class KeyringHandler implements Keyring {
     snapClient: SnapClient;
     accountsService: AccountsService;
     assetsService: AssetsService;
-    transactionsService: TransactionsService;
+    transactionsService: TransactionHistoryService;
     walletService: WalletService;
     confirmationHandler: ConfirmationHandler;
   }) {

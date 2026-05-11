@@ -2,12 +2,12 @@
 import { FeeType } from '@metamask/keyring-api';
 import { BigNumber } from 'bignumber.js';
 
-import { FeeCalculatorService } from './FeeCalculatorService';
+import { TransactionFeeEstimator } from './TransactionFeeEstimator';
 import { Network, ZERO } from '../../constants';
 import { mockLogger } from '../../utils/mockLogger';
-import nativeTransferMock from '../transactions/mocks/trongrid/account-transactions/native-transfer.json';
-import trc10TransferMock from '../transactions/mocks/trongrid/account-transactions/trc10-transfer.json';
-import trc20TransferMock from '../transactions/mocks/trongrid/account-transactions/trc20-transfer.json';
+import nativeTransferMock from '../transaction-history/mocks/trongrid/account-transactions/native-transfer.json';
+import trc10TransferMock from '../transaction-history/mocks/trongrid/account-transactions/trc10-transfer.json';
+import trc20TransferMock from '../transaction-history/mocks/trongrid/account-transactions/trc20-transfer.json';
 
 const mockTronWebFactory = {
   createClient: jest.fn(),
@@ -77,8 +77,8 @@ const createLargeTransaction = (): any => {
   };
 };
 
-describe('FeeCalculatorService', () => {
-  let feeCalculatorService: FeeCalculatorService;
+describe('TransactionFeeEstimator', () => {
+  let transactionFeeEstimator: TransactionFeeEstimator;
   let mockTronWebClient: any;
 
   beforeEach(() => {
@@ -106,7 +106,7 @@ describe('FeeCalculatorService', () => {
       new Error('Account not found'),
     );
 
-    feeCalculatorService = new FeeCalculatorService({
+    transactionFeeEstimator = new TransactionFeeEstimator({
       logger: mockLogger,
       trongridApiClient: mockTrongridApiClient,
       tronHttpClient: mockTronHttpClient,
@@ -128,7 +128,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = ZERO;
         const availableBandwidth = BigNumber(1000000); // More than needed
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -164,7 +164,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = ZERO;
         const availableBandwidth = BigNumber(100); // Less than needed (266)
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -228,7 +228,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = ZERO;
         const availableBandwidth = BigNumber(1000000);
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -265,7 +265,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = ZERO;
         const availableBandwidth = BigNumber(100); // Less than needed (266)
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -306,7 +306,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = BigNumber(100000); // More than needed (100000 fallback)
         const availableBandwidth = BigNumber(2000000); // More than needed for TRC20 transaction
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -354,7 +354,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = BigNumber(30000); // Less than needed (50000)
         const availableBandwidth = BigNumber(2000000); // More than needed for TRC20 transaction
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -402,7 +402,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = BigNumber(100000); // More than needed (50000)
         const availableBandwidth = BigNumber(100); // Less than needed (345 bytes actual)
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction: largeTransaction,
           availableEnergy,
@@ -446,7 +446,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = BigNumber(30000); // Less than needed (50000)
         const availableBandwidth = BigNumber(100); // Less than needed (345)
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction: largeTransaction,
           availableEnergy,
@@ -488,7 +488,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = ZERO;
         const availableBandwidth = ZERO;
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -515,7 +515,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = BigNumber(100000);
         const availableBandwidth = BigNumber(1000000);
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Shasta,
           transaction,
           availableEnergy,
@@ -559,7 +559,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = BigNumber(100000);
         const availableBandwidth = BigNumber(2000000); // Ensure enough bandwidth
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -618,7 +618,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = BigNumber(100000);
         const availableBandwidth = BigNumber(100); // Less than needed (345)
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction: veryLargeTransaction,
           availableEnergy,
@@ -660,7 +660,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = ZERO;
         const availableBandwidth = BigNumber(266); // Exact match for native transaction
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -701,7 +701,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = ZERO;
         const availableBandwidth = BigNumber(1000000); // More than needed
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -741,7 +741,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = ZERO;
         const availableBandwidth = ZERO; // Not enough bandwidth, triggers TRX cost
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -773,7 +773,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = ZERO;
         const availableBandwidth = BigNumber(1000000); // More than needed
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -816,7 +816,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = BigNumber(130000); // Enough energy
         const availableBandwidth = BigNumber(2000000); // More than needed
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -875,7 +875,7 @@ describe('FeeCalculatorService', () => {
         // feeLimit of 10,000,000 SUN with energy price 100 SUN = 100,000 max energy
         const feeLimit = 10_000_000;
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -929,7 +929,7 @@ describe('FeeCalculatorService', () => {
         const availableBandwidth = BigNumber(2000000);
 
         // No feeLimit provided
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -987,7 +987,7 @@ describe('FeeCalculatorService', () => {
         // Provide a large feeLimit that would calculate to 200,000 energy
         const feeLimit = 20_000_000;
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -1043,7 +1043,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = BigNumber(50000);
         const availableBandwidth = BigNumber(2000000);
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -1090,7 +1090,7 @@ describe('FeeCalculatorService', () => {
         // feeLimit of 5,000,000 SUN with energy price 100 SUN = 50,000 max energy
         const feeLimit = 5_000_000;
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -1152,7 +1152,7 @@ describe('FeeCalculatorService', () => {
         // feeLimit of 4,200,000 SUN with fallback energy price 420 SUN = 10,000 max energy
         const feeLimit = 4_200_000;
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -1222,7 +1222,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = BigNumber(0);
         const availableBandwidth = BigNumber(2000000);
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -1267,7 +1267,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = BigNumber(0);
         const availableBandwidth = BigNumber(2000000);
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -1301,7 +1301,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = BigNumber(0);
         const availableBandwidth = BigNumber(2000000);
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -1338,7 +1338,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = BigNumber(0);
         const availableBandwidth = BigNumber(2000000);
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -1374,7 +1374,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = BigNumber(0);
         const availableBandwidth = BigNumber(2000000);
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -1409,7 +1409,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = BigNumber(0);
         const availableBandwidth = BigNumber(2000000);
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -1452,7 +1452,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = BigNumber(0);
         const availableBandwidth = BigNumber(2000000);
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -1488,7 +1488,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = BigNumber(0);
         const availableBandwidth = BigNumber(2000000);
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -1533,7 +1533,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = BigNumber(30000); // User has 30000 staked
         const availableBandwidth = BigNumber(2000000);
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -1593,7 +1593,7 @@ describe('FeeCalculatorService', () => {
           const availableEnergy = BigNumber(0);
           const availableBandwidth = BigNumber(2000000);
 
-          const result = await feeCalculatorService.computeFee({
+          const result = await transactionFeeEstimator.computeFee({
             scope: Network.Mainnet,
             transaction,
             availableEnergy,
@@ -1640,7 +1640,7 @@ describe('FeeCalculatorService', () => {
           const availableEnergy = BigNumber(0);
           const availableBandwidth = BigNumber(2000000);
 
-          const result = await feeCalculatorService.computeFee({
+          const result = await transactionFeeEstimator.computeFee({
             scope: Network.Mainnet,
             transaction,
             availableEnergy,
@@ -1679,7 +1679,7 @@ describe('FeeCalculatorService', () => {
           const availableEnergy = BigNumber(0);
           const availableBandwidth = BigNumber(2000000);
 
-          const result = await feeCalculatorService.computeFee({
+          const result = await transactionFeeEstimator.computeFee({
             scope: Network.Mainnet,
             transaction,
             availableEnergy,
@@ -1725,7 +1725,7 @@ describe('FeeCalculatorService', () => {
           const availableEnergy = BigNumber(0);
           const availableBandwidth = BigNumber(2000000);
 
-          const result = await feeCalculatorService.computeFee({
+          const result = await transactionFeeEstimator.computeFee({
             scope: Network.Mainnet,
             transaction,
             availableEnergy,
@@ -1769,7 +1769,7 @@ describe('FeeCalculatorService', () => {
           const availableEnergy = BigNumber(0);
           const availableBandwidth = BigNumber(2000000);
 
-          const result = await feeCalculatorService.computeFee({
+          const result = await transactionFeeEstimator.computeFee({
             scope: Network.Mainnet,
             transaction,
             availableEnergy,
@@ -1810,7 +1810,7 @@ describe('FeeCalculatorService', () => {
           const availableEnergy = BigNumber(0);
           const availableBandwidth = BigNumber(2000000);
 
-          const result = await feeCalculatorService.computeFee({
+          const result = await transactionFeeEstimator.computeFee({
             scope: Network.Mainnet,
             transaction,
             availableEnergy,
@@ -1853,7 +1853,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = ZERO;
         const availableBandwidth = BigNumber(1000000);
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -1891,7 +1891,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = ZERO;
         const availableBandwidth = ZERO;
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -1925,7 +1925,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = ZERO;
         const availableBandwidth = BigNumber(1000000);
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -1960,7 +1960,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = ZERO;
         const availableBandwidth = BigNumber(1000000);
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -1979,7 +1979,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = ZERO;
         const availableBandwidth = BigNumber(1000000);
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,
@@ -2005,7 +2005,7 @@ describe('FeeCalculatorService', () => {
         const availableEnergy = BigNumber(130000); // Enough energy
         const availableBandwidth = BigNumber(2000000);
 
-        const result = await feeCalculatorService.computeFee({
+        const result = await transactionFeeEstimator.computeFee({
           scope: Network.Mainnet,
           transaction,
           availableEnergy,

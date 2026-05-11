@@ -6,14 +6,8 @@ import {
   UserRejectedRequestError,
 } from '@metamask/snaps-sdk';
 import { assert } from '@metamask/superstruct';
-import {
-  bytesToHex,
-  hexToBytes,
-  parseCaipAssetType,
-  sha256,
-} from '@metamask/utils';
+import { parseCaipAssetType } from '@metamask/utils';
 import { BigNumber } from 'bignumber.js';
-import type { TronWeb, Types } from 'tronweb';
 
 import { ClientRequestMethod, SendErrorCodes } from './types';
 import {
@@ -43,22 +37,14 @@ import type {
   StakedCaipAssetType,
 } from '../../services/assets/types';
 import type { ConfirmationHandler } from '../../services/confirmation/ConfirmationHandler';
-import type { FeeCalculatorService } from '../../services/send/FeeCalculatorService';
 import type { SendService } from '../../services/send/SendService';
 import type { StakingService } from '../../services/staking/StakingService';
-import { TransactionMapper } from '../../services/transactions/TransactionsMapper';
-import type { TransactionsService } from '../../services/transactions/TransactionsService';
+import type { TransactionService } from '../../services/transaction';
+import type { TransactionHistoryService } from '../../services/transaction-history/TransactionHistoryService';
+import { TransactionMapper } from '../../services/transaction-history/TransactionMapper';
 import { assertOrThrow } from '../../utils/assertOrThrow';
-import { trxToSun } from '../../utils/conversion';
 import type { ILogger } from '../../utils/logger';
 import { createPrefixedLogger } from '../../utils/logger';
-import { assertTransactionStructure } from '../../validation/transaction';
-import { BackgroundEventMethod } from '../cronjob';
-
-type TransactionRawData = Types.Transaction['raw_data'] & {
-  // eslint-disable-next-line @typescript-eslint/naming-convention
-  fee_limit?: number;
-};
 
 export class ClientRequestHandler {
   readonly #logger: ILogger;
@@ -71,24 +57,22 @@ export class ClientRequestHandler {
 
   readonly #tronWebFactory: TronWebFactory;
 
-  readonly #feeCalculatorService: FeeCalculatorService;
-
-  readonly #snapClient: SnapClient;
+  readonly #transactionService: TransactionService;
 
   readonly #stakingService: StakingService;
 
   readonly #confirmationHandler: ConfirmationHandler;
 
-  readonly #transactionsService: TransactionsService;
+  readonly #transactionsService: TransactionHistoryService;
 
   constructor({
     logger,
     accountsService,
     assetsService,
     sendService,
-    feeCalculatorService,
+    transactionService,
     tronWebFactory,
-    snapClient,
+    snapClient: _snapClient,
     stakingService,
     confirmationHandler,
     transactionsService,
@@ -97,20 +81,19 @@ export class ClientRequestHandler {
     accountsService: AccountsService;
     assetsService: AssetsService;
     sendService: SendService;
-    feeCalculatorService: FeeCalculatorService;
+    transactionService: TransactionService;
     tronWebFactory: TronWebFactory;
     snapClient: SnapClient;
     stakingService: StakingService;
     confirmationHandler: ConfirmationHandler;
-    transactionsService: TransactionsService;
+    transactionsService: TransactionHistoryService;
   }) {
     this.#logger = createPrefixedLogger(logger, '[👋 ClientRequestHandler]');
     this.#accountsService = accountsService;
     this.#assetsService = assetsService;
     this.#sendService = sendService;
-    this.#feeCalculatorService = feeCalculatorService;
+    this.#transactionService = transactionService;
     this.#tronWebFactory = tronWebFactory;
-    this.#snapClient = snapClient;
     this.#stakingService = stakingService;
     this.#confirmationHandler = confirmationHandler;
     this.#transactionsService = transactionsService;
@@ -212,44 +195,28 @@ export class ClientRequestHandler {
     } = request.params;
 
     const account = await this.#accountsService.findByIdOrThrow(accountId);
+    const { transaction, rawData } =
+      await this.#transactionService.prepareRawTransaction({
+        scope,
+        account,
+        transactionBase64,
+        type,
+      });
 
-    const { privateKeyHex } = await this.#accountsService.deriveTronKeypair({
-      entropySource: account.entropySource,
-      derivationPath: account.derivationPath,
+    await this.#transactionService.estimateFee({
+      scope,
+      accountId,
+      transaction,
+      feeLimit:
+        typeof rawData.fee_limit === 'number' ? rawData.fee_limit : undefined,
     });
-    const tronWeb = this.#tronWebFactory.createClient(scope, privateKeyHex);
 
-    /**
-     * We need to rebuild the transaction due to some extra fields
-     */
-    // eslint-disable-next-line no-restricted-globals
-    let rawDataHex = Buffer.from(transactionBase64, 'base64').toString('hex');
-    const rawData = tronWeb.utils.deserializeTx.deserializeTransaction(
-      type,
-      rawDataHex,
-    ) as TransactionRawData;
-    rawDataHex = this.#setRawDataFeeLimit(tronWeb, rawData);
-
-    assertTransactionStructure(rawData);
-
-    const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);
-    const transaction = {
-      /**
-       * Deserialized transaction always hexadecimal addresses
-       */
-      visible: false,
-      txID,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      raw_data: rawData,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      raw_data_hex: rawDataHex,
-    };
-    const signedTx = await tronWeb.trx.sign(transaction);
-    const result = await tronWeb.trx.sendRawTransaction(signedTx);
-
-    if (!result.result) {
-      throw new Error(`Failed to send transaction: ${result.message}`);
-    }
+    const result = await this.#transactionService.broadcast({
+      scope,
+      accountId,
+      transaction,
+      tracking: { type: 'transaction', origin: 'MetaMask' },
+    });
 
     // Immediately create and save a minimal pending transaction
     // This shows the transaction to the user right away
@@ -260,20 +227,6 @@ export class ClientRequestHandler {
     });
 
     await this.#transactionsService.save(pendingTransaction);
-
-    /**
-     * Track transaction after a transaction
-     */
-    await this.#snapClient.scheduleBackgroundEvent({
-      method: BackgroundEventMethod.TrackTransaction,
-      params: {
-        txId: result.txid,
-        scope,
-        accountIds: [accountId],
-        attempt: 0,
-      },
-      duration: 'PT1S',
-    });
 
     return {
       transactionId: result.txid,
@@ -335,24 +288,16 @@ export class ClientRequestHandler {
       const { chainId } = parseCaipAssetType(assetId);
       const scope = chainId as Network;
 
-      const [asset, nativeTokenAsset, bandwidthAsset, energyAsset] =
+      const [asset, nativeTokenAsset] =
         await this.#assetsService.getAssetsByAccountId(accountId, [
           assetId,
           Networks[scope].nativeToken.id,
-          Networks[scope].bandwidth.id,
-          Networks[scope].energy.id,
         ]);
 
       const valueBN = new BigNumber(value);
       const assetToSendBalance = asset ? new BigNumber(asset.uiAmount) : ZERO;
       const nativeTokenBalance = nativeTokenAsset
         ? new BigNumber(nativeTokenAsset.uiAmount)
-        : ZERO;
-      const bandwidthBalance = bandwidthAsset
-        ? new BigNumber(bandwidthAsset.uiAmount)
-        : ZERO;
-      const energyBalance = energyAsset
-        ? new BigNumber(energyAsset.uiAmount)
         : ZERO;
 
       if (!asset || valueBN.isGreaterThan(assetToSendBalance)) {
@@ -379,11 +324,10 @@ export class ClientRequestHandler {
         amount: valueBN,
         feeLimit: FEE_LIMIT,
       });
-      const fees = await this.#feeCalculatorService.computeFee({
+      const fees = await this.#transactionService.estimateFee({
         scope,
+        accountId,
         transaction: sendTransaction,
-        availableEnergy: energyBalance,
-        availableBandwidth: bandwidthBalance,
         feeLimit: FEE_LIMIT,
       });
 
@@ -489,40 +433,18 @@ export class ClientRequestHandler {
       };
     }
 
-    const [[bandwidthAsset, energyAsset], transaction] = await Promise.all([
-      /**
-       * Get available Energy and Bandwidth from account assets.
-       */
-      this.#assetsService.getAssetsByAccountId(fromAccountId, [
-        Networks[scope].bandwidth.id,
-        Networks[scope].energy.id,
-      ]),
-      /**
-       * Build the unsigned transaction.
-       * Fee estimation uses a constant overhead for the signature (134 bytes).
-       * Signing happens after user confirmation in sendTransaction().
-       */
-      this.#sendService.buildTransaction({
-        fromAccountId,
-        toAddress,
-        asset,
-        amount: amountBN,
-        feeLimit: FEE_LIMIT,
-      }),
-    ]);
+    const transaction = await this.#sendService.buildTransaction({
+      fromAccountId,
+      toAddress,
+      asset,
+      amount: amountBN,
+      feeLimit: FEE_LIMIT,
+    });
 
-    const availableEnergy = energyAsset
-      ? new BigNumber(energyAsset.rawAmount)
-      : ZERO;
-    const availableBandwidth = bandwidthAsset
-      ? new BigNumber(bandwidthAsset.rawAmount)
-      : ZERO;
-
-    const fees = await this.#feeCalculatorService.computeFee({
+    const fees = await this.#transactionService.estimateFee({
       scope,
+      accountId: fromAccountId,
       transaction,
-      availableEnergy,
-      availableBandwidth,
       feeLimit: FEE_LIMIT,
     });
 
@@ -551,10 +473,11 @@ export class ClientRequestHandler {
     /**
      * Send the built transaction
      */
-    const result = await this.#sendService.signAndSendTransaction({
+    const result = await this.#transactionService.broadcast({
       scope,
-      fromAccountId,
+      accountId: fromAccountId,
       transaction,
+      tracking: { type: 'transaction', origin: 'MetaMask' },
     });
 
     // Immediately create and save a detailed pending Send transaction
@@ -601,60 +524,22 @@ export class ClientRequestHandler {
       },
     } = request;
 
-    /**
-     * Recreate the transaction object from base64-encoded raw data.
-     * No signing needed - fee calculation uses constant overhead for signature.
-     */
-    await this.#accountsService.findByIdOrThrow(accountId);
+    const account = await this.#accountsService.findByIdOrThrow(accountId);
+    const { transaction, rawData } =
+      await this.#transactionService.prepareRawTransaction({
+        scope,
+        account,
+        transactionBase64,
+        type,
+        feeLimit,
+      });
 
-    const tronWeb = this.#tronWebFactory.createClient(scope);
-
-    // eslint-disable-next-line no-restricted-globals
-    let rawDataHex = Buffer.from(transactionBase64, 'base64').toString('hex');
-    const rawData = tronWeb.utils.deserializeTx.deserializeTransaction(
-      type,
-      rawDataHex,
-    ) as TransactionRawData;
-    rawDataHex = this.#setRawDataFeeLimit(tronWeb, rawData, feeLimit);
-
-    assertTransactionStructure(rawData);
-
-    const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);
-    const transaction = {
-      visible: false,
-      txID,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      raw_data: rawData,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      raw_data_hex: rawDataHex,
-    };
-
-    /**
-     * Get available Energy and Bandwidth from account assets.
-     */
-    const [bandwidthAsset, energyAsset] =
-      await this.#assetsService.getAssetsByAccountId(accountId, [
-        Networks[scope].bandwidth.id,
-        Networks[scope].energy.id,
-      ]);
-
-    const availableEnergy = energyAsset
-      ? new BigNumber(energyAsset.rawAmount)
-      : ZERO;
-    const availableBandwidth = bandwidthAsset
-      ? new BigNumber(bandwidthAsset.rawAmount)
-      : ZERO;
-
-    /**
-     * Calculate complete fee breakdown using the service.
-     * Uses constant overhead (134 bytes) for unsigned transactions.
-     */
-    const result = await this.#feeCalculatorService.computeFee({
+    const result = await this.#transactionService.estimateFee({
       scope,
+      accountId,
       transaction,
-      availableEnergy,
-      availableBandwidth,
-      feeLimit: rawData.fee_limit,
+      feeLimit:
+        typeof rawData.fee_limit === 'number' ? rawData.fee_limit : undefined,
     });
 
     assert(result, ComputeFeeResponseStruct);
@@ -664,8 +549,8 @@ export class ClientRequestHandler {
 
   /**
    * Computes a fee preview for a staking transaction.
-   * It builds and signs a freezeBalanceV2 transaction on the fly and uses the
-   * FeeCalculatorService to estimate resource usage and TRX cost.
+   * It builds a freezeBalanceV2 and vote transaction on the fly and uses the
+   * TransactionService to estimate resource usage and TRX cost across both.
    *
    * @param request - The JSON-RPC request containing staking details.
    * @returns The detailed fee breakdown for the staking transaction.
@@ -687,10 +572,11 @@ export class ClientRequestHandler {
     const account = await this.#accountsService.findByIdOrThrow(fromAccountId);
 
     const scope = Network.Mainnet;
+    const assetId = Networks[scope].nativeToken.id as NativeCaipAssetType;
 
     const asset = await this.#assetsService.getAssetByAccountId(
       fromAccountId,
-      Networks[scope].nativeToken.id,
+      assetId,
     );
 
     const accountBalance = asset ? new BigNumber(asset.uiAmount) : ZERO;
@@ -706,40 +592,11 @@ export class ClientRequestHandler {
       };
     }
 
-    const tronWeb = this.#tronWebFactory.createClient(scope);
-
-    const amountInSun = Number(trxToSun(requestBalance));
-    const transaction = await tronWeb.transactionBuilder.freezeBalanceV2(
-      amountInSun,
+    const result = await this.#stakingService.estimateStakeFee({
+      account,
+      assetId,
+      amount: requestBalance,
       purpose,
-      account.address,
-    );
-
-    /**
-     * Get available Energy and Bandwidth from account assets.
-     */
-    const [bandwidthAsset, energyAsset] =
-      await this.#assetsService.getAssetsByAccountId(fromAccountId, [
-        Networks[scope].bandwidth.id,
-        Networks[scope].energy.id,
-      ]);
-
-    const availableEnergy = energyAsset
-      ? BigNumber(energyAsset.rawAmount)
-      : ZERO;
-    const availableBandwidth = bandwidthAsset
-      ? BigNumber(bandwidthAsset.rawAmount)
-      : ZERO;
-
-    /**
-     * Calculate complete fee breakdown using the service.
-     * Uses constant overhead (134 bytes) for unsigned transactions.
-     */
-    const result = await this.#feeCalculatorService.computeFee({
-      scope,
-      transaction,
-      availableEnergy,
-      availableBandwidth,
     });
 
     assert(result, ComputeFeeResponseStruct);
@@ -983,17 +840,33 @@ export class ClientRequestHandler {
 
     const { chainId } = parseCaipAssetType(assetId);
     const scope = chainId as Network;
+    const transactions =
+      await this.#stakingService.buildClaimUnstakedTrxTransactions({
+        account,
+        scope,
+      });
+    const [fees = []] = await this.#transactionService.estimateFees({
+      scope,
+      accountId: account.id,
+      transactions,
+    });
 
     const confirmed = await this.#confirmationHandler.confirmClaimUnstakedTrx({
       account,
       scope,
+      fees,
     });
 
     if (!confirmed) {
       throw new UserRejectedRequestError() as Error;
     }
 
-    await this.#stakingService.claimUnstakedTrx({ account, scope });
+    await this.#transactionService.broadcastMany({
+      scope,
+      accountId: account.id,
+      transactions,
+      tracking: { type: 'accountSync' },
+    });
 
     return {
       valid: true,
@@ -1021,8 +894,18 @@ export class ClientRequestHandler {
 
     const { chainId } = parseCaipAssetType(assetId);
     const scope = chainId as Network;
+    const transactions =
+      await this.#stakingService.buildClaimTrxStakingRewardsTransactions({
+        account,
+        scope,
+      });
 
-    await this.#stakingService.claimTrxStakingRewards({ account, scope });
+    await this.#transactionService.broadcastMany({
+      scope,
+      accountId: account.id,
+      transactions,
+      tracking: { type: 'accountSync' },
+    });
 
     return {
       valid: true,
@@ -1087,32 +970,5 @@ export class ClientRequestHandler {
       signedMessage: message,
       signatureType: 'secp256k1',
     };
-  }
-
-  /**
-   * Sets the fee limit on a transaction's raw data and re-serializes it to hexadecimal format.
-   *
-   * This method mutates the provided rawData object by setting its fee_limit field,
-   * then converts the transaction to protocol buffer format and back to hex encoding.
-   * This is necessary when adjusting fee limits for transactions that need higher
-   * gas limits (e.g., complex smart contract interactions or swaps).
-   *
-   * @param tronWeb - The TronWeb client instance used for transaction serialization.
-   * @param rawData - The raw transaction data object to modify. This object will be mutated.
-   * @param feeLimit - The fee limit to set in SUN (1 TRX = 1,000,000 SUN). Defaults to FEE_LIMIT (100 TRX).
-   * @returns The hexadecimal-encoded raw data with the updated fee limit.
-   */
-  #setRawDataFeeLimit(
-    tronWeb: TronWeb,
-    rawData: TransactionRawData,
-    feeLimit = FEE_LIMIT,
-  ): string {
-    rawData.fee_limit = feeLimit;
-    // Re-serialize rawData to get the updated rawDataHex
-    const transactionPb = tronWeb.utils.transaction.txJsonToPb({
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      raw_data: rawData,
-    });
-    return tronWeb.utils.transaction.txPbToRawDataHex(transactionPb);
   }
 }

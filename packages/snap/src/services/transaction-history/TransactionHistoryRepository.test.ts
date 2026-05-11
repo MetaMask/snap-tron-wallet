@@ -1,12 +1,12 @@
 import type { Transaction } from '@metamask/keyring-api';
 import { TransactionStatus, TransactionType } from '@metamask/keyring-api';
 
-import { TransactionsRepository } from './TransactionsRepository';
+import { TransactionHistoryRepository } from './TransactionHistoryRepository';
 import { KnownCaip19Id, Network } from '../../constants';
 import type { State, UnencryptedStateValue } from '../state/State';
 
-describe('TransactionsRepository', () => {
-  let transactionsRepository: TransactionsRepository;
+describe('TransactionHistoryRepository', () => {
+  let transactionsRepository: TransactionHistoryRepository;
   let mockState: jest.Mocked<State<UnencryptedStateValue>>;
 
   const mockAccountId = 'test-account-id';
@@ -54,7 +54,7 @@ describe('TransactionsRepository', () => {
       update: jest.fn(),
     } as unknown as jest.Mocked<State<UnencryptedStateValue>>;
 
-    transactionsRepository = new TransactionsRepository(mockState);
+    transactionsRepository = new TransactionHistoryRepository(mockState);
   });
 
   describe('getTransactionIdsByAccountId', () => {

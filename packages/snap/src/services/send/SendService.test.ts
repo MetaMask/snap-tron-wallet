@@ -14,13 +14,12 @@ describe('SendService', () => {
     let mockAccountsService: any;
     let mockAssetsService: any;
     let mockTronWebFactory: any;
-    let mockFeeCalculatorService: any;
-    let mockSnapClient: any;
+    let mockTransactionService: any;
     let mockTronWeb: any;
 
     const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
     const TEST_TO_ADDRESS = 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx';
-    const TEST_FROM_ADDRESS = 'TExvJsxzPyAZ2NtkrWgNKnbLkpqnFJ73DT';
+    const TEST_FROM_ADDRESS = 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx';
 
     const scope = Network.Mainnet;
     const nativeTokenId = Networks[scope].nativeToken.id;
@@ -59,7 +58,7 @@ describe('SendService', () => {
             type: 'TransferContract',
             parameter: {
               value: {
-                owner_address: `41${'a'.repeat(40)}`,
+                owner_address: '41458437be39f3a8bfdbfee7bef93e2c5f632ceff4',
                 to_address: `41${'b'.repeat(40)}`,
                 amount: 1000000,
               },
@@ -107,19 +106,16 @@ describe('SendService', () => {
         createClient: jest.fn().mockReturnValue(mockTronWeb),
       };
 
-      mockFeeCalculatorService = {
-        computeFee: jest.fn(),
+      mockTransactionService = {
+        estimateFee: jest.fn(),
       };
-
-      mockSnapClient = {};
 
       sendService = new SendService({
         accountsService: mockAccountsService,
         assetsService: mockAssetsService,
         tronWebFactory: mockTronWebFactory,
-        feeCalculatorService: mockFeeCalculatorService,
+        transactionService: mockTransactionService,
         logger: mockLogger,
-        snapClient: mockSnapClient,
       });
     });
 
@@ -137,7 +133,7 @@ describe('SendService', () => {
         ]);
 
         // Fee is 0 TRX (user has enough bandwidth)
-        mockFeeCalculatorService.computeFee.mockResolvedValue([
+        mockTransactionService.estimateFee.mockResolvedValue([
           {
             type: FeeType.Base,
             asset: {
@@ -169,7 +165,7 @@ describe('SendService', () => {
         expect(result).toStrictEqual({ valid: true });
         expect(mockAssetsService.getAssetsByAccountId).toHaveBeenCalledWith(
           TEST_ACCOUNT_ID,
-          [nativeTokenId, nativeTokenId, bandwidthId, energyId],
+          [nativeTokenId, nativeTokenId],
         );
       });
 
@@ -197,8 +193,8 @@ describe('SendService', () => {
           valid: false,
           errorCode: SendErrorCodes.InsufficientBalance,
         });
-        // Should not call feeCalculatorService since we fail early
-        expect(mockFeeCalculatorService.computeFee).not.toHaveBeenCalled();
+        // Should not call transactionService since we fail early
+        expect(mockTransactionService.estimateFee).not.toHaveBeenCalled();
       });
 
       it('returns InsufficientBalanceToCoverFee when TRX amount + fees exceed balance', async () => {
@@ -215,7 +211,7 @@ describe('SendService', () => {
 
         // Fee is 2 TRX (user has no bandwidth, must pay in TRX)
         // Total needed: 99 + 2 = 101 TRX, but user only has 100
-        mockFeeCalculatorService.computeFee.mockResolvedValue([
+        mockTransactionService.estimateFee.mockResolvedValue([
           {
             type: FeeType.Base,
             asset: {
@@ -255,7 +251,7 @@ describe('SendService', () => {
 
         // Fee is 2 TRX
         // Total needed: 98 + 2 = 100 TRX, user has exactly 100
-        mockFeeCalculatorService.computeFee.mockResolvedValue([
+        mockTransactionService.estimateFee.mockResolvedValue([
           {
             type: FeeType.Base,
             asset: {
@@ -293,7 +289,7 @@ describe('SendService', () => {
         ]);
 
         // Fee is 3 TRX (energy overage)
-        mockFeeCalculatorService.computeFee.mockResolvedValue([
+        mockTransactionService.estimateFee.mockResolvedValue([
           {
             type: FeeType.Base,
             asset: {
@@ -358,7 +354,7 @@ describe('SendService', () => {
           valid: false,
           errorCode: SendErrorCodes.InsufficientBalance,
         });
-        expect(mockFeeCalculatorService.computeFee).not.toHaveBeenCalled();
+        expect(mockTransactionService.estimateFee).not.toHaveBeenCalled();
       });
 
       it('returns InsufficientBalanceToCoverFee when user has tokens but not enough TRX for fees', async () => {
@@ -374,7 +370,7 @@ describe('SendService', () => {
         ]);
 
         // Fee is 10 TRX (no energy/bandwidth, everything paid in TRX)
-        mockFeeCalculatorService.computeFee.mockResolvedValue([
+        mockTransactionService.estimateFee.mockResolvedValue([
           {
             type: FeeType.Base,
             asset: {
@@ -413,7 +409,7 @@ describe('SendService', () => {
         ]);
 
         // Fee is exactly 5 TRX
-        mockFeeCalculatorService.computeFee.mockResolvedValue([
+        mockTransactionService.estimateFee.mockResolvedValue([
           {
             type: FeeType.Base,
             asset: {
@@ -477,7 +473,7 @@ describe('SendService', () => {
         ]);
 
         // Fee is 0.5 TRX
-        mockFeeCalculatorService.computeFee.mockResolvedValue([
+        mockTransactionService.estimateFee.mockResolvedValue([
           {
             type: FeeType.Base,
             asset: {
@@ -513,7 +509,7 @@ describe('SendService', () => {
         ]);
 
         // Fee is 0 TRX (user has enough bandwidth and energy)
-        mockFeeCalculatorService.computeFee.mockResolvedValue([
+        mockTransactionService.estimateFee.mockResolvedValue([
           {
             type: FeeType.Base,
             asset: {
@@ -567,7 +563,7 @@ describe('SendService', () => {
         ]);
 
         // Fee includes 1 TRX activation fee
-        mockFeeCalculatorService.computeFee.mockResolvedValue([
+        mockTransactionService.estimateFee.mockResolvedValue([
           {
             type: FeeType.Base,
             asset: {
@@ -612,7 +608,7 @@ describe('SendService', () => {
         ]);
 
         // Fee includes 1 TRX activation fee
-        mockFeeCalculatorService.computeFee.mockResolvedValue([
+        mockTransactionService.estimateFee.mockResolvedValue([
           {
             type: FeeType.Base,
             asset: {
@@ -661,7 +657,7 @@ describe('SendService', () => {
           { rawAmount: '0' },
         ]);
 
-        mockFeeCalculatorService.computeFee.mockResolvedValue([
+        mockTransactionService.estimateFee.mockResolvedValue([
           {
             type: FeeType.Base,
             asset: {
@@ -689,11 +685,11 @@ describe('SendService', () => {
         );
 
         // Verify fee calculator was called with the built transaction
-        expect(mockFeeCalculatorService.computeFee).toHaveBeenCalledWith({
+        expect(mockTransactionService.estimateFee).toHaveBeenCalledWith({
           scope,
+          accountId: TEST_ACCOUNT_ID,
           transaction: expect.objectContaining({ txID: 'mock-tx-id' }),
-          availableEnergy: expect.any(BigNumber),
-          availableBandwidth: expect.any(BigNumber),
+          feeLimit: undefined,
         });
       });
 
@@ -708,7 +704,7 @@ describe('SendService', () => {
           { rawAmount: '0' },
         ]);
 
-        mockFeeCalculatorService.computeFee.mockResolvedValue([
+        mockTransactionService.estimateFee.mockResolvedValue([
           {
             type: FeeType.Base,
             asset: {
@@ -747,7 +743,7 @@ describe('SendService', () => {
           { rawAmount: '100000' },
         ]);
 
-        mockFeeCalculatorService.computeFee.mockResolvedValue([
+        mockTransactionService.estimateFee.mockResolvedValue([
           {
             type: FeeType.Base,
             asset: {
@@ -792,7 +788,7 @@ describe('SendService', () => {
           { rawAmount: '1000' },
           { rawAmount: '0' },
         ]);
-        mockFeeCalculatorService.computeFee.mockResolvedValue([
+        mockTransactionService.estimateFee.mockResolvedValue([
           {
             type: FeeType.Base,
             asset: {
@@ -818,15 +814,14 @@ describe('SendService', () => {
           10 * 1e6,
           TEST_FROM_ADDRESS,
         );
-        expect(mockFeeCalculatorService.computeFee).toHaveBeenCalledWith({
+        expect(mockTransactionService.estimateFee).toHaveBeenCalledWith({
           scope,
+          accountId: TEST_ACCOUNT_ID,
           transaction: expect.objectContaining({
             raw_data: expect.objectContaining({
               fee_limit: FEE_LIMIT,
             }),
           }),
-          availableEnergy: expect.any(BigNumber),
-          availableBandwidth: expect.any(BigNumber),
           feeLimit: FEE_LIMIT,
         });
       });

@@ -3,7 +3,7 @@ import { Box, Text as SnapText } from '@metamask/snaps-sdk/jsx';
 
 import { Asset } from './Asset/Asset';
 import type { SpotPrices } from '../../../clients/price-api/types';
-import type { ComputeFeeResult } from '../../../services/send/types';
+import type { ComputeFeeResult } from '../../../services/transaction/types';
 import { FetchStatus, type Preferences } from '../../../types/snap';
 import { i18n } from '../../../utils/i18n';
 

@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type { Transaction } from '@metamask/keyring-api';
 
-import type { TransactionsRepository } from './TransactionsRepository';
-import { TransactionsService } from './TransactionsService';
+import type { TransactionHistoryRepository } from './TransactionHistoryRepository';
+import { TransactionHistoryService } from './TransactionHistoryService';
 import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
 import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
 import type {
@@ -19,10 +19,10 @@ import contractInfoMock from './mocks/trongrid/account-trc20-transactions/contra
 
 // Import simplified mock data (each file now contains only one transaction)
 
-describe('TransactionsService', () => {
-  let transactionsService: TransactionsService;
+describe('TransactionHistoryService', () => {
+  let transactionsService: TransactionHistoryService;
   let mockLogger: jest.Mocked<ILogger>;
-  let mockTransactionsRepository: jest.Mocked<TransactionsRepository>;
+  let mockTransactionHistoryRepository: jest.Mocked<TransactionHistoryRepository>;
   let mockTrongridApiClient: jest.Mocked<TrongridApiClient>;
   let mockTronHttpClient: jest.Mocked<TronHttpClient>;
 
@@ -67,14 +67,14 @@ describe('TransactionsService', () => {
     };
 
     // Create mock repository
-    mockTransactionsRepository = {
+    mockTransactionHistoryRepository = {
       getAll: jest.fn(),
       findByAccountId: jest.fn().mockResolvedValue([]),
       getTransactionIdsByAccountId: jest.fn().mockResolvedValue(new Set()),
       getConfirmedTransactionIds: jest.fn().mockResolvedValue(new Set()),
       save: jest.fn(),
       saveMany: jest.fn(),
-    } as unknown as jest.Mocked<TransactionsRepository>;
+    } as unknown as jest.Mocked<TransactionHistoryRepository>;
 
     // Create mock API client
     mockTrongridApiClient = {
@@ -90,9 +90,9 @@ describe('TransactionsService', () => {
     } as unknown as jest.Mocked<TronHttpClient>;
 
     // Create service instance
-    transactionsService = new TransactionsService({
+    transactionsService = new TransactionHistoryService({
       logger: mockLogger,
-      transactionsRepository: mockTransactionsRepository,
+      transactionsRepository: mockTransactionHistoryRepository,
       trongridApiClient: mockTrongridApiClient,
       tronHttpClient: mockTronHttpClient,
     });
@@ -168,7 +168,7 @@ describe('TransactionsService', () => {
 
       // Verify logger calls
       expect(mockLogger.info).toHaveBeenCalledWith(
-        '[🧾 TransactionsService]',
+        '[🧾 TransactionHistoryService]',
         expect.stringContaining('Fetching new transactions for account'),
       );
 
@@ -361,11 +361,11 @@ describe('TransactionsService', () => {
 
       expect(result).toStrictEqual([]);
       expect(mockLogger.error).toHaveBeenCalledWith(
-        '[🧾 TransactionsService]',
+        '[🧾 TransactionHistoryService]',
         'Failed to fetch raw transactions for address TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx on network tron:728126428',
       );
       expect(mockLogger.error).toHaveBeenCalledWith(
-        '[🧾 TransactionsService]',
+        '[🧾 TransactionHistoryService]',
         'Failed to fetch TRC20 transactions for address TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx on network tron:728126428',
       );
       expect(true).toBe(true);
@@ -374,7 +374,7 @@ describe('TransactionsService', () => {
     it('skips already confirmed transactions but allows pending transactions to be updated', async () => {
       // Simulate a confirmed transaction ID that should be skipped
       const confirmedTxId = 'confirmed-tx-id';
-      mockTransactionsRepository.getConfirmedTransactionIds.mockResolvedValue(
+      mockTransactionHistoryRepository.getConfirmedTransactionIds.mockResolvedValue(
         new Set([confirmedTxId]),
       );
 
@@ -408,7 +408,7 @@ describe('TransactionsService', () => {
     it('re-fetches pending transactions so they can be updated to confirmed status', async () => {
       // Simulate a pending transaction that exists in state but is NOT in confirmed set
       const pendingTxId = nativeTransferMock.txID;
-      mockTransactionsRepository.getConfirmedTransactionIds.mockResolvedValue(
+      mockTransactionHistoryRepository.getConfirmedTransactionIds.mockResolvedValue(
         new Set(), // Pending tx ID is not in confirmed set
       );
 
@@ -503,7 +503,7 @@ describe('TransactionsService', () => {
         },
       ];
 
-      mockTransactionsRepository.findByAccountId
+      mockTransactionHistoryRepository.findByAccountId
         .mockResolvedValueOnce(mockTransactions1)
         .mockResolvedValueOnce(mockTransactions2);
 
@@ -512,15 +512,15 @@ describe('TransactionsService', () => {
         mockAccount2,
       ]);
 
-      expect(mockTransactionsRepository.findByAccountId).toHaveBeenCalledTimes(
-        2,
-      );
-      expect(mockTransactionsRepository.findByAccountId).toHaveBeenCalledWith(
-        mockAccount.id,
-      );
-      expect(mockTransactionsRepository.findByAccountId).toHaveBeenCalledWith(
-        mockAccount2.id,
-      );
+      expect(
+        mockTransactionHistoryRepository.findByAccountId,
+      ).toHaveBeenCalledTimes(2);
+      expect(
+        mockTransactionHistoryRepository.findByAccountId,
+      ).toHaveBeenCalledWith(mockAccount.id);
+      expect(
+        mockTransactionHistoryRepository.findByAccountId,
+      ).toHaveBeenCalledWith(mockAccount2.id);
       expect(result).toHaveLength(2);
       expect(true).toBe(true);
     });
@@ -529,7 +529,9 @@ describe('TransactionsService', () => {
       const result = await transactionsService.findByAccounts([]);
 
       expect(result).toStrictEqual([]);
-      expect(mockTransactionsRepository.findByAccountId).not.toHaveBeenCalled();
+      expect(
+        mockTransactionHistoryRepository.findByAccountId,
+      ).not.toHaveBeenCalled();
       expect(true).toBe(true);
     });
   });
@@ -571,7 +573,7 @@ describe('TransactionsService', () => {
 
       await transactionsService.save(mockTransaction);
 
-      expect(mockTransactionsRepository.saveMany).toHaveBeenCalledWith([
+      expect(mockTransactionHistoryRepository.saveMany).toHaveBeenCalledWith([
         mockTransaction,
       ]);
       expect(true).toBe(true);
@@ -649,7 +651,7 @@ describe('TransactionsService', () => {
 
       await transactionsService.saveMany(mockTransactions);
 
-      expect(mockTransactionsRepository.saveMany).toHaveBeenCalledWith(
+      expect(mockTransactionHistoryRepository.saveMany).toHaveBeenCalledWith(
         mockTransactions,
       );
       expect(true).toBe(true);
@@ -658,7 +660,9 @@ describe('TransactionsService', () => {
     it('should handle empty transactions array', async () => {
       await transactionsService.saveMany([]);
 
-      expect(mockTransactionsRepository.saveMany).toHaveBeenCalledWith([]);
+      expect(mockTransactionHistoryRepository.saveMany).toHaveBeenCalledWith(
+        [],
+      );
       expect(true).toBe(true);
     });
 
@@ -764,7 +768,7 @@ describe('TransactionsService', () => {
 
       await transactionsService.saveMany(mockTransactions);
 
-      expect(mockTransactionsRepository.saveMany).toHaveBeenCalledWith(
+      expect(mockTransactionHistoryRepository.saveMany).toHaveBeenCalledWith(
         mockTransactions,
       );
       expect(true).toBe(true);
@@ -791,7 +795,7 @@ describe('TransactionsService', () => {
       // Save the fetched transactions
       await transactionsService.saveMany(fetchedTransactions);
 
-      expect(mockTransactionsRepository.saveMany).toHaveBeenCalledWith(
+      expect(mockTransactionHistoryRepository.saveMany).toHaveBeenCalledWith(
         fetchedTransactions,
       );
       expect(true).toBe(true);
