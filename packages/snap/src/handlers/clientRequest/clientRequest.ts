@@ -13,6 +13,7 @@ import {
   sha256,
 } from '@metamask/utils';
 import { BigNumber } from 'bignumber.js';
+import type { TronWeb, Types } from 'tronweb';
 
 import { ClientRequestMethod, SendErrorCodes } from './types';
 import {
@@ -34,7 +35,7 @@ import {
 } from './validation';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
-import { Network, Networks, NULL_ADDRESS, ZERO } from '../../constants';
+import { FEE_LIMIT, Network, Networks, ZERO } from '../../constants';
 import type { AccountsService } from '../../services/accounts/AccountsService';
 import type { AssetsService } from '../../services/assets/AssetsService';
 import type {
@@ -53,6 +54,11 @@ import type { ILogger } from '../../utils/logger';
 import { createPrefixedLogger } from '../../utils/logger';
 import { assertTransactionStructure } from '../../validation/transaction';
 import { BackgroundEventMethod } from '../cronjob';
+
+type TransactionRawData = Types.Transaction['raw_data'] & {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  fee_limit?: number;
+};
 
 export class ClientRequestHandler {
   readonly #logger: ILogger;
@@ -217,11 +223,13 @@ export class ClientRequestHandler {
      * We need to rebuild the transaction due to some extra fields
      */
     // eslint-disable-next-line no-restricted-globals
-    const rawDataHex = Buffer.from(transactionBase64, 'base64').toString('hex');
+    let rawDataHex = Buffer.from(transactionBase64, 'base64').toString('hex');
     const rawData = tronWeb.utils.deserializeTx.deserializeTransaction(
       type,
       rawDataHex,
-    );
+    ) as TransactionRawData;
+    rawDataHex = this.#setRawDataFeeLimit(tronWeb, rawData);
+
     assertTransactionStructure(rawData);
 
     const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);
@@ -307,7 +315,7 @@ export class ClientRequestHandler {
     try {
       assert(request, OnAmountInputRequestStruct);
 
-      const { accountId, assetId, value } = request.params;
+      const { accountId, assetId, value, toAddress } = request.params;
 
       const account = await this.#accountsService.findById(accountId);
 
@@ -354,20 +362,29 @@ export class ClientRequestHandler {
         };
       }
 
+      if (!toAddress) {
+        return {
+          valid: true,
+          errors: [],
+        };
+      }
+
       /**
        * Estimate the fees
        */
       const sendTransaction = await this.#sendService.buildTransaction({
         fromAccountId: accountId,
-        toAddress: NULL_ADDRESS,
+        toAddress,
         asset,
-        amount: valueBN.toNumber(),
+        amount: valueBN,
+        feeLimit: FEE_LIMIT,
       });
       const fees = await this.#feeCalculatorService.computeFee({
         scope,
         transaction: sendTransaction,
         availableEnergy: energyBalance,
         availableBandwidth: bandwidthBalance,
+        feeLimit: FEE_LIMIT,
       });
 
       /**
@@ -460,6 +477,7 @@ export class ClientRequestHandler {
       toAddress,
       asset,
       amount: amountBN,
+      feeLimit: FEE_LIMIT,
     });
 
     if (!validation.valid) {
@@ -488,7 +506,8 @@ export class ClientRequestHandler {
         fromAccountId,
         toAddress,
         asset,
-        amount: amountBN.toNumber(),
+        amount: amountBN,
+        feeLimit: FEE_LIMIT,
       }),
     ]);
 
@@ -504,6 +523,7 @@ export class ClientRequestHandler {
       transaction,
       availableEnergy,
       availableBandwidth,
+      feeLimit: FEE_LIMIT,
     });
 
     /**
@@ -520,6 +540,7 @@ export class ClientRequestHandler {
         asset,
         accountType: account.type,
         origin: 'MetaMask',
+        transactionRawData: transaction.raw_data,
       },
     );
 
@@ -589,11 +610,13 @@ export class ClientRequestHandler {
     const tronWeb = this.#tronWebFactory.createClient(scope);
 
     // eslint-disable-next-line no-restricted-globals
-    const rawDataHex = Buffer.from(transactionBase64, 'base64').toString('hex');
+    let rawDataHex = Buffer.from(transactionBase64, 'base64').toString('hex');
     const rawData = tronWeb.utils.deserializeTx.deserializeTransaction(
       type,
       rawDataHex,
-    );
+    ) as TransactionRawData;
+    rawDataHex = this.#setRawDataFeeLimit(tronWeb, rawData, feeLimit);
+
     assertTransactionStructure(rawData);
 
     const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);
@@ -631,7 +654,7 @@ export class ClientRequestHandler {
       transaction,
       availableEnergy,
       availableBandwidth,
-      feeLimit,
+      feeLimit: rawData.fee_limit,
     });
 
     assert(result, ComputeFeeResponseStruct);
@@ -1064,5 +1087,32 @@ export class ClientRequestHandler {
       signedMessage: message,
       signatureType: 'secp256k1',
     };
+  }
+
+  /**
+   * Sets the fee limit on a transaction's raw data and re-serializes it to hexadecimal format.
+   *
+   * This method mutates the provided rawData object by setting its fee_limit field,
+   * then converts the transaction to protocol buffer format and back to hex encoding.
+   * This is necessary when adjusting fee limits for transactions that need higher
+   * gas limits (e.g., complex smart contract interactions or swaps).
+   *
+   * @param tronWeb - The TronWeb client instance used for transaction serialization.
+   * @param rawData - The raw transaction data object to modify. This object will be mutated.
+   * @param feeLimit - The fee limit to set in SUN (1 TRX = 1,000,000 SUN). Defaults to FEE_LIMIT (100 TRX).
+   * @returns The hexadecimal-encoded raw data with the updated fee limit.
+   */
+  #setRawDataFeeLimit(
+    tronWeb: TronWeb,
+    rawData: TransactionRawData,
+    feeLimit = FEE_LIMIT,
+  ): string {
+    rawData.fee_limit = feeLimit;
+    // Re-serialize rawData to get the updated rawDataHex
+    const transactionPb = tronWeb.utils.transaction.txJsonToPb({
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      raw_data: rawData,
+    });
+    return tronWeb.utils.transaction.txPbToRawDataHex(transactionPb);
   }
 }

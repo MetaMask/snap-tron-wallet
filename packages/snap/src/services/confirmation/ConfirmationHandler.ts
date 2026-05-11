@@ -1,6 +1,7 @@
 import { InternalError } from '@metamask/snaps-sdk';
 import { assert } from '@metamask/superstruct';
 import { BigNumber } from 'bignumber.js';
+import type { Types } from 'tronweb';
 
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
@@ -14,8 +15,12 @@ import { getIconUrlForKnownAsset } from '../../ui/confirmation/utils/getIconUrlF
 import { render as renderConfirmSignMessage } from '../../ui/confirmation/views/ConfirmSignMessage/render';
 import { ConfirmSignTransaction } from '../../ui/confirmation/views/ConfirmSignTransaction/ConfirmSignTransaction';
 import { render as renderConfirmSignTransaction } from '../../ui/confirmation/views/ConfirmSignTransaction/render';
-import type { ConfirmSignTransactionContext } from '../../ui/confirmation/views/ConfirmSignTransaction/types';
+import {
+  CONFIRM_SIGN_TRANSACTION_INTERFACE_NAME,
+  type ConfirmSignTransactionContext,
+} from '../../ui/confirmation/views/ConfirmSignTransaction/types';
 import { render as renderConfirmTransactionRequest } from '../../ui/confirmation/views/ConfirmTransactionRequest/render';
+import { CONFIRM_TRANSACTION_INTERFACE_NAME } from '../../ui/confirmation/views/ConfirmTransactionRequest/types';
 import { formatOrigin } from '../../utils/formatOrigin';
 import type { ILogger } from '../../utils/logger';
 import logger, { createPrefixedLogger } from '../../utils/logger';
@@ -61,6 +66,14 @@ export class ConfirmationHandler {
     this.#tronWebFactory = tronWebFactory;
     this.#assetsService = assetsService;
     this.#feeCalculatorService = feeCalculatorService;
+  }
+
+  async #clearInterfaceId(interfaceName: string): Promise<void> {
+    try {
+      await this.#state.setKey(`mapInterfaceNameToId.${interfaceName}`, null);
+    } catch (error) {
+      this.#logger.error({ error }, 'Failed to clear interface ID');
+    }
   }
 
   async handleKeyringRequest({
@@ -129,6 +142,9 @@ export class ConfirmationHandler {
       account,
       rawData,
     );
+
+    await this.#clearInterfaceId(CONFIRM_SIGN_TRANSACTION_INTERFACE_NAME);
+
     return result === true;
   }
 
@@ -141,6 +157,7 @@ export class ConfirmationHandler {
     asset,
     accountType,
     origin,
+    transactionRawData,
   }: {
     scope: Network;
     fromAddress: string;
@@ -150,6 +167,7 @@ export class ConfirmationHandler {
     asset: AssetEntity;
     accountType: string;
     origin: string;
+    transactionRawData: Types.Transaction['raw_data'];
   }): Promise<boolean> {
     // Track Transaction Added event
     await this.#snapClient.trackTransactionAdded({
@@ -170,8 +188,11 @@ export class ConfirmationHandler {
         asset,
         origin: formatOrigin(origin),
         accountType,
+        transactionRawData,
       },
     );
+
+    await this.#clearInterfaceId(CONFIRM_TRANSACTION_INTERFACE_NAME);
 
     // Track Transaction Rejected event if user rejects
     if (result === true) {

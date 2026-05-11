@@ -9,16 +9,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Validate that account IDs passed to `keyring_setSelectedAccounts` belong to the snap, rejecting unknown IDs with `InvalidParamsError` ([#298](https://github.com/MetaMask/snap-solana-wallet/pull/298))
+
+## [1.25.3]
+
+### Fixed
+
+- Token balances now update correctly after a swap or transfer. ([#292](https://github.com/MetaMask/snap-tron-wallet/pull/292))
+- Remove interface ID after it is no longer needed ([#284](https://github.com/MetaMask/snap-tron-wallet/pull/284))
+
+## [1.25.2]
+
+### Fixed
+
+- Relax Trongrid `internal_transactions` validation to avoid sync failures on sparse legacy payloads ([#289](https://github.com/MetaMask/snap-tron-wallet/pull/289))
+- Handle TRC10 token identifiers correctly in the current Trongrid account-history transaction flow, without mis-parsing endpoint-specific `asset_name` formats ([#289](https://github.com/MetaMask/snap-tron-wallet/pull/289))
+- Decouple assets and transactions synchronization so one failure does not prevent the other from completing ([#289](https://github.com/MetaMask/snap-tron-wallet/pull/289))
+
+## [1.25.1]
+
+### Fixed
+
+- Correctly display token icon size when sending TRC20 tokens ([#262](https://github.com/MetaMask/snap-tron-wallet/pull/262))
+- Correctly display decimal amount sent in confirmation dialog ([#264](https://github.com/MetaMask/snap-tron-wallet/pull/264))
+- Confirm `fee_limit` is always present when building transaction ([#280](https://github.com/MetaMask/snap-tron-wallet/pull/280))
+- Include memo fee (1 TRX) in fee estimation logic ([#281](https://github.com/MetaMask/snap-tron-wallet/pull/281))
+- Handle NFT asset types in transaction scan simulation ([#285](https://github.com/MetaMask/snap-tron-wallet/pull/285))
+
+## [1.25.0]
+
+### Changed
+
 - Optimize account discovery by using a lightweight activity check (`limit=1`) instead of fetching full transaction history ([#252](https://github.com/MetaMask/snap-tron-wallet/pull/252))
 - Simplify `SnapClient` interface methods by removing defensive `*IfExists` wrappers and aligning with the Solana snap's approach ([#257](https://github.com/MetaMask/snap-tron-wallet/pull/257))
 
 ### Fixed
 
+- Avoid `onAmountInput` fee estimation failures by skipping fee validation until a recipient address is available ([#259](https://github.com/MetaMask/snap-tron-wallet/pull/259))
 - Assert transaction structure at all entry points, rejecting malformed transactions ([#237](https://github.com/MetaMask/snap-tron-wallet/pull/237))
 - Disable scanning of unsupported contract types, preventing incorrect security alerts from blocking user flows ([#238](https://github.com/MetaMask/snap-tron-wallet/pull/238))
   - Supported transactions are those single-contract interaction transactions of the following types: `TransferContract`, `CreateSmartContract`, `TriggerSmartContract`.
   - Unsupported transactions will show empty estimated changes and allow the user to proceed without blocking the confirmation.
 - Correctly fetch and return staking rewards ([#242](https://github.com/MetaMask/snap-tron-wallet/pull/242))
+- Fix revert simulation error when sending TRC20 tokens ([#261](https://github.com/MetaMask/snap-tron-wallet/pull/261))
+- Fix infinite loading during fee estimation ([#258](https://github.com/MetaMask/snap-tron-wallet/pull/258))
+  - The issue was caused by a deadlock during cache updates of chain parameters.
 
 ## [1.24.0]
 
@@ -450,7 +485,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release of Tron wallet snap
 - Support for TRX and token assets balances ([#12](https://github.com/MetaMask/snap-tron-wallet/pull/12))
 
-[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.24.0...HEAD
+[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.3...HEAD
+[1.25.3]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.2...v1.25.3
+[1.25.2]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.1...v1.25.2
+[1.25.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.0...v1.25.1
+[1.25.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.24.0...v1.25.0
 [1.24.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.23.1...v1.24.0
 [1.23.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.23.0...v1.23.1
 [1.23.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.22.1...v1.23.0
