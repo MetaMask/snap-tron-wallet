@@ -27,6 +27,7 @@ import { State } from './services/state/State';
 import { TransactionScanService } from './services/transaction-scan/TransactionScanService';
 import { TransactionsRepository } from './services/transactions/TransactionsRepository';
 import { TransactionsService } from './services/transactions/TransactionsService';
+import { TransactionsServiceV2 } from './services/transactions/TransactionsServiceV2';
 import { WalletService } from './services/wallet/WalletService';
 import logger, { noOpLogger } from './utils/logger';
 
@@ -156,6 +157,19 @@ const confirmationHandler = new ConfirmationHandler({
   feeCalculatorService,
 });
 
+const transactionsServiceV2 = new TransactionsServiceV2({
+  logger,
+  snapClient,
+  accountsService,
+  assetsService,
+  sendService,
+  feeCalculatorService,
+  tronWebFactory,
+  stakingService,
+  confirmationHandler,
+  transactionsService,
+});
+
 /**
  * Handlers
  */
@@ -174,6 +188,7 @@ const clientRequestHandler = new ClientRequestHandler({
   stakingService,
   confirmationHandler,
   transactionsService,
+  transactionsServiceV2,
 });
 const cronHandler = new CronHandler({
   logger,
@@ -215,6 +230,7 @@ export type SnapExecutionContext = {
   assetsService: AssetsService;
   accountsService: AccountsService;
   transactionsService: TransactionsService;
+  transactionsServiceV2: TransactionsServiceV2;
   sendService: SendService;
   walletService: WalletService;
   tronHttpClient: TronHttpClient;
@@ -246,6 +262,7 @@ const snapContext: SnapExecutionContext = {
   assetsService,
   accountsService,
   transactionsService,
+  transactionsServiceV2,
   sendService,
   walletService,
   tronHttpClient,

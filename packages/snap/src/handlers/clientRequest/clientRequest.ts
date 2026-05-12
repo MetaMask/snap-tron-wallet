@@ -6,14 +6,6 @@ import {
   UserRejectedRequestError,
 } from '@metamask/snaps-sdk';
 import { assert } from '@metamask/superstruct';
-import {
-  bytesToHex,
-  hexToBytes,
-  parseCaipAssetType,
-  sha256,
-} from '@metamask/utils';
-import { BigNumber } from 'bignumber.js';
-import type { TronWeb, Types } from 'tronweb';
 
 import { ClientRequestMethod, SendErrorCodes } from './types';
 import {
@@ -29,57 +21,28 @@ import {
   OnConfirmUnstakeRequestStruct,
   OnStakeAmountInputRequestStruct,
   OnUnstakeAmountInputRequestStruct,
-  parseRewardsMessage,
   SignAndSendTransactionRequestStruct,
   SignRewardsMessageRequestStruct,
 } from './validation';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
-import { FEE_LIMIT, Network, Networks, ZERO } from '../../constants';
+import { FEE_LIMIT, Network, Networks } from '../../constants';
 import type { AccountsService } from '../../services/accounts/AccountsService';
 import type { AssetsService } from '../../services/assets/AssetsService';
-import type {
-  NativeCaipAssetType,
-  StakedCaipAssetType,
-} from '../../services/assets/types';
 import type { ConfirmationHandler } from '../../services/confirmation/ConfirmationHandler';
 import type { FeeCalculatorService } from '../../services/send/FeeCalculatorService';
 import type { SendService } from '../../services/send/SendService';
 import type { StakingService } from '../../services/staking/StakingService';
-import { TransactionMapper } from '../../services/transactions/TransactionsMapper';
 import type { TransactionsService } from '../../services/transactions/TransactionsService';
+import { TransactionsServiceV2 } from '../../services/transactions/TransactionsServiceV2';
 import { assertOrThrow } from '../../utils/assertOrThrow';
-import { trxToSun } from '../../utils/conversion';
 import type { ILogger } from '../../utils/logger';
 import { createPrefixedLogger } from '../../utils/logger';
-import { assertTransactionStructure } from '../../validation/transaction';
-import { BackgroundEventMethod } from '../cronjob';
-
-type TransactionRawData = Types.Transaction['raw_data'] & {
-  // eslint-disable-next-line @typescript-eslint/naming-convention
-  fee_limit?: number;
-};
 
 export class ClientRequestHandler {
   readonly #logger: ILogger;
 
-  readonly #accountsService: AccountsService;
-
-  readonly #assetsService: AssetsService;
-
-  readonly #sendService: SendService;
-
-  readonly #tronWebFactory: TronWebFactory;
-
-  readonly #feeCalculatorService: FeeCalculatorService;
-
-  readonly #snapClient: SnapClient;
-
-  readonly #stakingService: StakingService;
-
-  readonly #confirmationHandler: ConfirmationHandler;
-
-  readonly #transactionsService: TransactionsService;
+  readonly #transactionsServiceV2: TransactionsServiceV2;
 
   constructor({
     logger,
@@ -92,6 +55,7 @@ export class ClientRequestHandler {
     stakingService,
     confirmationHandler,
     transactionsService,
+    transactionsServiceV2,
   }: {
     logger: ILogger;
     accountsService: AccountsService;
@@ -103,17 +67,23 @@ export class ClientRequestHandler {
     stakingService: StakingService;
     confirmationHandler: ConfirmationHandler;
     transactionsService: TransactionsService;
+    transactionsServiceV2?: TransactionsServiceV2;
   }) {
     this.#logger = createPrefixedLogger(logger, '[👋 ClientRequestHandler]');
-    this.#accountsService = accountsService;
-    this.#assetsService = assetsService;
-    this.#sendService = sendService;
-    this.#feeCalculatorService = feeCalculatorService;
-    this.#tronWebFactory = tronWebFactory;
-    this.#snapClient = snapClient;
-    this.#stakingService = stakingService;
-    this.#confirmationHandler = confirmationHandler;
-    this.#transactionsService = transactionsService;
+    this.#transactionsServiceV2 =
+      transactionsServiceV2 ??
+      new TransactionsServiceV2({
+        logger,
+        accountsService,
+        assetsService,
+        sendService,
+        feeCalculatorService,
+        tronWebFactory,
+        snapClient,
+        stakingService,
+        confirmationHandler,
+        transactionsService,
+      });
   }
 
   /**
@@ -211,68 +181,35 @@ export class ClientRequestHandler {
       options: { type },
     } = request.params;
 
-    const account = await this.#accountsService.findByIdOrThrow(accountId);
+    const account =
+      await this.#transactionsServiceV2.findAccountOrThrow(accountId);
+    const transaction =
+      await this.#transactionsServiceV2.deserializeTransaction({
+        scope,
+        transactionBase64,
+        type,
+      });
 
-    const { privateKeyHex } = await this.#accountsService.deriveTronKeypair({
-      entropySource: account.entropySource,
-      derivationPath: account.derivationPath,
+    const signedTx = await this.#transactionsServiceV2.signTransaction({
+      scope,
+      account,
+      transaction,
     });
-    const tronWeb = this.#tronWebFactory.createClient(scope, privateKeyHex);
+    const result = await this.#transactionsServiceV2.broadcastTransaction({
+      scope,
+      signedTransaction: signedTx,
+    });
 
-    /**
-     * We need to rebuild the transaction due to some extra fields
-     */
-    // eslint-disable-next-line no-restricted-globals
-    let rawDataHex = Buffer.from(transactionBase64, 'base64').toString('hex');
-    const rawData = tronWeb.utils.deserializeTx.deserializeTransaction(
-      type,
-      rawDataHex,
-    ) as TransactionRawData;
-    rawDataHex = this.#setRawDataFeeLimit(tronWeb, rawData);
-
-    assertTransactionStructure(rawData);
-
-    const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);
-    const transaction = {
-      /**
-       * Deserialized transaction always hexadecimal addresses
-       */
-      visible: false,
-      txID,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      raw_data: rawData,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      raw_data_hex: rawDataHex,
-    };
-    const signedTx = await tronWeb.trx.sign(transaction);
-    const result = await tronWeb.trx.sendRawTransaction(signedTx);
-
-    if (!result.result) {
-      throw new Error(`Failed to send transaction: ${result.message}`);
-    }
-
-    // Immediately create and save a minimal pending transaction
-    // This shows the transaction to the user right away
-    const pendingTransaction = TransactionMapper.createPendingTransaction({
+    await this.#transactionsServiceV2.savePendingTransaction({
       txId: result.txid,
       account,
       scope,
     });
 
-    await this.#transactionsService.save(pendingTransaction);
-
-    /**
-     * Track transaction after a transaction
-     */
-    await this.#snapClient.scheduleBackgroundEvent({
-      method: BackgroundEventMethod.TrackTransaction,
-      params: {
-        txId: result.txid,
-        scope,
-        accountIds: [accountId],
-        attempt: 0,
-      },
-      duration: 'PT1S',
+    await this.#transactionsServiceV2.scheduleTransactionTracking({
+      txId: result.txid,
+      scope,
+      accountId,
     });
 
     return {
@@ -317,7 +254,7 @@ export class ClientRequestHandler {
 
       const { accountId, assetId, value, toAddress } = request.params;
 
-      const account = await this.#accountsService.findById(accountId);
+      const account = await this.#transactionsServiceV2.findAccount(accountId);
 
       /**
        * Check if the account we want to send from exists...
@@ -332,30 +269,24 @@ export class ClientRequestHandler {
       /**
        * Check if we have enough of the asset we want to send...
        */
-      const { chainId } = parseCaipAssetType(assetId);
-      const scope = chainId as Network;
-
-      const [asset, nativeTokenAsset, bandwidthAsset, energyAsset] =
-        await this.#assetsService.getAssetsByAccountId(accountId, [
+      const scope = this.#transactionsServiceV2.getScopeFromAssetId(assetId);
+      const { asset, nativeTokenAsset, bandwidthAsset, energyAsset } =
+        await this.#transactionsServiceV2.getSendValidationAssets({
+          accountId,
           assetId,
-          Networks[scope].nativeToken.id,
-          Networks[scope].bandwidth.id,
-          Networks[scope].energy.id,
-        ]);
+          scope,
+        });
 
-      const valueBN = new BigNumber(value);
-      const assetToSendBalance = asset ? new BigNumber(asset.uiAmount) : ZERO;
-      const nativeTokenBalance = nativeTokenAsset
-        ? new BigNumber(nativeTokenAsset.uiAmount)
-        : ZERO;
-      const bandwidthBalance = bandwidthAsset
-        ? new BigNumber(bandwidthAsset.uiAmount)
-        : ZERO;
-      const energyBalance = energyAsset
-        ? new BigNumber(energyAsset.uiAmount)
-        : ZERO;
+      const valueBN = this.#transactionsServiceV2.getAmount(value);
+      const assetToSendBalance = this.#transactionsServiceV2.getBalance(asset);
 
-      if (!asset || valueBN.isGreaterThan(assetToSendBalance)) {
+      if (
+        !asset ||
+        !this.#transactionsServiceV2.hasEnoughBalance({
+          amount: valueBN,
+          balance: assetToSendBalance,
+        })
+      ) {
         return {
           valid: false,
           errors: [{ code: SendErrorCodes.InsufficientBalance }],
@@ -372,44 +303,37 @@ export class ClientRequestHandler {
       /**
        * Estimate the fees
        */
-      const sendTransaction = await this.#sendService.buildTransaction({
-        fromAccountId: accountId,
-        toAddress,
-        asset,
-        amount: valueBN,
-        feeLimit: FEE_LIMIT,
-      });
-      const fees = await this.#feeCalculatorService.computeFee({
+      const sendTransaction =
+        await this.#transactionsServiceV2.buildSendTransaction({
+          fromAccountId: accountId,
+          toAddress,
+          asset,
+          amount: valueBN,
+          feeLimit: FEE_LIMIT,
+        });
+      const { availableEnergy, availableBandwidth } =
+        this.#transactionsServiceV2.getAvailableResources({
+          bandwidthAsset,
+          energyAsset,
+        });
+      const fees = await this.#transactionsServiceV2.estimateFeeWithResources({
         scope,
         transaction: sendTransaction,
-        availableEnergy: energyBalance,
-        availableBandwidth: bandwidthBalance,
+        availableEnergy,
+        availableBandwidth,
         feeLimit: FEE_LIMIT,
       });
+      const feeValidation = this.#transactionsServiceV2.validateFeeBalance({
+        scope,
+        assetId,
+        amount: valueBN,
+        fees,
+        nativeTokenBalance:
+          this.#transactionsServiceV2.getBalance(nativeTokenAsset),
+      });
 
-      /**
-       * The fee calculation already takes into account the energy and bandwidth consumption,
-       * so we only need to make sure we have enough TRX to cover overages.
-       */
-      const nativeTokenId = Networks[scope].nativeToken.id;
-      const trxFee = new BigNumber(
-        fees.find((fee) => fee.asset.type === nativeTokenId)?.asset.amount ??
-          '0',
-      );
-
-      /**
-       * Don't forget that we can also be sending TRX so we must add the fees to the amount that will be
-       * sent.
-       */
-      const totalTrxToSpend =
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-        assetId === nativeTokenId ? valueBN.plus(trxFee) : trxFee;
-
-      if (totalTrxToSpend.isGreaterThan(nativeTokenBalance)) {
-        return {
-          valid: false,
-          errors: [{ code: SendErrorCodes.InsufficientBalanceToCoverFee }],
-        };
+      if (!feeValidation.valid) {
+        return feeValidation;
       }
 
       return {
@@ -440,7 +364,8 @@ export class ClientRequestHandler {
 
     const { fromAccountId, toAddress, amount, assetId } = request.params;
 
-    const account = await this.#accountsService.findById(fromAccountId);
+    const account =
+      await this.#transactionsServiceV2.findAccount(fromAccountId);
 
     if (!account) {
       return {
@@ -449,10 +374,10 @@ export class ClientRequestHandler {
       };
     }
 
-    const asset = await this.#assetsService.getAssetByAccountId(
-      fromAccountId,
+    const asset = await this.#transactionsServiceV2.findAsset({
+      accountId: fromAccountId,
       assetId,
-    );
+    });
 
     if (!asset) {
       return {
@@ -461,48 +386,43 @@ export class ClientRequestHandler {
       };
     }
 
-    const { chainId } = parseCaipAssetType(assetId);
-    const scope = chainId as Network;
+    const scope = this.#transactionsServiceV2.getScopeFromAssetId(assetId);
 
-    const amountBN = new BigNumber(amount);
+    const amountBN = this.#transactionsServiceV2.getAmount(amount);
 
     /**
      * Validate that the user has enough funds to cover both the amount
      * and all associated fees (including account activation if applicable).
      * This prevents users from confirming sends that we know will fail.
      */
-    const validation = await this.#sendService.validateSend({
-      scope,
-      fromAccountId,
-      toAddress,
-      asset,
-      amount: amountBN,
-      feeLimit: FEE_LIMIT,
-    });
+    const validation =
+      await this.#transactionsServiceV2.validateSendFeasibility({
+        scope,
+        fromAccountId,
+        toAddress,
+        asset,
+        amount: amountBN,
+        feeLimit: FEE_LIMIT,
+      });
 
     if (!validation.valid) {
-      return {
-        valid: false,
-        errors: [
-          { code: validation.errorCode ?? SendErrorCodes.InsufficientBalance },
-        ],
-      };
+      return validation;
     }
 
-    const [[bandwidthAsset, energyAsset], transaction] = await Promise.all([
+    const [resources, transaction] = await Promise.all([
       /**
        * Get available Energy and Bandwidth from account assets.
        */
-      this.#assetsService.getAssetsByAccountId(fromAccountId, [
-        Networks[scope].bandwidth.id,
-        Networks[scope].energy.id,
-      ]),
+      this.#transactionsServiceV2.getAvailableAccountResources({
+        accountId: fromAccountId,
+        scope,
+      }),
       /**
        * Build the unsigned transaction.
        * Fee estimation uses a constant overhead for the signature (134 bytes).
        * Signing happens after user confirmation in sendTransaction().
        */
-      this.#sendService.buildTransaction({
+      this.#transactionsServiceV2.buildSendTransaction({
         fromAccountId,
         toAddress,
         asset,
@@ -511,18 +431,11 @@ export class ClientRequestHandler {
       }),
     ]);
 
-    const availableEnergy = energyAsset
-      ? new BigNumber(energyAsset.rawAmount)
-      : ZERO;
-    const availableBandwidth = bandwidthAsset
-      ? new BigNumber(bandwidthAsset.rawAmount)
-      : ZERO;
-
-    const fees = await this.#feeCalculatorService.computeFee({
+    const fees = await this.#transactionsServiceV2.estimateFeeWithResources({
       scope,
       transaction,
-      availableEnergy,
-      availableBandwidth,
+      availableEnergy: resources.availableEnergy,
+      availableBandwidth: resources.availableBandwidth,
       feeLimit: FEE_LIMIT,
     });
 
@@ -530,19 +443,15 @@ export class ClientRequestHandler {
      * Show the confirmation UI.
      * Origin is 'MetaMask' because client requests come from MetaMask's own unified send flow.
      */
-    const confirmed = await this.#confirmationHandler.confirmTransactionRequest(
-      {
-        scope,
-        fromAddress: account.address,
-        toAddress,
-        amount,
-        fees,
-        asset,
-        accountType: account.type,
-        origin: 'MetaMask',
-        transactionRawData: transaction.raw_data,
-      },
-    );
+    const confirmed = await this.#transactionsServiceV2.confirmSendTransaction({
+      scope,
+      account,
+      toAddress,
+      amount,
+      fees,
+      asset,
+      transaction,
+    });
 
     if (!confirmed) {
       throw new UserRejectedRequestError() as unknown as Error;
@@ -551,25 +460,21 @@ export class ClientRequestHandler {
     /**
      * Send the built transaction
      */
-    const result = await this.#sendService.signAndSendTransaction({
-      scope,
-      fromAccountId,
-      transaction,
-    });
+    const result =
+      await this.#transactionsServiceV2.signAndBroadcastSendTransaction({
+        scope,
+        fromAccountId,
+        transaction,
+      });
 
-    // Immediately create and save a detailed pending Send transaction
-    // This shows the transaction to the user right away with all details
-    const pendingTransaction = TransactionMapper.createPendingSendTransaction({
+    await this.#transactionsServiceV2.savePendingSendTransaction({
       txId: result.txid,
       account,
       scope,
       toAddress,
       amount,
-      assetType: assetId,
-      assetSymbol: asset.symbol,
+      asset,
     });
-
-    await this.#transactionsService.save(pendingTransaction);
 
     this.#logger.log(
       `Created pending Send transaction ${result.txid} for account ${account.id}`,
@@ -601,60 +506,21 @@ export class ClientRequestHandler {
       },
     } = request;
 
-    /**
-     * Recreate the transaction object from base64-encoded raw data.
-     * No signing needed - fee calculation uses constant overhead for signature.
-     */
-    await this.#accountsService.findByIdOrThrow(accountId);
+    await this.#transactionsServiceV2.findAccountOrThrow(accountId);
 
-    const tronWeb = this.#tronWebFactory.createClient(scope);
+    const transaction =
+      await this.#transactionsServiceV2.deserializeTransaction({
+        scope,
+        transactionBase64,
+        type,
+        feeLimit,
+      });
 
-    // eslint-disable-next-line no-restricted-globals
-    let rawDataHex = Buffer.from(transactionBase64, 'base64').toString('hex');
-    const rawData = tronWeb.utils.deserializeTx.deserializeTransaction(
-      type,
-      rawDataHex,
-    ) as TransactionRawData;
-    rawDataHex = this.#setRawDataFeeLimit(tronWeb, rawData, feeLimit);
-
-    assertTransactionStructure(rawData);
-
-    const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);
-    const transaction = {
-      visible: false,
-      txID,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      raw_data: rawData,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      raw_data_hex: rawDataHex,
-    };
-
-    /**
-     * Get available Energy and Bandwidth from account assets.
-     */
-    const [bandwidthAsset, energyAsset] =
-      await this.#assetsService.getAssetsByAccountId(accountId, [
-        Networks[scope].bandwidth.id,
-        Networks[scope].energy.id,
-      ]);
-
-    const availableEnergy = energyAsset
-      ? new BigNumber(energyAsset.rawAmount)
-      : ZERO;
-    const availableBandwidth = bandwidthAsset
-      ? new BigNumber(bandwidthAsset.rawAmount)
-      : ZERO;
-
-    /**
-     * Calculate complete fee breakdown using the service.
-     * Uses constant overhead (134 bytes) for unsigned transactions.
-     */
-    const result = await this.#feeCalculatorService.computeFee({
+    const result = await this.#transactionsServiceV2.estimateFee({
       scope,
+      accountId,
       transaction,
-      availableEnergy,
-      availableBandwidth,
-      feeLimit: rawData.fee_limit,
+      feeLimit: transaction.raw_data.fee_limit,
     });
 
     assert(result, ComputeFeeResponseStruct);
@@ -684,17 +550,18 @@ export class ClientRequestHandler {
       options: { purpose },
     } = request.params;
 
-    const account = await this.#accountsService.findByIdOrThrow(fromAccountId);
+    const account =
+      await this.#transactionsServiceV2.findAccountOrThrow(fromAccountId);
 
     const scope = Network.Mainnet;
 
-    const asset = await this.#assetsService.getAssetByAccountId(
-      fromAccountId,
-      Networks[scope].nativeToken.id,
-    );
+    const asset = await this.#transactionsServiceV2.findAsset({
+      accountId: fromAccountId,
+      assetId: Networks[scope].nativeToken.id,
+    });
 
-    const accountBalance = asset ? new BigNumber(asset.uiAmount) : ZERO;
-    const requestBalance = BigNumber(value);
+    const accountBalance = this.#transactionsServiceV2.getBalance(asset);
+    const requestBalance = this.#transactionsServiceV2.getAmount(value);
 
     /**
      * Check if account has enough of the asset for staking.
@@ -706,40 +573,19 @@ export class ClientRequestHandler {
       };
     }
 
-    const tronWeb = this.#tronWebFactory.createClient(scope);
-
-    const amountInSun = Number(trxToSun(requestBalance));
-    const transaction = await tronWeb.transactionBuilder.freezeBalanceV2(
-      amountInSun,
-      purpose,
-      account.address,
+    const transaction = await this.#transactionsServiceV2.buildStakeTransaction(
+      {
+        account,
+        scope,
+        amount: requestBalance,
+        purpose,
+      },
     );
 
-    /**
-     * Get available Energy and Bandwidth from account assets.
-     */
-    const [bandwidthAsset, energyAsset] =
-      await this.#assetsService.getAssetsByAccountId(fromAccountId, [
-        Networks[scope].bandwidth.id,
-        Networks[scope].energy.id,
-      ]);
-
-    const availableEnergy = energyAsset
-      ? BigNumber(energyAsset.rawAmount)
-      : ZERO;
-    const availableBandwidth = bandwidthAsset
-      ? BigNumber(bandwidthAsset.rawAmount)
-      : ZERO;
-
-    /**
-     * Calculate complete fee breakdown using the service.
-     * Uses constant overhead (134 bytes) for unsigned transactions.
-     */
-    const result = await this.#feeCalculatorService.computeFee({
+    const result = await this.#transactionsServiceV2.estimateFee({
       scope,
+      accountId: fromAccountId,
       transaction,
-      availableEnergy,
-      availableBandwidth,
     });
 
     assert(result, ComputeFeeResponseStruct);
@@ -763,19 +609,24 @@ export class ClientRequestHandler {
 
     const { accountId, assetId, value } = request.params;
 
-    await this.#accountsService.findByIdOrThrow(accountId);
-    const asset = await this.#assetsService.getAssetByAccountId(
+    await this.#transactionsServiceV2.findAccountOrThrow(accountId);
+    const asset = await this.#transactionsServiceV2.findAsset({
       accountId,
       assetId,
-    );
+    });
 
     /**
      * If the account doesn't have this asset, treat it as having zero balance
      */
-    const accountBalance = asset ? new BigNumber(asset.uiAmount) : ZERO;
-    const requestBalance = new BigNumber(value);
+    const accountBalance = this.#transactionsServiceV2.getBalance(asset);
+    const requestBalance = this.#transactionsServiceV2.getAmount(value);
 
-    if (requestBalance.isGreaterThan(accountBalance)) {
+    if (
+      !this.#transactionsServiceV2.hasEnoughBalance({
+        amount: requestBalance,
+        balance: accountBalance,
+      })
+    ) {
       return {
         valid: false,
         errors: [{ code: SendErrorCodes.InsufficientBalance }],
@@ -809,19 +660,25 @@ export class ClientRequestHandler {
       options: { purpose, srNodeAddress },
     } = request.params;
 
-    const account = await this.#accountsService.findByIdOrThrow(fromAccountId);
+    const account =
+      await this.#transactionsServiceV2.findAccountOrThrow(fromAccountId);
 
-    const asset = await this.#assetsService.getAssetByAccountId(
-      fromAccountId,
+    const asset = await this.#transactionsServiceV2.findAsset({
+      accountId: fromAccountId,
       assetId,
-    );
+    });
 
-    const accountBalance = asset ? new BigNumber(asset.uiAmount) : ZERO;
-    const requestBalance = new BigNumber(value);
+    const accountBalance = this.#transactionsServiceV2.getBalance(asset);
+    const requestBalance = this.#transactionsServiceV2.getAmount(value);
     /**
      * Check if account has enough of the asset...
      */
-    if (requestBalance.isGreaterThan(accountBalance)) {
+    if (
+      !this.#transactionsServiceV2.hasEnoughBalance({
+        amount: requestBalance,
+        balance: accountBalance,
+      })
+    ) {
       return {
         valid: false,
         errors: [{ code: SendErrorCodes.InsufficientBalance }],
@@ -831,9 +688,9 @@ export class ClientRequestHandler {
     /**
      * All good. Let's stake.
      */
-    await this.#stakingService.stake({
+    await this.#transactionsServiceV2.executeStake({
       account,
-      assetId: assetId as NativeCaipAssetType,
+      assetId,
       amount: requestBalance,
       purpose,
       srNodeAddress,
@@ -870,21 +727,29 @@ export class ClientRequestHandler {
      * We convert the `slip44:195` to `slip44:195-staked-for-bandwidth` or `slip44:195-staked-for-energy`
      * depending on the purpose.
      */
-    const stakedAssetId = `${assetId}-staked-for-${purpose.toLowerCase()}`;
+    const stakedAssetId = this.#transactionsServiceV2.toStakedAssetId({
+      assetId,
+      purpose,
+    });
 
-    await this.#accountsService.findByIdOrThrow(accountId);
-    const asset = await this.#assetsService.getAssetByAccountId(
+    await this.#transactionsServiceV2.findAccountOrThrow(accountId);
+    const asset = await this.#transactionsServiceV2.findAsset({
       accountId,
-      stakedAssetId,
-    );
+      assetId: stakedAssetId,
+    });
 
-    const accountBalance = asset ? new BigNumber(asset.uiAmount) : ZERO;
-    const requestBalance = new BigNumber(value);
+    const accountBalance = this.#transactionsServiceV2.getBalance(asset);
+    const requestBalance = this.#transactionsServiceV2.getAmount(value);
 
     /**
      * Check if account has enough of the asset...
      */
-    if (requestBalance.isGreaterThan(accountBalance)) {
+    if (
+      !this.#transactionsServiceV2.hasEnoughBalance({
+        amount: requestBalance,
+        balance: accountBalance,
+      })
+    ) {
       return {
         valid: false,
         errors: [{ code: SendErrorCodes.InsufficientBalance }],
@@ -922,23 +787,31 @@ export class ClientRequestHandler {
      * We convert the `slip44:195-staked-for-bandwidth` or `slip44:195-staked-for-energy` to `slip44:195`
      * depending on the purpose.
      */
-    const stakedAssetId =
-      `${assetId}-staked-for-${purpose.toLowerCase()}` as StakedCaipAssetType;
+    const stakedAssetId = this.#transactionsServiceV2.toStakedAssetId({
+      assetId,
+      purpose,
+    });
 
-    const account = await this.#accountsService.findByIdOrThrow(accountId);
+    const account =
+      await this.#transactionsServiceV2.findAccountOrThrow(accountId);
 
-    const asset = await this.#assetsService.getAssetByAccountId(
+    const asset = await this.#transactionsServiceV2.findAsset({
       accountId,
-      stakedAssetId,
-    );
+      assetId: stakedAssetId,
+    });
 
-    const accountBalance = asset ? new BigNumber(asset.uiAmount) : ZERO;
-    const requestBalance = new BigNumber(value);
+    const accountBalance = this.#transactionsServiceV2.getBalance(asset);
+    const requestBalance = this.#transactionsServiceV2.getAmount(value);
 
     /**
      * Check if account has enough of the asset...
      */
-    if (requestBalance.isGreaterThan(accountBalance)) {
+    if (
+      !this.#transactionsServiceV2.hasEnoughBalance({
+        amount: requestBalance,
+        balance: accountBalance,
+      })
+    ) {
       return {
         valid: false,
         errors: [{ code: SendErrorCodes.InsufficientBalance }],
@@ -948,7 +821,7 @@ export class ClientRequestHandler {
     /**
      * All good. Let's unstake.
      */
-    await this.#stakingService.unstake({
+    await this.#transactionsServiceV2.executeUnstake({
       account,
       assetId: stakedAssetId,
       amount: requestBalance,
@@ -979,21 +852,26 @@ export class ClientRequestHandler {
 
     const { fromAccountId, assetId } = request.params;
 
-    const account = await this.#accountsService.findByIdOrThrow(fromAccountId);
+    const account =
+      await this.#transactionsServiceV2.findAccountOrThrow(fromAccountId);
 
-    const { chainId } = parseCaipAssetType(assetId);
-    const scope = chainId as Network;
+    const scope = this.#transactionsServiceV2.getScopeFromAssetId(assetId);
 
-    const confirmed = await this.#confirmationHandler.confirmClaimUnstakedTrx({
-      account,
-      scope,
-    });
+    const confirmed = await this.#transactionsServiceV2.confirmClaimUnstakedTrx(
+      {
+        account,
+        scope,
+      },
+    );
 
     if (!confirmed) {
       throw new UserRejectedRequestError() as Error;
     }
 
-    await this.#stakingService.claimUnstakedTrx({ account, scope });
+    await this.#transactionsServiceV2.executeClaimUnstakedTrx({
+      account,
+      scope,
+    });
 
     return {
       valid: true,
@@ -1017,12 +895,15 @@ export class ClientRequestHandler {
 
     const { fromAccountId, assetId } = request.params;
 
-    const account = await this.#accountsService.findByIdOrThrow(fromAccountId);
+    const account =
+      await this.#transactionsServiceV2.findAccountOrThrow(fromAccountId);
 
-    const { chainId } = parseCaipAssetType(assetId);
-    const scope = chainId as Network;
+    const scope = this.#transactionsServiceV2.getScopeFromAssetId(assetId);
 
-    await this.#stakingService.claimTrxStakingRewards({ account, scope });
+    await this.#transactionsServiceV2.executeClaimTrxStakingRewards({
+      account,
+      scope,
+    });
 
     return {
       valid: true,
@@ -1047,72 +928,16 @@ export class ClientRequestHandler {
       params: { accountId, message },
     } = request;
 
-    const account = await this.#accountsService.findById(accountId);
-    if (!account) {
-      throw new InvalidParamsError(`Account not found: ${accountId}`) as Error;
+    try {
+      return await this.#transactionsServiceV2.signRewardsMessage({
+        accountId,
+        message,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new InvalidParamsError(error.message) as Error;
+      }
+      throw error;
     }
-
-    // Parse the rewards message to extract the address
-    const { address: messageAddress } = parseRewardsMessage(message);
-
-    // Validate that the address in the message matches the signing account
-    if (messageAddress !== account.address) {
-      throw new InvalidParamsError(
-        `Address in rewards message (${messageAddress}) does not match signing account address (${account.address})`,
-      ) as Error;
-    }
-
-    // Derive the private key for signing
-    const { privateKeyHex } = await this.#accountsService.deriveTronKeypair({
-      entropySource: account.entropySource,
-      derivationPath: account.derivationPath,
-    });
-
-    // Create a TronWeb instance for message signing
-    // We can use any network scope since we're just signing a message
-    const tronWeb = this.#tronWebFactory.createClient(
-      Network.Mainnet,
-      privateKeyHex,
-    );
-
-    // Decode the base64 message to get the raw message
-    // eslint-disable-next-line no-restricted-globals
-    const decodedMessage = Buffer.from(message, 'base64').toString('utf8');
-
-    // Sign the message using TronWeb's signMessageV2
-    const signature = tronWeb.trx.signMessageV2(decodedMessage, privateKeyHex);
-
-    return {
-      signature,
-      signedMessage: message,
-      signatureType: 'secp256k1',
-    };
-  }
-
-  /**
-   * Sets the fee limit on a transaction's raw data and re-serializes it to hexadecimal format.
-   *
-   * This method mutates the provided rawData object by setting its fee_limit field,
-   * then converts the transaction to protocol buffer format and back to hex encoding.
-   * This is necessary when adjusting fee limits for transactions that need higher
-   * gas limits (e.g., complex smart contract interactions or swaps).
-   *
-   * @param tronWeb - The TronWeb client instance used for transaction serialization.
-   * @param rawData - The raw transaction data object to modify. This object will be mutated.
-   * @param feeLimit - The fee limit to set in SUN (1 TRX = 1,000,000 SUN). Defaults to FEE_LIMIT (100 TRX).
-   * @returns The hexadecimal-encoded raw data with the updated fee limit.
-   */
-  #setRawDataFeeLimit(
-    tronWeb: TronWeb,
-    rawData: TransactionRawData,
-    feeLimit = FEE_LIMIT,
-  ): string {
-    rawData.fee_limit = feeLimit;
-    // Re-serialize rawData to get the updated rawDataHex
-    const transactionPb = tronWeb.utils.transaction.txJsonToPb({
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      raw_data: rawData,
-    });
-    return tronWeb.utils.transaction.txPbToRawDataHex(transactionPb);
   }
 }
