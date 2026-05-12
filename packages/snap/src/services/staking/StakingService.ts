@@ -1,5 +1,6 @@
 import { parseCaipAssetType } from '@metamask/utils';
 import { BigNumber } from 'bignumber.js';
+import type { TronWeb } from 'tronweb';
 import type { Resource } from 'tronweb/lib/esm/types';
 
 import type { SnapClient } from '../../clients/snap/SnapClient';
@@ -40,6 +41,102 @@ export class StakingService {
     this.#snapClient = snapClient;
   }
 
+  async buildStakeTransactions({
+    account,
+    assetId,
+    amount,
+    purpose,
+    srNodeAddress,
+    includeVote = true,
+  }: {
+    account: TronKeyringAccount;
+    assetId: NativeCaipAssetType;
+    amount: BigNumber;
+    purpose: 'BANDWIDTH' | 'ENERGY';
+    /**
+     * Optional SR node address to allocate votes to.
+     * If not provided, defaults to the Consensys SR node.
+     */
+    srNodeAddress?: string;
+    includeVote?: boolean;
+  }): Promise<{ scope: Network; transactions: unknown[] }> {
+    const { chainId } = parseCaipAssetType(assetId);
+    const scope = chainId as Network;
+    const tronWeb = this.#tronWebFactory.createClient(scope);
+
+    return {
+      scope,
+      transactions: await this.#buildStakeTransactions({
+        tronWeb,
+        account,
+        amount,
+        purpose,
+        srNodeAddress,
+        includeVote,
+      }),
+    };
+  }
+
+  async buildUnstakeTransactions({
+    account,
+    assetId,
+    amount,
+  }: {
+    account: TronKeyringAccount;
+    assetId: StakedCaipAssetType;
+    amount: BigNumber;
+  }): Promise<{ scope: Network; transactions: unknown[] }> {
+    const { chainId } = parseCaipAssetType(assetId);
+    const scope = chainId as Network;
+    const tronWeb = this.#tronWebFactory.createClient(scope);
+
+    return {
+      scope,
+      transactions: await this.#buildUnstakeTransactions({
+        tronWeb,
+        account,
+        assetId,
+        amount,
+      }),
+    };
+  }
+
+  async buildClaimUnstakedTransactions({
+    account,
+    scope,
+  }: {
+    account: TronKeyringAccount;
+    scope: Network;
+  }): Promise<{ scope: Network; transactions: unknown[] }> {
+    const tronWeb = this.#tronWebFactory.createClient(scope);
+
+    return {
+      scope,
+      transactions: await this.#buildClaimUnstakedTransactions({
+        tronWeb,
+        account,
+      }),
+    };
+  }
+
+  async buildClaimRewardsTransactions({
+    account,
+    scope,
+  }: {
+    account: TronKeyringAccount;
+    scope: Network;
+  }): Promise<{ scope: Network; transactions: unknown[] }> {
+    const tronWeb = this.#tronWebFactory.createClient(scope);
+
+    return {
+      scope,
+      transactions: await this.#buildClaimRewardsTransactions({
+        tronWeb,
+        account,
+      }),
+    };
+  }
+
   async stake({
     account,
     assetId,
@@ -58,9 +155,6 @@ export class StakingService {
     srNodeAddress?: string;
   }): Promise<void> {
     const { chainId } = parseCaipAssetType(assetId);
-    const amountInSun = Number(trxToSun(amount));
-    const availableVotes = amount.integerValue(BigNumber.ROUND_DOWN).toNumber();
-    const voteRecipient = srNodeAddress ?? CONSENSYS_SR_NODE_ADDRESS;
 
     this.#logger.info(
       `Staking ${amount.toString()} ${assetId} for ${purpose} for ${account.address} on ${chainId}...`,
@@ -72,17 +166,15 @@ export class StakingService {
       snapClient: this.#snapClient,
       account,
       scope: chainId as Network,
-      buildTransactions: async (tronWeb) => [
-        await tronWeb.transactionBuilder.freezeBalanceV2(
-          amountInSun,
+      buildTransactions: async (tronWeb) =>
+        this.#buildStakeTransactions({
+          tronWeb,
+          account,
+          amount,
           purpose,
-          account.address,
-        ),
-        await tronWeb.transactionBuilder.vote(
-          { [voteRecipient]: availableVotes },
-          account.address,
-        ),
-      ],
+          srNodeAddress,
+          includeVote: true,
+        }),
     });
   }
 
@@ -97,37 +189,6 @@ export class StakingService {
   }): Promise<void> {
     const { chainId } = parseCaipAssetType(assetId);
 
-    /**
-     * Check which resource we are unstaking.
-     */
-    let purpose: Resource | undefined;
-
-    if (
-      [
-        KnownCaip19Id.TrxStakedForBandwidthMainnet,
-        KnownCaip19Id.TrxStakedForBandwidthNile,
-        KnownCaip19Id.TrxStakedForBandwidthShasta,
-      ].includes(assetId as KnownCaip19Id)
-    ) {
-      purpose = 'BANDWIDTH';
-    }
-
-    if (
-      [
-        KnownCaip19Id.TrxStakedForEnergyMainnet,
-        KnownCaip19Id.TrxStakedForEnergyNile,
-        KnownCaip19Id.TrxStakedForEnergyShasta,
-      ].includes(assetId as KnownCaip19Id)
-    ) {
-      purpose = 'ENERGY';
-    }
-
-    if (!purpose) {
-      throw new Error('Invalid asset ID');
-    }
-
-    const amountInSun = Number(trxToSun(amount));
-
     this.#logger.info(
       `Unstaking ${amount.toString()} ${assetId} for ${account.address} on ${chainId}...`,
     );
@@ -138,13 +199,13 @@ export class StakingService {
       snapClient: this.#snapClient,
       account,
       scope: chainId as Network,
-      buildTransactions: async (tronWeb) => [
-        await tronWeb.transactionBuilder.unfreezeBalanceV2(
-          amountInSun,
-          purpose,
-          account.address,
-        ),
-      ],
+      buildTransactions: async (tronWeb) =>
+        this.#buildUnstakeTransactions({
+          tronWeb,
+          account,
+          assetId,
+          amount,
+        }),
     });
   }
 
@@ -165,11 +226,8 @@ export class StakingService {
       snapClient: this.#snapClient,
       account,
       scope,
-      buildTransactions: async (tronWeb) => [
-        await tronWeb.transactionBuilder.withdrawExpireUnfreeze(
-          account.address,
-        ),
-      ],
+      buildTransactions: async (tronWeb) =>
+        this.#buildClaimUnstakedTransactions({ tronWeb, account }),
     });
   }
 
@@ -190,9 +248,120 @@ export class StakingService {
       snapClient: this.#snapClient,
       account,
       scope,
-      buildTransactions: async (tronWeb) => [
-        await tronWeb.transactionBuilder.withdrawBlockRewards(account.address),
-      ],
+      buildTransactions: async (tronWeb) =>
+        this.#buildClaimRewardsTransactions({ tronWeb, account }),
     });
+  }
+
+  async #buildStakeTransactions({
+    tronWeb,
+    account,
+    amount,
+    purpose,
+    srNodeAddress,
+    includeVote,
+  }: {
+    tronWeb: TronWeb;
+    account: TronKeyringAccount;
+    amount: BigNumber;
+    purpose: 'BANDWIDTH' | 'ENERGY';
+    srNodeAddress?: string;
+    includeVote: boolean;
+  }): Promise<unknown[]> {
+    const amountInSun = Number(trxToSun(amount));
+    const transactions: unknown[] = [
+      await tronWeb.transactionBuilder.freezeBalanceV2(
+        amountInSun,
+        purpose,
+        account.address,
+      ),
+    ];
+
+    if (includeVote) {
+      const availableVotes = amount
+        .integerValue(BigNumber.ROUND_DOWN)
+        .toNumber();
+      const voteRecipient = srNodeAddress ?? CONSENSYS_SR_NODE_ADDRESS;
+
+      transactions.push(
+        await tronWeb.transactionBuilder.vote(
+          { [voteRecipient]: availableVotes },
+          account.address,
+        ),
+      );
+    }
+
+    return transactions;
+  }
+
+  async #buildUnstakeTransactions({
+    tronWeb,
+    account,
+    assetId,
+    amount,
+  }: {
+    tronWeb: TronWeb;
+    account: TronKeyringAccount;
+    assetId: StakedCaipAssetType;
+    amount: BigNumber;
+  }): Promise<unknown[]> {
+    const purpose = this.#getUnstakePurpose(assetId);
+    const amountInSun = Number(trxToSun(amount));
+
+    return [
+      await tronWeb.transactionBuilder.unfreezeBalanceV2(
+        amountInSun,
+        purpose,
+        account.address,
+      ),
+    ];
+  }
+
+  async #buildClaimUnstakedTransactions({
+    tronWeb,
+    account,
+  }: {
+    tronWeb: TronWeb;
+    account: TronKeyringAccount;
+  }): Promise<unknown[]> {
+    return [
+      await tronWeb.transactionBuilder.withdrawExpireUnfreeze(account.address),
+    ];
+  }
+
+  async #buildClaimRewardsTransactions({
+    tronWeb,
+    account,
+  }: {
+    tronWeb: TronWeb;
+    account: TronKeyringAccount;
+  }): Promise<unknown[]> {
+    return [
+      await tronWeb.transactionBuilder.withdrawBlockRewards(account.address),
+    ];
+  }
+
+  #getUnstakePurpose(assetId: StakedCaipAssetType): Resource {
+    if (
+      [
+        KnownCaip19Id.TrxStakedForBandwidthMainnet,
+        KnownCaip19Id.TrxStakedForBandwidthNile,
+        KnownCaip19Id.TrxStakedForBandwidthShasta,
+      ].includes(assetId as KnownCaip19Id)
+    ) {
+      return 'BANDWIDTH';
+    }
+
+    if (
+      [
+        KnownCaip19Id.TrxStakedForEnergyMainnet,
+        KnownCaip19Id.TrxStakedForEnergyNile,
+        KnownCaip19Id.TrxStakedForEnergyShasta,
+      ].includes(assetId as KnownCaip19Id)
+    ) {
+      return 'ENERGY';
+    }
+
+    throw new Error('Invalid asset ID');
   }
 }
