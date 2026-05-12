@@ -20,6 +20,7 @@ type BuildSendTransactionOptions = {
   skipIfNoToAddress?: boolean;
   missingAccountError?: SendErrorCodes;
   missingAssetError?: SendErrorCodes;
+  validateSendFeasibility?: boolean;
 };
 
 type BuildStakeTransactionOptions = {
@@ -120,6 +121,7 @@ export class TransactionPipelineSteps {
       return continueWith({
         ...context,
         account,
+        feeLimit: transaction.raw_data.fee_limit ?? context.feeLimit,
         kind: 'raw',
         transactions: [transaction],
       });
@@ -168,6 +170,22 @@ export class TransactionPipelineSteps {
       }
 
       const toAddress = requireField(context, 'toAddress');
+      if (options.validateSendFeasibility) {
+        const validation =
+          await this.#transactionsServiceV2.validateSendFeasibility({
+            scope,
+            fromAccountId: accountId,
+            toAddress,
+            asset,
+            amount,
+            feeLimit: context.feeLimit,
+          });
+
+        if (!validation.valid) {
+          return returnResponse(validation);
+        }
+      }
+
       const transaction =
         await this.#transactionsServiceV2.buildSendTransaction({
           fromAccountId: accountId,

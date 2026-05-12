@@ -25,6 +25,8 @@ import { StakingService } from './services/staking/StakingService';
 import type { UnencryptedStateValue } from './services/state/State';
 import { State } from './services/state/State';
 import { TransactionScanService } from './services/transaction-scan/TransactionScanService';
+import { TransactionPipeline } from './services/transactions/pipeline/TransactionPipeline';
+import { TransactionPipelineSteps } from './services/transactions/pipeline/TransactionPipelineSteps';
 import { TransactionsRepository } from './services/transactions/TransactionsRepository';
 import { TransactionsService } from './services/transactions/TransactionsService';
 import { TransactionsServiceV2 } from './services/transactions/TransactionsServiceV2';
@@ -169,6 +171,10 @@ const transactionsServiceV2 = new TransactionsServiceV2({
   confirmationHandler,
   transactionsService,
 });
+const transactionPipeline = new TransactionPipeline();
+const transactionPipelineSteps = new TransactionPipelineSteps({
+  transactionsServiceV2,
+});
 
 /**
  * Handlers
@@ -189,6 +195,8 @@ const clientRequestHandler = new ClientRequestHandler({
   confirmationHandler,
   transactionsService,
   transactionsServiceV2,
+  transactionPipeline,
+  transactionSteps: transactionPipelineSteps,
 });
 const cronHandler = new CronHandler({
   logger,
@@ -231,6 +239,8 @@ export type SnapExecutionContext = {
   accountsService: AccountsService;
   transactionsService: TransactionsService;
   transactionsServiceV2: TransactionsServiceV2;
+  transactionPipeline: TransactionPipeline;
+  transactionPipelineSteps: TransactionPipelineSteps;
   sendService: SendService;
   walletService: WalletService;
   tronHttpClient: TronHttpClient;
@@ -263,6 +273,8 @@ const snapContext: SnapExecutionContext = {
   accountsService,
   transactionsService,
   transactionsServiceV2,
+  transactionPipeline,
+  transactionPipelineSteps,
   sendService,
   walletService,
   tronHttpClient,

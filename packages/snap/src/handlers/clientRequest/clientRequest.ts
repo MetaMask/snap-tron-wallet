@@ -1,10 +1,5 @@
-import { TransactionStatus } from '@metamask/keyring-api';
 import type { Json, JsonRpcRequest } from '@metamask/snaps-sdk';
-import {
-  InvalidParamsError,
-  MethodNotFoundError,
-  UserRejectedRequestError,
-} from '@metamask/snaps-sdk';
+import { InvalidParamsError, MethodNotFoundError } from '@metamask/snaps-sdk';
 import { assert } from '@metamask/superstruct';
 
 import { ClientRequestMethod, SendErrorCodes } from './types';
@@ -12,7 +7,6 @@ import {
   ClaimTrxStakingRewardsRequestStruct,
   ClaimUnstakedTrxRequestStruct,
   ComputeFeeRequestStruct,
-  ComputeFeeResponseStruct,
   ComputeStakeFeeRequestStruct,
   OnAddressInputRequestStruct,
   OnAmountInputRequestStruct,
@@ -33,6 +27,8 @@ import type { ConfirmationHandler } from '../../services/confirmation/Confirmati
 import type { FeeCalculatorService } from '../../services/send/FeeCalculatorService';
 import type { SendService } from '../../services/send/SendService';
 import type { StakingService } from '../../services/staking/StakingService';
+import { TransactionPipeline } from '../../services/transactions/pipeline/TransactionPipeline';
+import { TransactionPipelineSteps } from '../../services/transactions/pipeline/TransactionPipelineSteps';
 import type { TransactionsService } from '../../services/transactions/TransactionsService';
 import { TransactionsServiceV2 } from '../../services/transactions/TransactionsServiceV2';
 import { assertOrThrow } from '../../utils/assertOrThrow';
@@ -43,6 +39,10 @@ export class ClientRequestHandler {
   readonly #logger: ILogger;
 
   readonly #transactionsServiceV2: TransactionsServiceV2;
+
+  readonly #transactionPipeline: TransactionPipeline;
+
+  readonly #transactionSteps: TransactionPipelineSteps;
 
   constructor({
     logger,
@@ -56,6 +56,8 @@ export class ClientRequestHandler {
     confirmationHandler,
     transactionsService,
     transactionsServiceV2,
+    transactionPipeline,
+    transactionSteps,
   }: {
     logger: ILogger;
     accountsService: AccountsService;
@@ -68,6 +70,8 @@ export class ClientRequestHandler {
     confirmationHandler: ConfirmationHandler;
     transactionsService: TransactionsService;
     transactionsServiceV2?: TransactionsServiceV2;
+    transactionPipeline?: TransactionPipeline;
+    transactionSteps?: TransactionPipelineSteps;
   }) {
     this.#logger = createPrefixedLogger(logger, '[👋 ClientRequestHandler]');
     this.#transactionsServiceV2 =
@@ -83,6 +87,13 @@ export class ClientRequestHandler {
         stakingService,
         confirmationHandler,
         transactionsService,
+      });
+    this.#transactionPipeline =
+      transactionPipeline ?? new TransactionPipeline();
+    this.#transactionSteps =
+      transactionSteps ??
+      new TransactionPipelineSteps({
+        transactionsServiceV2: this.#transactionsServiceV2,
       });
   }
 
@@ -181,40 +192,25 @@ export class ClientRequestHandler {
       options: { type },
     } = request.params;
 
-    const account =
-      await this.#transactionsServiceV2.findAccountOrThrow(accountId);
-    const transaction =
-      await this.#transactionsServiceV2.deserializeTransaction({
+    return this.#transactionPipeline.execute({
+      context: {
+        accountId,
         scope,
         transactionBase64,
-        type,
-      });
-
-    const signedTx = await this.#transactionsServiceV2.signTransaction({
-      scope,
-      account,
-      transaction,
+        transactionType: type,
+        feeLimit: FEE_LIMIT,
+      },
+      steps: [
+        this.#transactionSteps.deserializeTransaction(),
+        this.#transactionSteps.estimateFee(),
+        this.#transactionSteps.validateTransaction(),
+        this.#transactionSteps.sign(),
+        this.#transactionSteps.broadcast(),
+        this.#transactionSteps.savePendingTransaction(),
+        this.#transactionSteps.scheduleAccountSync(),
+        this.#transactionSteps.returnTransactionId(),
+      ],
     });
-    const result = await this.#transactionsServiceV2.broadcastTransaction({
-      scope,
-      signedTransaction: signedTx,
-    });
-
-    await this.#transactionsServiceV2.savePendingTransaction({
-      txId: result.txid,
-      account,
-      scope,
-    });
-
-    await this.#transactionsServiceV2.scheduleTransactionTracking({
-      txId: result.txid,
-      scope,
-      accountId,
-    });
-
-    return {
-      transactionId: result.txid,
-    };
   }
 
   /**
@@ -254,92 +250,24 @@ export class ClientRequestHandler {
 
       const { accountId, assetId, value, toAddress } = request.params;
 
-      const account = await this.#transactionsServiceV2.findAccount(accountId);
-
-      /**
-       * Check if the account we want to send from exists...
-       */
-      if (!account) {
-        return {
-          valid: false,
-          errors: [{ code: SendErrorCodes.Required }],
-        };
-      }
-
-      /**
-       * Check if we have enough of the asset we want to send...
-       */
-      const scope = this.#transactionsServiceV2.getScopeFromAssetId(assetId);
-      const { asset, nativeTokenAsset, bandwidthAsset, energyAsset } =
-        await this.#transactionsServiceV2.getSendValidationAssets({
+      return await this.#transactionPipeline.execute({
+        context: {
           accountId,
           assetId,
-          scope,
-        });
-
-      const valueBN = this.#transactionsServiceV2.getAmount(value);
-      const assetToSendBalance = this.#transactionsServiceV2.getBalance(asset);
-
-      if (
-        !asset ||
-        !this.#transactionsServiceV2.hasEnoughBalance({
-          amount: valueBN,
-          balance: assetToSendBalance,
-        })
-      ) {
-        return {
-          valid: false,
-          errors: [{ code: SendErrorCodes.InsufficientBalance }],
-        };
-      }
-
-      if (!toAddress) {
-        return {
-          valid: true,
-          errors: [],
-        };
-      }
-
-      /**
-       * Estimate the fees
-       */
-      const sendTransaction =
-        await this.#transactionsServiceV2.buildSendTransaction({
-          fromAccountId: accountId,
+          amountValue: value,
           toAddress,
-          asset,
-          amount: valueBN,
           feeLimit: FEE_LIMIT,
-        });
-      const { availableEnergy, availableBandwidth } =
-        this.#transactionsServiceV2.getAvailableResources({
-          bandwidthAsset,
-          energyAsset,
-        });
-      const fees = await this.#transactionsServiceV2.estimateFeeWithResources({
-        scope,
-        transaction: sendTransaction,
-        availableEnergy,
-        availableBandwidth,
-        feeLimit: FEE_LIMIT,
+        },
+        steps: [
+          this.#transactionSteps.buildSendTransaction({
+            skipIfNoToAddress: true,
+            missingAccountError: SendErrorCodes.Required,
+          }),
+          this.#transactionSteps.estimateFee(),
+          this.#transactionSteps.validateTransaction(),
+          this.#transactionSteps.returnValidationSuccess(),
+        ],
       });
-      const feeValidation = this.#transactionsServiceV2.validateFeeBalance({
-        scope,
-        assetId,
-        amount: valueBN,
-        fees,
-        nativeTokenBalance:
-          this.#transactionsServiceV2.getBalance(nativeTokenAsset),
-      });
-
-      if (!feeValidation.valid) {
-        return feeValidation;
-      }
-
-      return {
-        valid: true,
-        errors: [],
-      };
     } catch (error) {
       this.#logger.error('Error in #handleOnAmountInput:', error);
       return {
@@ -364,126 +292,28 @@ export class ClientRequestHandler {
 
     const { fromAccountId, toAddress, amount, assetId } = request.params;
 
-    const account =
-      await this.#transactionsServiceV2.findAccount(fromAccountId);
-
-    if (!account) {
-      return {
-        valid: false,
-        errors: [{ code: SendErrorCodes.Invalid }],
-      };
-    }
-
-    const asset = await this.#transactionsServiceV2.findAsset({
-      accountId: fromAccountId,
-      assetId,
-    });
-
-    if (!asset) {
-      return {
-        valid: false,
-        errors: [{ code: SendErrorCodes.InsufficientBalance }],
-      };
-    }
-
-    const scope = this.#transactionsServiceV2.getScopeFromAssetId(assetId);
-
-    const amountBN = this.#transactionsServiceV2.getAmount(amount);
-
-    /**
-     * Validate that the user has enough funds to cover both the amount
-     * and all associated fees (including account activation if applicable).
-     * This prevents users from confirming sends that we know will fail.
-     */
-    const validation =
-      await this.#transactionsServiceV2.validateSendFeasibility({
-        scope,
-        fromAccountId,
-        toAddress,
-        asset,
-        amount: amountBN,
-        feeLimit: FEE_LIMIT,
-      });
-
-    if (!validation.valid) {
-      return validation;
-    }
-
-    const [resources, transaction] = await Promise.all([
-      /**
-       * Get available Energy and Bandwidth from account assets.
-       */
-      this.#transactionsServiceV2.getAvailableAccountResources({
+    return this.#transactionPipeline.execute({
+      context: {
         accountId: fromAccountId,
-        scope,
-      }),
-      /**
-       * Build the unsigned transaction.
-       * Fee estimation uses a constant overhead for the signature (134 bytes).
-       * Signing happens after user confirmation in sendTransaction().
-       */
-      this.#transactionsServiceV2.buildSendTransaction({
-        fromAccountId,
+        assetId,
+        amountValue: amount,
         toAddress,
-        asset,
-        amount: amountBN,
         feeLimit: FEE_LIMIT,
-      }),
-    ]);
-
-    const fees = await this.#transactionsServiceV2.estimateFeeWithResources({
-      scope,
-      transaction,
-      availableEnergy: resources.availableEnergy,
-      availableBandwidth: resources.availableBandwidth,
-      feeLimit: FEE_LIMIT,
+      },
+      steps: [
+        this.#transactionSteps.buildSendTransaction({
+          validateSendFeasibility: true,
+        }),
+        this.#transactionSteps.estimateFee(),
+        this.#transactionSteps.validateTransaction(),
+        this.#transactionSteps.renderConfirmationUi(),
+        this.#transactionSteps.sign(),
+        this.#transactionSteps.broadcast(),
+        this.#transactionSteps.savePendingTransaction(),
+        this.#transactionSteps.scheduleAccountSync(),
+        this.#transactionSteps.returnSubmittedTransaction(),
+      ],
     });
-
-    /**
-     * Show the confirmation UI.
-     * Origin is 'MetaMask' because client requests come from MetaMask's own unified send flow.
-     */
-    const confirmed = await this.#transactionsServiceV2.confirmSendTransaction({
-      scope,
-      account,
-      toAddress,
-      amount,
-      fees,
-      asset,
-      transaction,
-    });
-
-    if (!confirmed) {
-      throw new UserRejectedRequestError() as unknown as Error;
-    }
-
-    /**
-     * Send the built transaction
-     */
-    const result =
-      await this.#transactionsServiceV2.signAndBroadcastSendTransaction({
-        scope,
-        fromAccountId,
-        transaction,
-      });
-
-    await this.#transactionsServiceV2.savePendingSendTransaction({
-      txId: result.txid,
-      account,
-      scope,
-      toAddress,
-      amount,
-      asset,
-    });
-
-    this.#logger.log(
-      `Created pending Send transaction ${result.txid} for account ${account.id}`,
-    );
-
-    return {
-      transactionId: result.txid,
-      status: TransactionStatus.Submitted,
-    };
   }
 
   /**
@@ -506,26 +336,21 @@ export class ClientRequestHandler {
       },
     } = request;
 
-    await this.#transactionsServiceV2.findAccountOrThrow(accountId);
-
-    const transaction =
-      await this.#transactionsServiceV2.deserializeTransaction({
+    return this.#transactionPipeline.execute({
+      context: {
+        accountId,
         scope,
         transactionBase64,
-        type,
+        transactionType: type,
         feeLimit,
-      });
-
-    const result = await this.#transactionsServiceV2.estimateFee({
-      scope,
-      accountId,
-      transaction,
-      feeLimit: transaction.raw_data.fee_limit,
+      },
+      steps: [
+        this.#transactionSteps.deserializeTransaction(),
+        this.#transactionSteps.estimateFee(),
+        this.#transactionSteps.validateTransaction(),
+        this.#transactionSteps.returnComputedFee(),
+      ],
     });
-
-    assert(result, ComputeFeeResponseStruct);
-
-    return result;
   }
 
   /**
@@ -550,47 +375,23 @@ export class ClientRequestHandler {
       options: { purpose },
     } = request.params;
 
-    const account =
-      await this.#transactionsServiceV2.findAccountOrThrow(fromAccountId);
-
     const scope = Network.Mainnet;
 
-    const asset = await this.#transactionsServiceV2.findAsset({
-      accountId: fromAccountId,
-      assetId: Networks[scope].nativeToken.id,
-    });
-
-    const accountBalance = this.#transactionsServiceV2.getBalance(asset);
-    const requestBalance = this.#transactionsServiceV2.getAmount(value);
-
-    /**
-     * Check if account has enough of the asset for staking.
-     */
-    if (requestBalance.isGreaterThan(accountBalance)) {
-      return {
-        valid: false,
-        errors: [SendErrorCodes.InsufficientBalance],
-      };
-    }
-
-    const transaction = await this.#transactionsServiceV2.buildStakeTransaction(
-      {
-        account,
+    return this.#transactionPipeline.execute({
+      context: {
+        accountId: fromAccountId,
+        assetId: Networks[scope].nativeToken.id,
+        amountValue: value,
         scope,
-        amount: requestBalance,
         purpose,
       },
-    );
-
-    const result = await this.#transactionsServiceV2.estimateFee({
-      scope,
-      accountId: fromAccountId,
-      transaction,
+      steps: [
+        this.#transactionSteps.buildStakeTransaction({ includeVote: false }),
+        this.#transactionSteps.estimateFee(),
+        this.#transactionSteps.validateTransaction(),
+        this.#transactionSteps.returnComputedFee(),
+      ],
     });
-
-    assert(result, ComputeFeeResponseStruct);
-
-    return result;
   }
 
   /**
@@ -609,34 +410,18 @@ export class ClientRequestHandler {
 
     const { accountId, assetId, value } = request.params;
 
-    await this.#transactionsServiceV2.findAccountOrThrow(accountId);
-    const asset = await this.#transactionsServiceV2.findAsset({
-      accountId,
-      assetId,
+    return this.#transactionPipeline.execute({
+      context: {
+        accountId,
+        assetId,
+        amountValue: value,
+      },
+      steps: [
+        this.#transactionSteps.buildStakeTransaction({ validateOnly: true }),
+        this.#transactionSteps.validateTransaction(),
+        this.#transactionSteps.returnValidationSuccess(),
+      ],
     });
-
-    /**
-     * If the account doesn't have this asset, treat it as having zero balance
-     */
-    const accountBalance = this.#transactionsServiceV2.getBalance(asset);
-    const requestBalance = this.#transactionsServiceV2.getAmount(value);
-
-    if (
-      !this.#transactionsServiceV2.hasEnoughBalance({
-        amount: requestBalance,
-        balance: accountBalance,
-      })
-    ) {
-      return {
-        valid: false,
-        errors: [{ code: SendErrorCodes.InsufficientBalance }],
-      };
-    }
-
-    return {
-      valid: true,
-      errors: [],
-    };
   }
 
   /**
@@ -660,46 +445,25 @@ export class ClientRequestHandler {
       options: { purpose, srNodeAddress },
     } = request.params;
 
-    const account =
-      await this.#transactionsServiceV2.findAccountOrThrow(fromAccountId);
-
-    const asset = await this.#transactionsServiceV2.findAsset({
-      accountId: fromAccountId,
-      assetId,
+    return this.#transactionPipeline.execute({
+      context: {
+        accountId: fromAccountId,
+        assetId,
+        amountValue: value,
+        purpose,
+        srNodeAddress,
+      },
+      steps: [
+        this.#transactionSteps.buildStakeTransaction({ includeVote: true }),
+        this.#transactionSteps.estimateFee(),
+        this.#transactionSteps.validateTransaction(),
+        this.#transactionSteps.sign(),
+        this.#transactionSteps.broadcast(),
+        this.#transactionSteps.savePendingTransaction(),
+        this.#transactionSteps.scheduleAccountSync(),
+        this.#transactionSteps.returnValidationSuccess(),
+      ],
     });
-
-    const accountBalance = this.#transactionsServiceV2.getBalance(asset);
-    const requestBalance = this.#transactionsServiceV2.getAmount(value);
-    /**
-     * Check if account has enough of the asset...
-     */
-    if (
-      !this.#transactionsServiceV2.hasEnoughBalance({
-        amount: requestBalance,
-        balance: accountBalance,
-      })
-    ) {
-      return {
-        valid: false,
-        errors: [{ code: SendErrorCodes.InsufficientBalance }],
-      };
-    }
-
-    /**
-     * All good. Let's stake.
-     */
-    await this.#transactionsServiceV2.executeStake({
-      account,
-      assetId,
-      amount: requestBalance,
-      purpose,
-      srNodeAddress,
-    });
-
-    return {
-      valid: true,
-      errors: [],
-    };
   }
 
   /**
@@ -723,43 +487,19 @@ export class ClientRequestHandler {
       options: { purpose },
     } = request.params;
 
-    /**
-     * We convert the `slip44:195` to `slip44:195-staked-for-bandwidth` or `slip44:195-staked-for-energy`
-     * depending on the purpose.
-     */
-    const stakedAssetId = this.#transactionsServiceV2.toStakedAssetId({
-      assetId,
-      purpose,
+    return this.#transactionPipeline.execute({
+      context: {
+        accountId,
+        assetId,
+        amountValue: value,
+        purpose,
+      },
+      steps: [
+        this.#transactionSteps.buildUnstakeTransaction({ validateOnly: true }),
+        this.#transactionSteps.validateTransaction(),
+        this.#transactionSteps.returnValidationSuccess(),
+      ],
     });
-
-    await this.#transactionsServiceV2.findAccountOrThrow(accountId);
-    const asset = await this.#transactionsServiceV2.findAsset({
-      accountId,
-      assetId: stakedAssetId,
-    });
-
-    const accountBalance = this.#transactionsServiceV2.getBalance(asset);
-    const requestBalance = this.#transactionsServiceV2.getAmount(value);
-
-    /**
-     * Check if account has enough of the asset...
-     */
-    if (
-      !this.#transactionsServiceV2.hasEnoughBalance({
-        amount: requestBalance,
-        balance: accountBalance,
-      })
-    ) {
-      return {
-        valid: false,
-        errors: [{ code: SendErrorCodes.InsufficientBalance }],
-      };
-    }
-
-    return {
-      valid: true,
-      errors: [],
-    };
   }
 
   /**
@@ -783,54 +523,24 @@ export class ClientRequestHandler {
       options: { purpose },
     } = request.params;
 
-    /**
-     * We convert the `slip44:195-staked-for-bandwidth` or `slip44:195-staked-for-energy` to `slip44:195`
-     * depending on the purpose.
-     */
-    const stakedAssetId = this.#transactionsServiceV2.toStakedAssetId({
-      assetId,
-      purpose,
+    return this.#transactionPipeline.execute({
+      context: {
+        accountId,
+        assetId,
+        amountValue: value,
+        purpose,
+      },
+      steps: [
+        this.#transactionSteps.buildUnstakeTransaction(),
+        this.#transactionSteps.estimateFee(),
+        this.#transactionSteps.validateTransaction(),
+        this.#transactionSteps.sign(),
+        this.#transactionSteps.broadcast(),
+        this.#transactionSteps.savePendingTransaction(),
+        this.#transactionSteps.scheduleAccountSync(),
+        this.#transactionSteps.returnValidationSuccess(),
+      ],
     });
-
-    const account =
-      await this.#transactionsServiceV2.findAccountOrThrow(accountId);
-
-    const asset = await this.#transactionsServiceV2.findAsset({
-      accountId,
-      assetId: stakedAssetId,
-    });
-
-    const accountBalance = this.#transactionsServiceV2.getBalance(asset);
-    const requestBalance = this.#transactionsServiceV2.getAmount(value);
-
-    /**
-     * Check if account has enough of the asset...
-     */
-    if (
-      !this.#transactionsServiceV2.hasEnoughBalance({
-        amount: requestBalance,
-        balance: accountBalance,
-      })
-    ) {
-      return {
-        valid: false,
-        errors: [{ code: SendErrorCodes.InsufficientBalance }],
-      };
-    }
-
-    /**
-     * All good. Let's unstake.
-     */
-    await this.#transactionsServiceV2.executeUnstake({
-      account,
-      assetId: stakedAssetId,
-      amount: requestBalance,
-    });
-
-    return {
-      valid: true,
-      errors: [],
-    };
   }
 
   /**
@@ -852,31 +562,23 @@ export class ClientRequestHandler {
 
     const { fromAccountId, assetId } = request.params;
 
-    const account =
-      await this.#transactionsServiceV2.findAccountOrThrow(fromAccountId);
-
-    const scope = this.#transactionsServiceV2.getScopeFromAssetId(assetId);
-
-    const confirmed = await this.#transactionsServiceV2.confirmClaimUnstakedTrx(
-      {
-        account,
-        scope,
+    return this.#transactionPipeline.execute({
+      context: {
+        accountId: fromAccountId,
+        assetId,
       },
-    );
-
-    if (!confirmed) {
-      throw new UserRejectedRequestError() as Error;
-    }
-
-    await this.#transactionsServiceV2.executeClaimUnstakedTrx({
-      account,
-      scope,
+      steps: [
+        this.#transactionSteps.buildClaimUnstakedTransaction(),
+        this.#transactionSteps.estimateFee(),
+        this.#transactionSteps.validateTransaction(),
+        this.#transactionSteps.renderConfirmationUi(),
+        this.#transactionSteps.sign(),
+        this.#transactionSteps.broadcast(),
+        this.#transactionSteps.savePendingTransaction(),
+        this.#transactionSteps.scheduleAccountSync(),
+        this.#transactionSteps.returnValidationSuccess(),
+      ],
     });
-
-    return {
-      valid: true,
-      errors: [],
-    };
   }
 
   /**
@@ -895,20 +597,22 @@ export class ClientRequestHandler {
 
     const { fromAccountId, assetId } = request.params;
 
-    const account =
-      await this.#transactionsServiceV2.findAccountOrThrow(fromAccountId);
-
-    const scope = this.#transactionsServiceV2.getScopeFromAssetId(assetId);
-
-    await this.#transactionsServiceV2.executeClaimTrxStakingRewards({
-      account,
-      scope,
+    return this.#transactionPipeline.execute({
+      context: {
+        accountId: fromAccountId,
+        assetId,
+      },
+      steps: [
+        this.#transactionSteps.buildClaimRewardsTransaction(),
+        this.#transactionSteps.estimateFee(),
+        this.#transactionSteps.validateTransaction(),
+        this.#transactionSteps.sign(),
+        this.#transactionSteps.broadcast(),
+        this.#transactionSteps.savePendingTransaction(),
+        this.#transactionSteps.scheduleAccountSync(),
+        this.#transactionSteps.returnValidationSuccess(),
+      ],
     });
-
-    return {
-      valid: true,
-      errors: [],
-    };
   }
 
   /**
@@ -929,9 +633,12 @@ export class ClientRequestHandler {
     } = request;
 
     try {
-      return await this.#transactionsServiceV2.signRewardsMessage({
-        accountId,
-        message,
+      return await this.#transactionPipeline.execute({
+        context: { accountId, message },
+        steps: [
+          this.#transactionSteps.signRewardsMessage(),
+          this.#transactionSteps.returnSignedRewardsMessage(),
+        ],
       });
     } catch (error) {
       if (error instanceof Error) {
