@@ -7,6 +7,9 @@ import type { AssetEntity } from '../../../entities/assets';
 import type { TronKeyringAccount } from '../../../entities/keyring-account';
 import type { StakedCaipAssetType } from '../../assets/types';
 import type { ComputeFeeResult } from '../../send/types';
+import type { DecodedTransaction } from '../TransactionsServiceV2';
+
+export type PipelineTransaction = Transaction | DecodedTransaction;
 
 export type TransactionPipelineStepResult<Context> =
   | { type: 'continue'; context: Context }
@@ -46,7 +49,7 @@ export type TransactionPipelineContext = {
   purpose?: 'BANDWIDTH' | 'ENERGY';
   srNodeAddress?: string;
   kind?: TransactionBundleKind;
-  transactions?: Transaction[];
+  transactions?: PipelineTransaction[];
   signedTransactions?: unknown[];
   broadcastResults?: BroadcastResult[];
   fees?: ComputeFeeResult;

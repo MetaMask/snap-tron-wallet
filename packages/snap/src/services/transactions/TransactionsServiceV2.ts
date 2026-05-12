@@ -45,7 +45,7 @@ type TransactionRawData = Types.Transaction['raw_data'] & {
   fee_limit?: number;
 };
 
-type DecodedTransaction = {
+export type DecodedTransaction = {
   visible: false;
   txID: string;
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -54,7 +54,7 @@ type DecodedTransaction = {
   raw_data_hex: string;
 };
 
-type SendTransaction =
+export type SendTransaction =
   | Transaction<TransferContract>
   | Transaction<TransferAssetContract>
   | Transaction<TriggerSmartContract>;
@@ -559,7 +559,7 @@ export class TransactionsServiceV2 {
   }: {
     scope: Network;
     account: TronKeyringAccount;
-    transactions: Transaction[];
+    transactions: (Transaction | DecodedTransaction)[];
   }): Promise<unknown[]> {
     const { privateKeyHex } = await this.#accountsService.deriveTronKeypair({
       entropySource: account.entropySource,
