@@ -23,8 +23,8 @@ type MockSnapClient = jest.Mocked<
     | 'getClientStatus'
     | 'createInterface'
     | 'showDialog'
-    | 'updateInterfaceIfExists'
-    | 'getInterfaceContextIfExists'
+    | 'updateInterface'
+    | 'getInterfaceContext'
     | 'scheduleBackgroundEvent'
     | 'getPreferences'
   >
@@ -168,7 +168,7 @@ function buildMockLogger(): ILogger {
  * Builds a mock SnapClient with only the methods exercised by the
  * `refreshConfirmationSend` flow.
  *
- * @param interfaceContext - The value `getInterfaceContextIfExists` resolves to.
+ * @param interfaceContext - The value `getInterfaceContext` resolves to.
  * @returns A mock SnapClient.
  */
 function buildMockSnapClient(
@@ -180,8 +180,8 @@ function buildMockSnapClient(
       .mockResolvedValue({ active: true, locked: false }),
     createInterface: jest.fn().mockResolvedValue('interface-id'),
     showDialog: jest.fn().mockResolvedValue(true),
-    updateInterfaceIfExists: jest.fn().mockResolvedValue(undefined),
-    getInterfaceContextIfExists: jest.fn().mockResolvedValue(interfaceContext),
+    updateInterface: jest.fn().mockResolvedValue(undefined),
+    getInterfaceContext: jest.fn().mockResolvedValue(interfaceContext),
     scheduleBackgroundEvent: jest.fn().mockResolvedValue(undefined),
     getPreferences: jest.fn().mockResolvedValue({}),
   };
@@ -327,9 +327,7 @@ describe('CronHandler', () => {
           );
 
           // Verify interface was updated (fetching state + final state)
-          expect(mockSnapClient.updateInterfaceIfExists).toHaveBeenCalledTimes(
-            2,
-          );
+          expect(mockSnapClient.updateInterface).toHaveBeenCalledTimes(2);
 
           // Verify next refresh was scheduled
           expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith({
@@ -349,21 +347,17 @@ describe('CronHandler', () => {
           expect(
             mockTransactionScanService.scanTransaction,
           ).not.toHaveBeenCalled();
-          expect(mockSnapClient.updateInterfaceIfExists).not.toHaveBeenCalled();
+          expect(mockSnapClient.updateInterface).not.toHaveBeenCalled();
         },
       );
     });
 
-    it('cleans up when interface context no longer exists', async () => {
+    it('exits early when interface context no longer exists', async () => {
       await withCronHandler(
         { interfaceContext: null },
-        async ({ cronHandler, mockState, mockTransactionScanService }) => {
+        async ({ cronHandler, mockTransactionScanService }) => {
           await cronHandler.refreshConfirmationSend();
 
-          expect(mockState.setKey).toHaveBeenCalledWith(
-            'mapInterfaceNameToId.confirmTransaction',
-            null,
-          );
           expect(
             mockTransactionScanService.scanTransaction,
           ).not.toHaveBeenCalled();
@@ -396,13 +390,10 @@ describe('CronHandler', () => {
           await cronHandler.refreshConfirmationSend();
 
           // Should still update interface with error status
-          expect(mockSnapClient.updateInterfaceIfExists).toHaveBeenCalledTimes(
-            2,
-          );
+          expect(mockSnapClient.updateInterface).toHaveBeenCalledTimes(2);
 
           // The final update should have scanFetchStatus: FetchStatus.Error
-          const lastUpdateCall =
-            mockSnapClient.updateInterfaceIfExists.mock.calls[1];
+          const lastUpdateCall = mockSnapClient.updateInterface.mock.calls[1];
           const contextArg = lastUpdateCall?.[2] as any;
           expect(contextArg?.scanFetchStatus).toBe(FetchStatus.Error);
         },
@@ -415,7 +406,7 @@ describe('CronHandler', () => {
         { interfaceContext: context },
         async ({ cronHandler, mockSnapClient }) => {
           // First call returns context (initial check), second returns null (closed during scan)
-          mockSnapClient.getInterfaceContextIfExists
+          mockSnapClient.getInterfaceContext
             .mockResolvedValueOnce(context)
             .mockResolvedValueOnce(null);
 
