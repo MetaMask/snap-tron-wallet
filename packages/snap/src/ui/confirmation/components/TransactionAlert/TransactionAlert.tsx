@@ -44,8 +44,12 @@ export const TransactionAlert = ({
 
   /**
    * Display a loading skeleton while fetching.
+   * Initial loading + subsequence fetches.
    */
-  if (scanFetchStatus === FetchStatus.Fetching) {
+  if (
+    scanFetchStatus === FetchStatus.Fetching ||
+    scanFetchStatus === FetchStatus.Loading
+  ) {
     return (
       <Box>
         <Skeleton height="40px" />

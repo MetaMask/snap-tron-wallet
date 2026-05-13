@@ -94,7 +94,10 @@ export const EstimatedChanges = ({
 }: EstimatedChangesProps): ComponentOrElement => {
   const translate = i18n(preferences.locale);
 
-  const isFetching = scanFetchStatus === FetchStatus.Fetching;
+  // Keep "refreshing skeleton" for first loading + subsequent refreshes
+  const isFetching =
+    scanFetchStatus === FetchStatus.Fetching ||
+    scanFetchStatus === FetchStatus.Loading;
   const isFetched = scanFetchStatus === FetchStatus.Fetched;
   const isFetchError = scanFetchStatus === FetchStatus.Error;
 

@@ -101,7 +101,7 @@ export async function render(
     ...incomingContext,
     transactionRawData: transactionRawData as unknown as Json,
     tokenPricesFetchStatus: FetchStatus.Fetching, // Start as fetching
-    scanFetchStatus: FetchStatus.Fetching, // Start as fetching
+    scanFetchStatus: FetchStatus.Loading, // Start as Loading (first fetch) not Fetching
   };
 
   try {
