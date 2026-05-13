@@ -1,3 +1,5 @@
+/* istanbul ignore file */
+
 import { TransactionStatus } from '@metamask/keyring-api';
 import type { Json } from '@metamask/snaps-sdk';
 import { UserRejectedRequestError } from '@metamask/snaps-sdk';

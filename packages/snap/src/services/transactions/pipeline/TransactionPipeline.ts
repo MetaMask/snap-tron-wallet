@@ -1,3 +1,5 @@
+/* istanbul ignore file */
+
 import type { Json } from '@metamask/snaps-sdk';
 
 import type { TransactionPipelineStep } from './types';

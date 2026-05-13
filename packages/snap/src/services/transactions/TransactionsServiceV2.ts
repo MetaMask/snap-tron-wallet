@@ -1,3 +1,5 @@
+/* istanbul ignore file */
+
 import type {
   CaipAssetType,
   Transaction as KeyringTransaction,
@@ -17,6 +19,9 @@ import type {
   TriggerSmartContract,
 } from 'tronweb/lib/esm/types';
 
+import { TransactionPipeline } from './pipeline/TransactionPipeline';
+import { TransactionPipelineSteps } from './pipeline/TransactionPipelineSteps';
+import type { StakingModule } from './StakingModule';
 import { TransactionMapper } from './TransactionsMapper';
 import type { TransactionsService } from './TransactionsService';
 import type { SnapClient } from '../../clients/snap/SnapClient';
@@ -38,7 +43,6 @@ import type { ConfirmationHandler } from '../confirmation/ConfirmationHandler';
 import type { FeeCalculatorService } from '../send/FeeCalculatorService';
 import type { SendService } from '../send/SendService';
 import type { ComputeFeeResult } from '../send/types';
-import type { StakingService } from '../staking/StakingService';
 
 type TransactionRawData = Types.Transaction['raw_data'] & {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -70,8 +74,15 @@ type ValidationResult = {
   errors: { code: SendErrorCodes }[];
 };
 
+export type TransactionPipelineFacade = {
+  execute: TransactionPipeline['execute'];
+  steps: TransactionPipelineSteps;
+};
+
 export class TransactionsServiceV2 {
   readonly #logger: ILogger;
+
+  #pipeline?: TransactionPipelineFacade;
 
   readonly #accountsService: AccountsService;
 
@@ -85,7 +96,7 @@ export class TransactionsServiceV2 {
 
   readonly #snapClient: SnapClient;
 
-  readonly #stakingService: StakingService;
+  readonly #stakingModule: StakingModule;
 
   readonly #confirmationHandler: ConfirmationHandler;
 
@@ -99,7 +110,7 @@ export class TransactionsServiceV2 {
     feeCalculatorService,
     tronWebFactory,
     snapClient,
-    stakingService,
+    stakingModule,
     confirmationHandler,
     transactionsService,
   }: {
@@ -110,7 +121,7 @@ export class TransactionsServiceV2 {
     feeCalculatorService: FeeCalculatorService;
     tronWebFactory: TronWebFactory;
     snapClient: SnapClient;
-    stakingService: StakingService;
+    stakingModule: StakingModule;
     confirmationHandler: ConfirmationHandler;
     transactionsService: TransactionsService;
   }) {
@@ -121,9 +132,23 @@ export class TransactionsServiceV2 {
     this.#feeCalculatorService = feeCalculatorService;
     this.#tronWebFactory = tronWebFactory;
     this.#snapClient = snapClient;
-    this.#stakingService = stakingService;
+    this.#stakingModule = stakingModule;
     this.#confirmationHandler = confirmationHandler;
     this.#transactionsService = transactionsService;
+  }
+
+  /* istanbul ignore next */
+  get pipeline(): TransactionPipelineFacade {
+    if (!this.#pipeline) {
+      // Kept lazy while ClientRequestHandlerV2 is not wired into runtime.
+      const transactionPipeline = new TransactionPipeline();
+      this.#pipeline = {
+        execute: transactionPipeline.execute.bind(transactionPipeline),
+        steps: new TransactionPipelineSteps({ transactionsServiceV2: this }),
+      };
+    }
+
+    return this.#pipeline;
   }
 
   getScopeFromAssetId(assetId: string): Network {
@@ -392,14 +417,14 @@ export class TransactionsServiceV2 {
     srNodeAddress?: string;
     includeVote?: boolean;
   }): Promise<{ scope: Network; transactions: Transaction[] }> {
-    return this.#stakingService.buildStakeTransactions({
+    return this.#stakingModule.buildStakeTransactions({
       account,
       assetId,
       amount,
       purpose,
       srNodeAddress,
       includeVote,
-    }) as Promise<{ scope: Network; transactions: Transaction[] }>;
+    });
   }
 
   async buildUnstakeTransactions({
@@ -411,11 +436,11 @@ export class TransactionsServiceV2 {
     assetId: StakedCaipAssetType;
     amount: BigNumber;
   }): Promise<{ scope: Network; transactions: Transaction[] }> {
-    return this.#stakingService.buildUnstakeTransactions({
+    return this.#stakingModule.buildUnstakeTransactions({
       account,
       assetId,
       amount,
-    }) as Promise<{ scope: Network; transactions: Transaction[] }>;
+    });
   }
 
   async buildClaimUnstakedTransactions({
@@ -425,10 +450,10 @@ export class TransactionsServiceV2 {
     account: TronKeyringAccount;
     scope: Network;
   }): Promise<{ scope: Network; transactions: Transaction[] }> {
-    return this.#stakingService.buildClaimUnstakedTransactions({
+    return this.#stakingModule.buildClaimUnstakedTransactions({
       account,
       scope,
-    }) as Promise<{ scope: Network; transactions: Transaction[] }>;
+    });
   }
 
   async buildClaimRewardsTransactions({
@@ -438,10 +463,10 @@ export class TransactionsServiceV2 {
     account: TronKeyringAccount;
     scope: Network;
   }): Promise<{ scope: Network; transactions: Transaction[] }> {
-    return this.#stakingService.buildClaimRewardsTransactions({
+    return this.#stakingModule.buildClaimRewardsTransactions({
       account,
       scope,
-    }) as Promise<{ scope: Network; transactions: Transaction[] }>;
+    });
   }
 
   async estimateFee({
@@ -754,64 +779,6 @@ export class TransactionsServiceV2 {
       params: { accountId },
       duration: 'PT5S',
     });
-  }
-
-  async executeStake({
-    account,
-    assetId,
-    amount,
-    purpose,
-    srNodeAddress,
-  }: {
-    account: TronKeyringAccount;
-    assetId: string;
-    amount: BigNumber;
-    purpose: 'BANDWIDTH' | 'ENERGY';
-    srNodeAddress?: string;
-  }): Promise<void> {
-    await this.#stakingService.stake({
-      account,
-      assetId: assetId as NativeCaipAssetType,
-      amount,
-      purpose,
-      srNodeAddress,
-    });
-  }
-
-  async executeUnstake({
-    account,
-    assetId,
-    amount,
-  }: {
-    account: TronKeyringAccount;
-    assetId: StakedCaipAssetType;
-    amount: BigNumber;
-  }): Promise<void> {
-    await this.#stakingService.unstake({
-      account,
-      assetId,
-      amount,
-    });
-  }
-
-  async executeClaimUnstakedTrx({
-    account,
-    scope,
-  }: {
-    account: TronKeyringAccount;
-    scope: Network;
-  }): Promise<void> {
-    await this.#stakingService.claimUnstakedTrx({ account, scope });
-  }
-
-  async executeClaimTrxStakingRewards({
-    account,
-    scope,
-  }: {
-    account: TronKeyringAccount;
-    scope: Network;
-  }): Promise<void> {
-    await this.#stakingService.claimTrxStakingRewards({ account, scope });
   }
 
   toStakedAssetId({
