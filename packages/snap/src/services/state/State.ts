@@ -7,7 +7,6 @@ import type { IStateManager } from './IStateManager';
 import type { SpotPrices } from '../../clients/price-api/types';
 import type { AssetEntity } from '../../entities/assets';
 import type { TronKeyringAccount } from '../../entities/keyring-account';
-import baseLogger from '../../utils/logger';
 import { safeMerge } from '../../utils/safeMerge';
 import { deserialize } from '../../utils/serialization/deserialize';
 import { serialize } from '../../utils/serialization/serialize';
@@ -42,37 +41,6 @@ export type StateConfig<TValue extends Record<string, Serializable>> = {
   encrypted: boolean;
   defaultState: TValue;
 };
-
-/**
- * Logs elapsed execution time for performance debugging.
- *
- * @param operation - The operation being measured.
- * @param start - The timestamp captured before the operation started.
- * @param end - The timestamp captured after the operation completed.
- */
-function logPerformance(
-  operation: string,
-  start: number,
-  end = Date.now(),
-): void {
-  baseLogger.log(
-    `[PERFORMANCE DEBUG - TRON SNAP] ${operation} took ${
-      end - start
-    } ms to execute`,
-  );
-}
-
-/**
- * Returns a bounded operation suffix for state key performance logs.
- *
- * @param key - The state key being accessed.
- * @returns The normalized top-level state key.
- */
-function getStateKeyOperationSuffix(key?: string): string {
-  return (key?.split('.')[0] ?? 'ROOT')
-    .replace(/[^a-z0-9]/giu, '_')
-    .toUpperCase();
-}
 
 /**
  * Because we use both snap_manageState and snap_setState, we must protect against them being used at the same time.
@@ -168,29 +136,21 @@ export class State<
   }
 
   async #unsafeGet(): Promise<TStateValue> {
-    const getStateStart = Date.now();
-    const snapGetStateStart = Date.now();
     const state = await snap.request({
       method: 'snap_getState',
       params: {
         encrypted: this.#config.encrypted,
       },
     });
-    logPerformance('STATE_GET_SNAP_GET_STATE_ROOT', snapGetStateStart);
 
-    const deserializeStart = Date.now();
     const stateDeserialized = deserialize(state ?? {}) as TStateValue;
-    logPerformance('STATE_GET_DESERIALIZE_ROOT', deserializeStart);
 
     // Merge the default state with the underlying snap state
     // to ensure that we always have default values. It lets us avoid a ton of null checks everywhere.
-    const mergeDefaultsStart = Date.now();
     const stateWithDefaults = safeMerge(
       this.#config.defaultState,
       stateDeserialized,
     );
-    logPerformance('STATE_GET_MERGE_DEFAULTS_ROOT', mergeDefaultsStart);
-    logPerformance('STATE_GET_TOTAL_ROOT', getStateStart);
 
     return stateWithDefaults;
   }
@@ -203,9 +163,6 @@ export class State<
     key: string,
   ): Promise<TResponse | undefined> {
     return this.#lock.wrapRegularStateOperation(async () => {
-      const operationSuffix = getStateKeyOperationSuffix(key);
-      const getKeyStart = Date.now();
-      const snapGetStateStart = Date.now();
       const value = await snap.request({
         method: 'snap_getState',
         params: {
@@ -213,40 +170,19 @@ export class State<
           encrypted: this.#config.encrypted,
         },
       });
-      logPerformance(
-        `STATE_GET_KEY_SNAP_GET_STATE_${operationSuffix}`,
-        snapGetStateStart,
-      );
 
       if (value === null) {
-        logPerformance(`STATE_GET_KEY_TOTAL_${operationSuffix}`, getKeyStart);
         return undefined;
       }
 
-      const deserializeStart = Date.now();
-      const result = deserialize(value) as TResponse;
-      logPerformance(
-        `STATE_GET_KEY_DESERIALIZE_${operationSuffix}`,
-        deserializeStart,
-      );
-      logPerformance(`STATE_GET_KEY_TOTAL_${operationSuffix}`, getKeyStart);
-
-      return result;
+      return deserialize(value) as TResponse;
     });
   }
 
   async setKey(key: string, value: Serializable): Promise<void> {
     await this.#lock.wrapRegularStateWriteOperation(async () => {
-      const operationSuffix = getStateKeyOperationSuffix(key);
-      const setKeyStart = Date.now();
-      const serializeStart = Date.now();
       const serializedValue = serialize(value);
-      logPerformance(
-        `STATE_SET_KEY_SERIALIZE_${operationSuffix}`,
-        serializeStart,
-      );
 
-      const snapSetStateStart = Date.now();
       await snap.request({
         method: 'snap_setState',
         params: {
@@ -255,11 +191,6 @@ export class State<
           encrypted: this.#config.encrypted,
         },
       });
-      logPerformance(
-        `STATE_SET_KEY_SNAP_SET_STATE_${operationSuffix}`,
-        snapSetStateStart,
-      );
-      logPerformance(`STATE_SET_KEY_TOTAL_${operationSuffix}`, setKeyStart);
     });
   }
 
@@ -268,9 +199,6 @@ export class State<
     updater: (currentValue: TValue | undefined) => TValue,
   ): Promise<void> {
     await this.#lock.wrapRegularStateWriteOperation(async () => {
-      const operationSuffix = getStateKeyOperationSuffix(key);
-      const setKeyWithStart = Date.now();
-      const snapGetStateStart = Date.now();
       const rawValue = await snap.request({
         method: 'snap_getState',
         params: {
@@ -278,34 +206,14 @@ export class State<
           encrypted: this.#config.encrypted,
         },
       });
-      logPerformance(
-        `STATE_SET_KEY_WITH_SNAP_GET_STATE_${operationSuffix}`,
-        snapGetStateStart,
-      );
 
-      const deserializeStart = Date.now();
       const oldValue =
         rawValue === null ? undefined : (deserialize(rawValue) as TValue);
-      logPerformance(
-        `STATE_SET_KEY_WITH_DESERIALIZE_${operationSuffix}`,
-        deserializeStart,
-      );
 
-      const updaterStart = Date.now();
       const newValue = updater(oldValue);
-      logPerformance(
-        `STATE_SET_KEY_WITH_UPDATER_${operationSuffix}`,
-        updaterStart,
-      );
 
-      const serializeStart = Date.now();
       const serializedValue = serialize(newValue);
-      logPerformance(
-        `STATE_SET_KEY_WITH_SERIALIZE_${operationSuffix}`,
-        serializeStart,
-      );
 
-      const snapSetStateStart = Date.now();
       await snap.request({
         method: 'snap_setState',
         params: {
@@ -314,14 +222,6 @@ export class State<
           encrypted: this.#config.encrypted,
         },
       });
-      logPerformance(
-        `STATE_SET_KEY_WITH_SNAP_SET_STATE_${operationSuffix}`,
-        snapSetStateStart,
-      );
-      logPerformance(
-        `STATE_SET_KEY_WITH_TOTAL_${operationSuffix}`,
-        setKeyWithStart,
-      );
     });
   }
 
