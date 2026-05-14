@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Refresh stale TRON transaction expiration and reference block metadata before confirmation security scans, signing, and broadcasting ([#299](https://github.com/MetaMask/snap-tron-wallet/pull/299))
+
 ## [1.25.4]
 
 ### Changed
