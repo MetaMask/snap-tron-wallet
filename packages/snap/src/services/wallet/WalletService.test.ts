@@ -11,6 +11,43 @@ import {
 } from '../../handlers/keyring-types';
 import { mockLogger } from '../../utils/mockLogger';
 import type { AccountsService } from '../accounts/AccountsService';
+import { TransactionExpirationRefresherService } from '../transaction-expiration-refresher/TransactionExpirationRefresherService';
+
+const MOCK_BLOCK_TIMESTAMP = 1_700_000_000_000;
+
+/**
+ * Builds a mock TRON block response.
+ *
+ * @param options - The block options.
+ * @param options.number - The block number.
+ * @param options.timestamp - The block timestamp.
+ * @param options.hashSegment - The hash segment used for ref_block_hash.
+ * @returns A mock TRON block response.
+ */
+function createBlock({
+  number,
+  timestamp,
+  hashSegment = '1122334455667788',
+}: {
+  number: number;
+  timestamp: number;
+  hashSegment?: string;
+}) {
+  return {
+    blockID: `${'0'.repeat(16)}${hashSegment}${'f'.repeat(32)}`,
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    block_header: {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      raw_data: {
+        number,
+        timestamp,
+      },
+    },
+  };
+}
+
+const getRefBlockBytes = (number: number) =>
+  number.toString(16).slice(-4).padStart(4, '0');
 
 /**
  * Helper function to convert string to base64.
@@ -61,6 +98,13 @@ describe('WalletService', () => {
     mockTronWeb = {
       trx: {
         signMessageV2: jest.fn().mockReturnValue('0xsignature123'),
+        getCurrentBlock: jest.fn().mockResolvedValue(
+          createBlock({
+            number: 200_000,
+            timestamp: MOCK_BLOCK_TIMESTAMP,
+          }),
+        ),
+        getBlockByNumber: jest.fn(),
         sign: jest.fn().mockResolvedValue({
           signature: ['abcd1234signature'],
         }),
@@ -72,19 +116,28 @@ describe('WalletService', () => {
               {
                 type: 'TransferContract',
                 parameter: {
-                  // eslint-disable-next-line @typescript-eslint/naming-convention
-                  type_url: 'type.googleapis.com/protocol.TransferContract',
+                  type_url: 'type.googleapis.com/protocol.TransferContract', // eslint-disable-line @typescript-eslint/naming-convention
                   value: {
-                    // eslint-disable-next-line @typescript-eslint/naming-convention
-                    owner_address: '41abcdef',
-                    // eslint-disable-next-line @typescript-eslint/naming-convention
-                    to_address: '41123456',
+                    owner_address: '41abcdef', // eslint-disable-line @typescript-eslint/naming-convention
+
+                    to_address: '41123456', // eslint-disable-line @typescript-eslint/naming-convention
                     amount: 1000000,
                   },
                 },
               },
             ],
+            ref_block_bytes: getRefBlockBytes(200_000), // eslint-disable-line @typescript-eslint/naming-convention
+            ref_block_hash: '1122334455667788', // eslint-disable-line @typescript-eslint/naming-convention
+            expiration: MOCK_BLOCK_TIMESTAMP + 45_000,
+            timestamp: MOCK_BLOCK_TIMESTAMP,
           }),
+        },
+        transaction: {
+          txJsonToPb: jest
+            .fn()
+            .mockImplementation((transaction) => transaction),
+          txPbToRawDataHex: jest.fn().mockReturnValue('refreshed-raw-data-hex'),
+          txPbToTxID: jest.fn().mockReturnValue('0xrefreshed-tx-id'),
         },
       },
       isAddress: jest.fn().mockReturnValue(true),
@@ -102,6 +155,9 @@ describe('WalletService', () => {
       logger: mockLogger,
       accountsService: mockAccountsService,
       tronWebFactory: mockTronWebFactory,
+      transactionExpirationRefresherService: {
+        ensureFreshMetadata: jest.fn(async ({ transaction }) => transaction),
+      } as unknown as TransactionExpirationRefresherService,
     });
   });
 
@@ -293,6 +349,70 @@ describe('WalletService', () => {
         mockTronWeb.utils.deserializeTx.deserializeTransaction,
       ).toHaveBeenCalled();
       expect(mockTronWeb.trx.sign).toHaveBeenCalled();
+    });
+
+    it('refreshes transaction metadata before signing stale transactions', async () => {
+      walletService = new WalletService({
+        logger: mockLogger,
+        accountsService: mockAccountsService,
+        tronWebFactory: mockTronWebFactory,
+        transactionExpirationRefresherService:
+          new TransactionExpirationRefresherService({
+            tronWebFactory: mockTronWebFactory,
+          }),
+      });
+      mockTronWeb.trx.getCurrentBlock.mockResolvedValue(
+        createBlock({
+          number: 200_000,
+          timestamp: MOCK_BLOCK_TIMESTAMP,
+          hashSegment: '0011223344556677',
+        }),
+      );
+      mockTronWeb.utils.deserializeTx.deserializeTransaction.mockReturnValue({
+        contract: [
+          {
+            type: 'TransferContract',
+            parameter: {
+              type_url: 'type.googleapis.com/protocol.TransferContract', // eslint-disable-line @typescript-eslint/naming-convention
+              value: {
+                owner_address: '41abcdef', // eslint-disable-line @typescript-eslint/naming-convention
+
+                to_address: '41123456', // eslint-disable-line @typescript-eslint/naming-convention
+                amount: 1000000,
+              },
+            },
+          },
+        ],
+        ref_block_bytes: '0001', // eslint-disable-line @typescript-eslint/naming-convention
+        ref_block_hash: 'outdatedhash', // eslint-disable-line @typescript-eslint/naming-convention
+        expiration: MOCK_BLOCK_TIMESTAMP - 1,
+        timestamp: MOCK_BLOCK_TIMESTAMP - 60_000,
+      });
+
+      await walletService.signTransaction({
+        account: mockAccount,
+        scope: Network.Mainnet,
+        params: {
+          address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+          transaction: {
+            rawDataHex: toHex('transaction-data'),
+            type: 'TransferContract',
+          },
+        },
+      });
+
+      const signedTransaction = mockTronWeb.trx.sign.mock.calls[0]?.[0];
+
+      expect(signedTransaction.raw_data).toStrictEqual(
+        expect.objectContaining({
+          ref_block_bytes: getRefBlockBytes(200_000), // eslint-disable-line @typescript-eslint/naming-convention
+          ref_block_hash: '0011223344556677', // eslint-disable-line @typescript-eslint/naming-convention
+          expiration: MOCK_BLOCK_TIMESTAMP + 60_000,
+          timestamp: MOCK_BLOCK_TIMESTAMP,
+        }),
+      );
+      expect(signedTransaction.raw_data_hex).toBe('refreshed-raw-data-hex');
+      expect(signedTransaction.txID).toBe('refreshed-tx-id');
     });
 
     it('handles transaction format errors', async () => {
