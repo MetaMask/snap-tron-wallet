@@ -121,6 +121,7 @@ describe('AssetsRepository', () => {
     assets: UnencryptedStateValue['assets'] = {},
   ): UnencryptedStateValue => ({
     keyringAccounts: {},
+    keyringAccountIndex: {},
     assets,
     tokenPrices: {},
     transactions: {},

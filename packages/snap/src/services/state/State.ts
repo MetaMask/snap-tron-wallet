@@ -1,4 +1,4 @@
-import type { Transaction } from '@metamask/keyring-api';
+import type { EntropySourceId, Transaction } from '@metamask/keyring-api';
 import type { MutexInterface } from 'async-mutex';
 import { Mutex } from 'async-mutex';
 import { unset } from 'lodash';
@@ -14,8 +14,14 @@ import type { Serializable } from '../../utils/serialization/types';
 
 export type AccountId = string;
 
+export type KeyringAccountIndex = Record<
+  EntropySourceId,
+  Record<string, AccountId>
+>;
+
 export type UnencryptedStateValue = {
   keyringAccounts: Record<string, TronKeyringAccount>;
+  keyringAccountIndex: KeyringAccountIndex;
   assets: Record<AccountId, AssetEntity[]>;
   tokenPrices: SpotPrices;
   transactions: Record<AccountId, Transaction[]>;
@@ -24,6 +30,7 @@ export type UnencryptedStateValue = {
 
 export const DEFAULT_UNENCRYPTED_STATE: UnencryptedStateValue = {
   keyringAccounts: {},
+  keyringAccountIndex: {},
   assets: {},
   tokenPrices: {},
   transactions: {},
