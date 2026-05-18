@@ -208,12 +208,13 @@ async function withAssetsService<ReturnValue>(
     getByAccountIdAndAssetTypes: jest.fn().mockResolvedValue([]),
   };
 
-  const mockState: jest.Mocked<
-    Pick<State<UnencryptedStateValue>, 'getKey' | 'setKey'>
-  > = {
+  const mockState = {
     getKey: jest.fn().mockResolvedValue({}),
     setKey: jest.fn().mockResolvedValue(undefined),
-  };
+    setKeyWith: jest.fn().mockResolvedValue(undefined),
+  } as unknown as jest.Mocked<
+    Pick<State<UnencryptedStateValue>, 'getKey' | 'setKey' | 'setKeyWith'>
+  >;
 
   const mockTrongridApiClient: jest.Mocked<
     Pick<
