@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add `SnapClient.trackError` wrapper around `snap_trackError` for reporting errors to Sentry ([#311](https://github.com/MetaMask/snap-tron-wallet/pull/311))
 
+### Fixed
+
+- Validate transaction `owner_address` against the signer address derived from the persisted account before signing or broadcasting ([#297](https://github.com/MetaMask/snap-tron-wallet/pull/297))
+
 ## [1.25.4]
 
 ### Changed
