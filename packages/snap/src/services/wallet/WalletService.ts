@@ -18,7 +18,10 @@ import {
   SignMessageResponseStruct,
   SignTransactionRequestStruct,
 } from '../../validation/structs';
-import { assertTransactionStructure } from '../../validation/transaction';
+import {
+  assertTransactionSignerConsistency,
+  assertTransactionStructure,
+} from '../../validation/transaction';
 import { validateRequest, validateResponse } from '../../validation/validators';
 import type { AccountsService } from '../accounts/AccountsService';
 import type { TransactionExpirationRefresherService } from '../transaction-expiration-refresher/TransactionExpirationRefresherService';
@@ -213,10 +216,11 @@ export class WalletService {
       } = params;
 
       // Derive the private key for signing
-      const { privateKeyHex } = await this.#accountsService.deriveTronKeypair({
-        entropySource: account.entropySource,
-        derivationPath: account.derivationPath,
-      });
+      const { privateKeyHex, address: signerAddress } =
+        await this.#accountsService.deriveTronKeypair({
+          entropySource: account.entropySource,
+          derivationPath: account.derivationPath,
+        });
 
       // Create a TronWeb instance for transaction signing
       const tronWeb = this.#tronWebFactory.createClient(scope, privateKeyHex);
@@ -227,6 +231,7 @@ export class WalletService {
         rawDataHex,
       );
       assertTransactionStructure(rawData);
+      assertTransactionSignerConsistency(rawData, signerAddress);
 
       const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);
       const transaction = {

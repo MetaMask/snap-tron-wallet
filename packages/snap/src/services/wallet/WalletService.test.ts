@@ -1,5 +1,6 @@
 import { SnapError } from '@metamask/snaps-sdk';
 import { bytesToBase64, bytesToHex, stringToBytes } from '@metamask/utils';
+import { TronWeb } from 'tronweb';
 
 import { WalletService } from './WalletService';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
@@ -70,16 +71,19 @@ function toHex(str: string): string {
 }
 
 describe('WalletService', () => {
+  const TEST_ADDRESS = 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8';
+  const ALT_OWNER_HEX = '41a614f803b6fd780986a42c78ec9c7f77e6ded13c';
+  const ALT_ADDRESS = TronWeb.address.fromHex(ALT_OWNER_HEX);
   const mockTronKeypair = {
     privateKeyBytes: new Uint8Array(32),
     publicKeyBytes: new Uint8Array(33),
     privateKeyHex: 'abcd1234privatekey',
-    address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+    address: TEST_ADDRESS,
   };
 
   const mockAccount: TronKeyringAccount = {
     id: '123e4567-e89b-12d3-a456-426614174000',
-    address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+    address: TEST_ADDRESS,
     options: {},
     methods: ['signMessage', 'signTransaction'],
     type: 'tron:eoa',
@@ -118,9 +122,10 @@ describe('WalletService', () => {
                 parameter: {
                   type_url: 'type.googleapis.com/protocol.TransferContract', // eslint-disable-line @typescript-eslint/naming-convention
                   value: {
-                    owner_address: '41abcdef', // eslint-disable-line @typescript-eslint/naming-convention
-
-                    to_address: '41123456', // eslint-disable-line @typescript-eslint/naming-convention
+                    // eslint-disable-next-line @typescript-eslint/naming-convention
+                    owner_address: TronWeb.address.toHex(TEST_ADDRESS),
+                    // eslint-disable-next-line @typescript-eslint/naming-convention
+                    to_address: '41123456',
                     amount: 1000000,
                   },
                 },
@@ -164,7 +169,7 @@ describe('WalletService', () => {
   describe('handleKeyringRequest', () => {
     it('routes signMessage requests correctly', async () => {
       const params = {
-        address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+        address: TEST_ADDRESS,
         message: toBase64('Hello World'),
       };
 
@@ -184,7 +189,7 @@ describe('WalletService', () => {
 
     it('routes signTransaction requests correctly', async () => {
       const params = {
-        address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+        address: TEST_ADDRESS,
         transaction: {
           rawDataHex: toHex('transaction-data'),
           type: 'TransferContract',
@@ -225,7 +230,7 @@ describe('WalletService', () => {
           scope: Network.Mainnet,
           method: TronMultichainMethod.SignMessage,
           params: {
-            address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+            address: TEST_ADDRESS,
             message: toBase64('Hello'),
           },
         }),
@@ -249,7 +254,7 @@ describe('WalletService', () => {
   describe('signMessage', () => {
     it('signs a message successfully', async () => {
       const params = {
-        address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+        address: TEST_ADDRESS,
         message: toBase64('Hello World'),
       };
 
@@ -277,7 +282,7 @@ describe('WalletService', () => {
     it('decodes base64 message before signing', async () => {
       const originalMessage = 'Test Message 123';
       const params = {
-        address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+        address: TEST_ADDRESS,
         message: toBase64(originalMessage),
       };
 
@@ -375,8 +380,7 @@ describe('WalletService', () => {
             parameter: {
               type_url: 'type.googleapis.com/protocol.TransferContract', // eslint-disable-line @typescript-eslint/naming-convention
               value: {
-                owner_address: '41abcdef', // eslint-disable-line @typescript-eslint/naming-convention
-
+                owner_address: TronWeb.address.toHex(TEST_ADDRESS), // eslint-disable-line @typescript-eslint/naming-convention
                 to_address: '41123456', // eslint-disable-line @typescript-eslint/naming-convention
                 amount: 1000000,
               },
@@ -488,6 +492,64 @@ describe('WalletService', () => {
       });
 
       expect(result.signature).toBe('0x');
+    });
+
+    it('rejects transactions whose owner_address does not match the signer', async () => {
+      mockTronWeb.utils.deserializeTx.deserializeTransaction.mockReturnValue({
+        contract: [
+          {
+            type: 'TransferContract',
+            parameter: {
+              value: {
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                owner_address: ALT_OWNER_HEX,
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                to_address: '41123456',
+                amount: 1000000,
+              },
+            },
+          },
+        ],
+      });
+
+      await expect(
+        walletService.signTransaction({
+          account: mockAccount,
+          scope: Network.Mainnet,
+          params: {
+            address: TEST_ADDRESS,
+            transaction: {
+              rawDataHex: toHex('transaction-data'),
+              type: 'TransferContract',
+            },
+          },
+        }),
+      ).rejects.toThrow(
+        `Transaction owner_address (${ALT_ADDRESS}) does not match derived signer address (${TEST_ADDRESS})`,
+      );
+    });
+
+    it('rejects when the resolved account address does not match the derived signer', async () => {
+      mockAccountsService.deriveTronKeypair.mockResolvedValue({
+        ...mockTronKeypair,
+        address: ALT_ADDRESS,
+      });
+
+      await expect(
+        walletService.signTransaction({
+          account: mockAccount,
+          scope: Network.Mainnet,
+          params: {
+            address: TEST_ADDRESS,
+            transaction: {
+              rawDataHex: toHex('transaction-data'),
+              type: 'TransferContract',
+            },
+          },
+        }),
+      ).rejects.toThrow(
+        `Transaction owner_address (${TEST_ADDRESS}) does not match derived signer address (${ALT_ADDRESS})`,
+      );
     });
   });
 
