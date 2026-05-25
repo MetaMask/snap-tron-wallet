@@ -7,9 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.6]
+
+### Added
+
+- Filter native TRX receive spam from transaction history ([#301](https://github.com/MetaMask/snap-tron-wallet/pull/301))
+
+### Fixed
+
+- Refresh stale TRON transaction expiration and reference block metadata before confirmation security scans, signing, and broadcasting ([#299](https://github.com/MetaMask/snap-tron-wallet/pull/299))
+
+## [1.25.5]
+
+### Fixed
+
+- Validate transaction `owner_address` against the signer address derived from the persisted account before signing or broadcasting ([#297](https://github.com/MetaMask/snap-tron-wallet/pull/297))
+
+## [1.25.4]
+
 ### Changed
 
-- Validate that account IDs passed to `keyring_setSelectedAccounts` belong to the snap, rejecting unknown IDs with `InvalidParamsError` ([#298](https://github.com/MetaMask/snap-solana-wallet/pull/298))
+- Validate that account IDs passed to `keyring_setSelectedAccounts` belong to the snap, rejecting unknown IDs with `InvalidParamsError` ([#298](https://github.com/MetaMask/snap-tron-wallet/pull/298))
 - Simplify `SnapClient` interface methods by removing defensive `*IfExists` wrappers and aligning with the Solana snap's approach ([#257](https://github.com/MetaMask/snap-tron-wallet/pull/257))
 - Add `FetchStatus.Loading` in `FetchStatus` enum to represent first fetching state and add `isFetchStatusLoadingOrFetching` helper ([#302](https://github.com/MetaMask/snap-tron-wallet/pull/302))
 - Make Confirm button stay enabled after the first security scan even during refresh ([#302](https://github.com/MetaMask/snap-tron-wallet/pull/302))
@@ -487,7 +505,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release of Tron wallet snap
 - Support for TRX and token assets balances ([#12](https://github.com/MetaMask/snap-tron-wallet/pull/12))
 
-[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.3...HEAD
+[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.6...HEAD
+[1.25.6]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.5...v1.25.6
+[1.25.5]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.4...v1.25.5
+[1.25.4]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.3...v1.25.4
 [1.25.3]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.2...v1.25.3
 [1.25.2]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.1...v1.25.2
 [1.25.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.0...v1.25.1
