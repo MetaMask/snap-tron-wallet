@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Add `FetchStatus.Loading` in `FetchStatus` enum to represent first fetching state and add `isFetchStatusLoadingOrFetching` helper ([#302](https://github.com/MetaMask/snap-tron-wallet/pull/302))
+- Make Confirm button stay enabled after the first security scan even during refresh ([#302](https://github.com/MetaMask/snap-tron-wallet/pull/302))
+
 ## [1.25.6]
 
 ### Added
@@ -29,8 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Validate that account IDs passed to `keyring_setSelectedAccounts` belong to the snap, rejecting unknown IDs with `InvalidParamsError` ([#298](https://github.com/MetaMask/snap-tron-wallet/pull/298))
 - Simplify `SnapClient` interface methods by removing defensive `*IfExists` wrappers and aligning with the Solana snap's approach ([#257](https://github.com/MetaMask/snap-tron-wallet/pull/257))
-- Add `FetchStatus.Loading` in `FetchStatus` enum to represent first fetching state and add `isFetchStatusLoadingOrFetching` helper ([#302](https://github.com/MetaMask/snap-tron-wallet/pull/302))
-- Make Confirm button stay enabled after the first security scan even during refresh ([#302](https://github.com/MetaMask/snap-tron-wallet/pull/302))
 
 ## [1.25.3]
 
