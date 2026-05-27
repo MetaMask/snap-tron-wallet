@@ -8,11 +8,13 @@ if [[ $# -eq 0 ]]; then
   exit 1
 fi
 
+shift # remove package name from arguments
+
 # Get the current git branch
 branch=$(git rev-parse --abbrev-ref HEAD)
 
 if [[ $branch =~ ^release/ ]]; then
   yarn auto-changelog update --prettier --rc "$@"
 else
-  yarn auto-changelog update --prettier  "$@"
+  yarn auto-changelog update --prettier "$@"
 fi
