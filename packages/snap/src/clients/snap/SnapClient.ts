@@ -250,9 +250,6 @@ export class SnapClient {
   /**
    * Track an error in MetaMask via Sentry (`snap_trackError`).
    *
-   * Used by services and handlers to forward otherwise-suppressed errors
-   * to monitoring.
-   *
    * RPC failures are caught and logged but never rethrown, so this is
    * safe to call from already-failing error-handling paths without risk
    * of masking the original failure.
