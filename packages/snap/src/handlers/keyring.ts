@@ -35,7 +35,7 @@ import { sortBy } from 'lodash';
 import type { SnapClient } from '../clients/snap/SnapClient';
 import { ESSENTIAL_ASSETS, type Network } from '../constants';
 import { BackgroundEventMethod } from './cronjob';
-import type { TronMultichainMethod } from './keyring-types';
+import { TronMultichainMethod } from './keyring-types';
 import {
   asStrictKeyringAccount,
   type TronKeyringAccount,
@@ -44,6 +44,7 @@ import type { AccountsService } from '../services/accounts/AccountsService';
 import type { CreateAccountOptions } from '../services/accounts/types';
 import type { AssetsService } from '../services/assets/AssetsService';
 import type { ConfirmationHandler } from '../services/confirmation/ConfirmationHandler';
+import type { TransactionExpirationRefresherService } from '../services/transaction-expiration-refresher/TransactionExpirationRefresherService';
 import type { TransactionsService } from '../services/transactions/TransactionsService';
 import type { WalletService } from '../services/wallet/WalletService';
 import { withCatchAndThrowSnapError } from '../utils/errors';
@@ -57,7 +58,9 @@ import {
   GetAccountStruct,
   ListAccountAssetsStruct,
   ListAccountTransactionsStruct,
+  SignTransactionRequestStruct,
   TronKeyringRequestStruct,
+  type TronWalletKeyringRequest,
   UuidStruct,
 } from '../validation/structs';
 import {
@@ -81,6 +84,8 @@ export class KeyringHandler implements Keyring {
 
   readonly #confirmationHandler: ConfirmationHandler;
 
+  readonly #transactionExpirationRefresherService: TransactionExpirationRefresherService;
+
   constructor({
     logger,
     snapClient,
@@ -89,6 +94,7 @@ export class KeyringHandler implements Keyring {
     transactionsService,
     walletService,
     confirmationHandler,
+    transactionExpirationRefresherService,
   }: {
     logger: ILogger;
     snapClient: SnapClient;
@@ -97,6 +103,7 @@ export class KeyringHandler implements Keyring {
     transactionsService: TransactionsService;
     walletService: WalletService;
     confirmationHandler: ConfirmationHandler;
+    transactionExpirationRefresherService: TransactionExpirationRefresherService;
   }) {
     this.#logger = createPrefixedLogger(logger, '[🔑 KeyringHandler]');
     this.#snapClient = snapClient;
@@ -105,6 +112,8 @@ export class KeyringHandler implements Keyring {
     this.#transactionsService = transactionsService;
     this.#walletService = walletService;
     this.#confirmationHandler = confirmationHandler;
+    this.#transactionExpirationRefresherService =
+      transactionExpirationRefresherService;
   }
 
   async handle(origin: string, request: JsonRpcRequest): Promise<Json> {
@@ -438,6 +447,48 @@ export class KeyringHandler implements Keyring {
     return { pending: false, result: await this.#handleSubmitRequest(request) };
   }
 
+  async #prepareRequestForConfirmation(
+    request: TronWalletKeyringRequest,
+  ): Promise<TronWalletKeyringRequest> {
+    if (request.request.method !== TronMultichainMethod.SignTransaction) {
+      return request;
+    }
+
+    assert(request.request.params, SignTransactionRequestStruct);
+
+    const {
+      scope,
+      request: {
+        params: {
+          transaction: { rawDataHex, type },
+        },
+      },
+    } = request;
+
+    const freshTransaction =
+      await this.#transactionExpirationRefresherService.ensureFreshSerializedTransaction(
+        {
+          scope,
+          type,
+          rawDataHex,
+        },
+      );
+
+    return {
+      ...request,
+      request: {
+        ...request.request,
+        params: {
+          ...request.request.params,
+          transaction: {
+            ...request.request.params.transaction,
+            rawDataHex: freshTransaction.raw_data_hex,
+          },
+        },
+      },
+    };
+  }
+
   async #handleSubmitRequest(request: KeyringRequest): Promise<Json> {
     assert(request, TronKeyringRequestStruct);
 
@@ -461,8 +512,10 @@ export class KeyringHandler implements Keyring {
       throw new Error(`Method "${method}" is not allowed for this account`);
     }
 
+    const requestToHandle = await this.#prepareRequestForConfirmation(request);
+
     const isConfirmed = await this.#confirmationHandler.handleKeyringRequest({
-      request,
+      request: requestToHandle,
       account,
     });
 
@@ -472,9 +525,9 @@ export class KeyringHandler implements Keyring {
 
     const result = await this.#walletService.handleKeyringRequest({
       account,
-      scope,
-      method: method as TronMultichainMethod,
-      params,
+      scope: requestToHandle.scope,
+      method: requestToHandle.request.method as TronMultichainMethod,
+      params: requestToHandle.request.params ?? params,
     });
 
     return result;
