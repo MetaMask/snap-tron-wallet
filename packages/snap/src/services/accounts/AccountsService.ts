@@ -42,15 +42,30 @@ import type { TransactionsService } from '../transactions/TransactionsService';
  */
 const CURVE = 'secp256k1' as const;
 
+/**
+ * Maximum BIP44 account index.
+ */
 const MAX_BIP44_ACCOUNT_INDEX = 0x7fffffff;
 
+/**
+ * Batch size for creating accounts in a single operation.
+ */
 const CREATE_ACCOUNTS_BATCH_SIZE = 100;
 
+/**
+ * Range of inclusive account indices to create.
+ *
+ * @param from - The starting index.
+ * @param to - The ending index.
+ */
 type AccountCreationRange = {
   from: number;
   to: number;
 };
 
+/**
+ * A function that derives a TRON address from a BIP44 account index.
+ */
 type TronAddressDeriver = Awaited<
   ReturnType<typeof createTronBip44AddressDeriver>
 >;
@@ -82,7 +97,7 @@ function validateAccountCreationRange(range: AccountCreationRange): void {
 
   if (range.from > range.to) {
     throw new Error(
-      'Invalid account creation range: from must be less than or equal to to',
+      'Invalid account creation range: "from" must be less than or equal to "to"',
     );
   }
 }

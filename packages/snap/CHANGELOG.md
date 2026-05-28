@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add `setKeyWith` helper for state read-modify-write operations ([#307](https://github.com/MetaMask/snap-tron-wallet/pull/307))
-- Add support for `keyring_createAccounts` method to enable batch account creation ([#295](https://github.com/MetaMask/snap-tron-wallet/pull/295)).
+- Add support for `keyring_createAccounts` method to enable batch account creation ([#308](https://github.com/MetaMask/snap-tron-wallet/pull/308)).
 
 ## [1.25.8]
 

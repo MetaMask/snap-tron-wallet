@@ -4,6 +4,12 @@ import type { TronKeyringAccount } from '../../entities/keyring-account';
 import type { IStateManager } from '../state/IStateManager';
 import type { UnencryptedStateValue } from '../state/State';
 
+/**
+ * Range of inclusive account indices to create.
+ *
+ * @param from - The starting index.
+ * @param to - The ending index.
+ */
 type AccountCreationRange = {
   from: number;
   to: number;
