@@ -71,11 +71,13 @@ describe('KeyringHandler', () => {
   beforeEach(() => {
     mockSnapClient = {
       scheduleBackgroundEvent: jest.fn().mockResolvedValue(undefined),
+      trackError: jest.fn(),
     } as any;
     mockAccountsService = {
       findById: jest.fn().mockResolvedValue(mockAccount),
       findByIdOrThrow: jest.fn().mockResolvedValue(mockAccount),
       deriveAccount: jest.fn(),
+      create: jest.fn(),
       getAll: jest.fn().mockResolvedValue([mockAccount]),
     } as any;
     mockAssetsService = {} as any;
@@ -683,6 +685,36 @@ describe('KeyringHandler', () => {
       ).rejects.toThrow(InvalidParamsError);
 
       expect(mockSnapClient.scheduleBackgroundEvent).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listAccounts', () => {
+    it('tracks the error', async () => {
+      const causeError = new Error('Account error');
+
+      mockAccountsService.getAll.mockRejectedValue(causeError);
+
+      await expect(keyringHandler.listAccounts()).rejects.toMatchObject({
+        message: 'Error listing accounts',
+        cause: causeError,
+      });
+
+      expect(mockSnapClient.trackError).toHaveBeenCalledWith(causeError);
+    });
+  });
+
+  describe('createAccount', () => {
+    it('tracks the error', async () => {
+      const causeError = new Error('Account error');
+
+      mockAccountsService.create.mockRejectedValue(causeError);
+
+      await expect(keyringHandler.createAccount()).rejects.toMatchObject({
+        message: `Error creating account: ${causeError.message}`,
+        cause: causeError,
+      });
+
+      expect(mockSnapClient.trackError).toHaveBeenCalledWith(causeError);
     });
   });
 });

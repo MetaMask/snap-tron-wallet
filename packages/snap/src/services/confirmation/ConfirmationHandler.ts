@@ -1,4 +1,4 @@
-import { InternalError } from '@metamask/snaps-sdk';
+import { getJsonError, InternalError } from '@metamask/snaps-sdk';
 import { assert } from '@metamask/superstruct';
 import { BigNumber } from 'bignumber.js';
 import type { Types } from 'tronweb';
@@ -263,8 +263,11 @@ export class ConfirmationHandler {
     let preferences;
     try {
       preferences = await this.#snapClient.getPreferences();
-    } catch {
-      throw new InternalError('Failed to retrieve Snap preferences.') as Error;
+    } catch (error) {
+      await this.#snapClient.trackError(error as Error);
+      throw new InternalError('Failed to retrieve Snap preferences.', {
+        cause: getJsonError(error),
+      }) as Error;
     }
 
     const context: ConfirmSignTransactionContext = {
