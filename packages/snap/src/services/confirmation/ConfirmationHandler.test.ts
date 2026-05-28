@@ -182,7 +182,7 @@ async function withConfirmationHandler<ReturnValue>(
     trackTransactionAdded: jest.fn().mockResolvedValue(undefined),
     trackTransactionApproved: jest.fn().mockResolvedValue(undefined),
     trackTransactionRejected: jest.fn().mockResolvedValue(undefined),
-    trackError: jest.fn(),
+    trackError: jest.fn().mockResolvedValue(undefined),
   };
 
   const mockState: MockState = {
@@ -495,19 +495,19 @@ describe('ConfirmationHandler', () => {
       });
     });
 
-    it('logs error but does not throw when clearing interface ID fails', async () => {
-      await withConfirmationHandler(async ({ handler, mockState }) => {
-        mockRenderConfirmTransactionRequest.mockResolvedValue(true);
-        mockState.setKey.mockRejectedValue(new Error('state write failed'));
+    it('tracks the error', async () => {
+      await withConfirmationHandler(
+        async ({ handler, mockSnapClient, mockState }) => {
+          const error = new Error('state write failed');
 
-        const result = await handler.confirmTransactionRequest(defaultParams);
+          mockRenderConfirmTransactionRequest.mockResolvedValue(true);
+          mockState.setKey.mockRejectedValue(error);
 
-        expect(result).toBe(true);
-        expect(mockState.setKey).toHaveBeenCalledWith(
-          'mapInterfaceNameToId.confirmTransaction',
-          null,
-        );
-      });
+          await handler.confirmTransactionRequest(defaultParams);
+
+          expect(mockSnapClient.trackError).toHaveBeenCalledWith(error);
+        },
+      );
     });
   });
 
