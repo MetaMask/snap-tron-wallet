@@ -9,8 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add `SnapClient.trackError` wrapper around `snap_trackError` for reporting errors to Sentry ([#311](https://github.com/MetaMask/snap-tron-wallet/pull/311))
 - Adds `setKeyWith` helper for state read-modify-write operations ([#307](https://github.com/MetaMask/snap-tron-wallet/pull/307))
+
+### Fixed
+
+- Removed `snap_trackError` permission from snap manifest ([#320](https://github.com/MetaMask/snap-tron-wallet/pull/320))
+  - This permission was causing errors during snap installation and is not necessary for the snap's functionality.
+
+## [1.25.7]
+
+### Added
+
+- Add `SnapClient.trackError` wrapper around `snap_trackError` for reporting errors to Sentry ([#311](https://github.com/MetaMask/snap-tron-wallet/pull/311))
+- Add `trackError` call in `scanTransaction` method of `TransactionScanService` ([#314](https://github.com/MetaMask/snap-tron-wallet/pull/314))
+- Add `trackError` calls `handle` methods of `ClientRequestHandler` ([#315](https://github.com/MetaMask/snap-tron-wallet/pull/315))
 
 ### Changed
 
@@ -513,7 +525,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release of Tron wallet snap
 - Support for TRX and token assets balances ([#12](https://github.com/MetaMask/snap-tron-wallet/pull/12))
 
-[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.6...HEAD
+[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.7...HEAD
+[1.25.7]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.6...v1.25.7
 [1.25.6]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.5...v1.25.6
 [1.25.5]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.4...v1.25.5
 [1.25.4]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.3...v1.25.4
