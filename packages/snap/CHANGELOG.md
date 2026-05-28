@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add `SnapClient.trackError` wrapper around `snap_trackError` for reporting errors to Sentry ([#311](https://github.com/MetaMask/snap-tron-wallet/pull/311))
 - Add `trackError` call in `scanTransaction` method of `TransactionScanService` ([#314](https://github.com/MetaMask/snap-tron-wallet/pull/314))
+- Add `trackError` calls `handle` methods of `ClientRequestHandler` ([#315](https://github.com/MetaMask/snap-tron-wallet/pull/315))
 
 ### Changed
 
