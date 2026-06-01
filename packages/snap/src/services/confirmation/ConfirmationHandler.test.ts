@@ -495,6 +495,21 @@ describe('ConfirmationHandler', () => {
       });
     });
 
+    it('logs error but does not throw when clearing interface ID fails', async () => {
+      await withConfirmationHandler(async ({ handler, mockState }) => {
+        mockRenderConfirmTransactionRequest.mockResolvedValue(true);
+        mockState.setKey.mockRejectedValue(new Error('state write failed'));
+
+        const result = await handler.confirmTransactionRequest(defaultParams);
+
+        expect(result).toBe(true);
+        expect(mockState.setKey).toHaveBeenCalledWith(
+          'mapInterfaceNameToId.confirmTransaction',
+          null,
+        );
+      });
+    });
+
     it('tracks the error', async () => {
       await withConfirmationHandler(
         async ({ handler, mockSnapClient, mockState }) => {
