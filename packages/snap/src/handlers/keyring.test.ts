@@ -689,7 +689,7 @@ describe('KeyringHandler', () => {
   });
 
   describe('listAccounts', () => {
-    it('tracks the error', async () => {
+    it('fails with cause', async () => {
       const causeError = new Error('Account error');
 
       mockAccountsService.getAll.mockRejectedValue(causeError);
@@ -698,13 +698,11 @@ describe('KeyringHandler', () => {
         message: 'Error listing accounts',
         cause: causeError,
       });
-
-      expect(mockSnapClient.trackError).toHaveBeenCalledWith(causeError);
     });
   });
 
   describe('createAccount', () => {
-    it('tracks the error', async () => {
+    it('fails with cause', async () => {
       const causeError = new Error('Account error');
 
       mockAccountsService.create.mockRejectedValue(causeError);
@@ -713,8 +711,6 @@ describe('KeyringHandler', () => {
         message: `Error creating account: ${causeError.message}`,
         cause: causeError,
       });
-
-      expect(mockSnapClient.trackError).toHaveBeenCalledWith(causeError);
     });
   });
 });

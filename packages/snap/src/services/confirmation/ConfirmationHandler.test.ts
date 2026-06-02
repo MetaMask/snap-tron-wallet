@@ -340,16 +340,18 @@ describe('ConfirmationHandler', () => {
 
     it('throws InternalError when getPreferences fails', async () => {
       await withConfirmationHandler(async ({ handler, mockSnapClient }) => {
-        mockSnapClient.getPreferences.mockRejectedValue(
-          new Error('preferences unavailable'),
-        );
+        const error = new Error('preferences unavailable');
+
+        mockSnapClient.getPreferences.mockRejectedValue(error);
 
         await expect(
           handler.confirmClaimUnstakedTrx({
             account: mockAccount,
             scope: Network.Mainnet,
           }),
-        ).rejects.toThrow('Failed to retrieve Snap preferences.');
+        ).rejects.toThrow(
+          `Failed to retrieve Snap preferences: ${error.message}`,
+        );
       });
     });
 
@@ -380,32 +382,6 @@ describe('ConfirmationHandler', () => {
           );
         },
       );
-    });
-
-    it('tracks the error', async () => {
-      await withConfirmationHandler(async ({ handler, mockSnapClient }) => {
-        const causeError = new Error('Preferences error');
-
-        const matchedError = expect.objectContaining({
-          message: 'Failed to retrieve Snap preferences.',
-          data: {
-            cause: expect.objectContaining({
-              message: causeError.message,
-            }),
-          },
-        });
-
-        mockSnapClient.getPreferences.mockRejectedValue(causeError);
-
-        await expect(
-          handler.confirmClaimUnstakedTrx({
-            account: mockAccount,
-            scope: Network.Mainnet,
-          }),
-        ).rejects.toMatchObject(matchedError);
-
-        expect(mockSnapClient.trackError).toHaveBeenCalledWith(causeError);
-      });
     });
   });
 

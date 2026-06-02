@@ -1,10 +1,5 @@
 /* eslint-disable @typescript-eslint/only-throw-error */
-import {
-  getJsonError,
-  InvalidParamsError,
-  SnapError,
-  UnauthorizedError,
-} from '@metamask/snaps-sdk';
+import { InvalidParamsError, UnauthorizedError } from '@metamask/snaps-sdk';
 import type { Infer, Struct } from '@metamask/superstruct';
 import { assert } from '@metamask/superstruct';
 
@@ -48,7 +43,7 @@ export function validateRequest<Params, TStruct extends Struct<any>>(
  * @template Params - The expected structure of the response.
  * @param response - The response to validate.
  * @param struct - The expected structure of the response.
- * @throws {SnapError} If the response does not conform to the expected structure.
+ * @throws Error if the response does not conform to the expected structure.
  */
 // TODO: Replace `any` with type
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -59,8 +54,8 @@ export function validateResponse<Params, TStruct extends Struct<any>>(
   try {
     assert(response, struct);
   } catch (error) {
-    throw new SnapError(`Invalid Response: ${(error as Error).message}`, {
-      cause: getJsonError(error),
+    throw new Error(`Invalid Response: ${(error as Error).message}`, {
+      cause: error,
     });
   }
 }
