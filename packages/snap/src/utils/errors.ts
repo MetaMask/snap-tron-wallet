@@ -1,102 +1,21 @@
-import {
-  ChainDisconnectedError,
-  DisconnectedError,
-  InternalError,
-  InvalidInputError,
-  InvalidParamsError,
-  InvalidRequestError,
-  LimitExceededError,
-  MethodNotFoundError,
-  MethodNotSupportedError,
-  ParseError,
-  ResourceNotFoundError,
-  ResourceUnavailableError,
-  SnapError,
-  TransactionRejected,
-  UnauthorizedError,
-  UnsupportedMethodError,
-  UserRejectedRequestError,
-} from '@metamask/snaps-sdk';
+import { SnapError, UserRejectedRequestError } from '@metamask/snaps-sdk';
 
 import logger from './logger';
+import { isSnapRpcError } from './sensitiveErrors';
 import { SnapClient } from '../clients/snap/SnapClient';
 
 const snapClient = new SnapClient({ logger });
 
-/**
- * Sanitizes error messages that may contain sensitive cryptographic information.
- * This prevents leaking details about private keys, entropy, or derivation paths.
- *
- * @param error - The error to sanitize.
- * @returns A sanitized error with generic message if sensitive info detected.
- */
-// TODO: Replace `any` with type
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function sanitizeSensitiveError(error: any): Error {
-  const message = error?.message?.toLowerCase() ?? '';
-  const stack = error?.stack?.toLowerCase() ?? '';
-
-  // Check for sensitive keywords in error message or stack trace
-  const sensitiveKeywords = [
-    'private',
-    'key',
-    'entropy',
-    'mnemonic',
-    'seed',
-    'derivation',
-    'bip32',
-    'bip44',
-    'secret',
-  ];
-
-  const containsSensitiveInfo = sensitiveKeywords.some(
-    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-    (keyword) => message.includes(keyword) || stack.includes(keyword),
-  );
-
-  if (containsSensitiveInfo) {
-    // Return generic error without exposing sensitive details
-    const sanitizedError = new Error(
-      'Key derivation failed. Please check your connection and try again.',
-    );
-    // Preserve error type if it's a Snap error
-    if (isSnapRpcError(error)) {
-      return error.constructor ? new error.constructor() : sanitizedError;
-    }
-    return sanitizedError;
-  }
-
-  return error;
-}
+export { isSnapRpcError, sanitizeSensitiveError } from './sensitiveErrors';
 
 /**
- * Determines if the given error is a Snap RPC error.
+ * Determines whether an error should be reported through `snap_trackError`.
  *
- * @param error - The error instance to be checked.
- * @returns A boolean indicating whether the error is a Snap RPC error.
+ * @param error - The error to evaluate.
+ * @returns `true` when the error should be tracked.
  */
-export function isSnapRpcError(error: Error): boolean {
-  const errors = [
-    SnapError,
-    MethodNotFoundError,
-    UserRejectedRequestError,
-    MethodNotSupportedError,
-    MethodNotFoundError,
-    ParseError,
-    ResourceNotFoundError,
-    ResourceUnavailableError,
-    TransactionRejected,
-    ChainDisconnectedError,
-    DisconnectedError,
-    UnauthorizedError,
-    UnsupportedMethodError,
-    InternalError,
-    InvalidInputError,
-    InvalidParamsError,
-    InvalidRequestError,
-    LimitExceededError,
-  ];
-  return errors.some((errType) => error instanceof errType);
+export function shouldTrackError(error: unknown): boolean {
+  return !(error instanceof UserRejectedRequestError);
 }
 
 export const withCatchAndThrowSnapError = async <ResponseT>(
@@ -107,7 +26,9 @@ export const withCatchAndThrowSnapError = async <ResponseT>(
     // TODO: Replace `any` with type
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (errorInstance: any) {
-    await snapClient.trackError(errorInstance);
+    if (shouldTrackError(errorInstance)) {
+      await snapClient.trackError(errorInstance);
+    }
 
     const error = isSnapRpcError(errorInstance)
       ? errorInstance

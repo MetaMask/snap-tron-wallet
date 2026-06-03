@@ -118,10 +118,8 @@ export class KeyringHandler implements Keyring {
 
   async handle(origin: string, request: JsonRpcRequest): Promise<Json> {
     validateOrigin(origin, request.method);
-
-    const result = (await handleKeyringRequest(this, request)) ?? null;
-
-    return result;
+    const result = await handleKeyringRequest(this, request);
+    return result ?? null;
   }
 
   async #listAccounts(): Promise<TronKeyringAccount[]> {
