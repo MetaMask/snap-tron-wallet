@@ -72,6 +72,7 @@ export class ConfirmationHandler {
     try {
       await this.#state.setKey(`mapInterfaceNameToId.${interfaceName}`, null);
     } catch (error) {
+      await this.#snapClient.trackError(error as Error);
       this.#logger.error({ error }, 'Failed to clear interface ID');
     }
   }
@@ -263,8 +264,10 @@ export class ConfirmationHandler {
     let preferences;
     try {
       preferences = await this.#snapClient.getPreferences();
-    } catch {
-      throw new InternalError('Failed to retrieve Snap preferences.') as Error;
+    } catch (error) {
+      throw new InternalError(
+        `Failed to retrieve Snap preferences: ${(error as Error).message}`,
+      ) as Error;
     }
 
     const context: ConfirmSignTransactionContext = {
