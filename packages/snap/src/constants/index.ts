@@ -5,6 +5,7 @@ export const ZERO = BigNumber(0);
 export const ACCOUNT_ACTIVATION_FEE_TRX = BigNumber(1);
 export const MEMO_FEE_TRX = BigNumber(1);
 export const SUN_IN_TRX = 1_000_000;
+export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 /**
  * 100 TRX
  */

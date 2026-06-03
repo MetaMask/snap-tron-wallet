@@ -11,7 +11,11 @@ import type { OnAmountInputRequestStruct } from './validation';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
 import { FEE_LIMIT, Network, Networks } from '../../constants';
-import type { NativeAsset, ResourceAsset } from '../../entities/assets';
+import type {
+  NativeAsset,
+  ResourceAsset,
+  TokenAsset,
+} from '../../entities/assets';
 import type { TronKeyringAccount } from '../../entities/keyring-account';
 import type { AccountsService } from '../../services/accounts/AccountsService';
 import type { AssetsService } from '../../services/assets/AssetsService';
@@ -1178,6 +1182,7 @@ describe('ClientRequestHandler - signAndSendTransaction', () => {
   let mockTransactionsService: jest.Mocked<TransactionsService>;
   let mockTronWeb: any;
 
+  const scope = Network.Mainnet;
   const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
   const TEST_TRANSACTION_BASE64 =
     'CgK0FiII40phBu42/OZAkJyY96YzWrADCB8SqwMKMXR5cGUuZ29vZ2xlYXBpcy5jb20vcHJvdG9jb2wuVHJpZ2dlclNtYXJ0Q29udHJhY3QS9QIKFUEU0B62M0bakw7g2jDVhRrBTODEeRIVQZlGn9WqCM/oNjlc6ZPA69Vn4sFPIsQCnd+TuwAAAAAAAAAAAAAAAKYU+AO2/XgJhqQseOycf3fm3tE8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC+vCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAnq6OQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAF1RSWHxzeWtuZjl8MC41fGJyaWRnZXJzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACJUQnNGcUttbVJ5WWNuWUphOFlEeFk1ZDJKQVJhSGVxdUJKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcLzdlPemMw==';
@@ -1186,6 +1191,110 @@ describe('ClientRequestHandler - signAndSendTransaction', () => {
   const WRONG_OWNER_ADDRESS_HEX = '41a614f803b6fd780986a42c78ec9c7f77e6ded13c';
   const CORRECT_OWNER_ADDRESS_BASE58 = 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx';
   const transactionId = 'mock-tx-id';
+  const MOCKED_ACCOUNT = {
+    id: TEST_ACCOUNT_ID,
+    address: 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx',
+    entropySource: 'test-entropy',
+    derivationPath: [],
+  };
+  const MOCKED_ACCOUNT_KEYPAIR = {
+    privateKeyHex: 'test-private-key',
+    address: '2zULvALYAf7zb8BgqZFckcYESYNnEXcCCNSG',
+  };
+  const MOCKED_SEND_RAW_TRANSACTION_RESULT = {
+    result: true,
+    txid: 'test-tx-id',
+  };
+  const MOCKED_ASSET_USDT_SLIP44_ID = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
+  const MOCKED_ASSET_USDT = {
+    assetType: `tron:728126428/trc20:${MOCKED_ASSET_USDT_SLIP44_ID}`,
+    keyringAccountId: '7910835b-a8ef-443b-b947-469d01368b7f',
+    network: Network.Mainnet,
+    symbol: 'USDT',
+    decimals: 6,
+    rawAmount: '3110000',
+    uiAmount: '3.11',
+    iconUrl:
+      'https://static.cx.metamask.io/api/v2/tokenIcons/assets/tron/728126428/trc20/TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t.png',
+  } as TokenAsset;
+  const MOCKED_ASSET_TRX_SLIP44_ID = '195';
+  const MOCKED_ASSET_TRX = {
+    assetType: `tron:728126428/slip44:${MOCKED_ASSET_TRX_SLIP44_ID}`,
+    keyringAccountId: '7910835b-a8ef-443b-b947-469d01368b7f',
+    network: Network.Mainnet,
+    symbol: 'TRX',
+    decimals: 6,
+    rawAmount: '99125',
+    uiAmount: '0.99125',
+    iconUrl:
+      'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/tron/info/logo.png',
+  } as NativeAsset;
+  const MOCKED_TRANSACTION_ID_RESULT = {
+    transactionId: 'test-tx-id',
+  };
+  const MOCKED_VALIDATION_RESULT_NOT_ENOUGH_FEES = {
+    valid: false,
+    errors: [
+      {
+        code: 'InsufficientBalanceToCoverFee',
+      },
+    ],
+  };
+
+  const createResourceAsset = (
+    assetType: ResourceAsset['assetType'],
+    uiAmount: string,
+    rawAmount: string,
+  ): ResourceAsset => ({
+    assetType,
+    keyringAccountId: TEST_ACCOUNT_ID,
+    network: scope,
+    symbol:
+      assetType === Networks[scope].bandwidth.id
+        ? Networks[scope].bandwidth.symbol
+        : Networks[scope].energy.symbol,
+    decimals: 0,
+    rawAmount,
+    uiAmount,
+    iconUrl:
+      assetType === Networks[scope].bandwidth.id
+        ? Networks[scope].bandwidth.iconUrl
+        : Networks[scope].energy.iconUrl,
+  });
+
+  const MOCKED_ASSETS_TRX_BY_ACCOUNT_ID: [
+    NativeAsset,
+    ResourceAsset,
+    ResourceAsset,
+  ] = [
+    MOCKED_ASSET_TRX,
+    createResourceAsset(Networks[scope].bandwidth.id, '5000', '5000'),
+    createResourceAsset(Networks[scope].energy.id, '100000', '100000'),
+  ];
+
+  const MOCKED_COMPUTE_FEE_LOW = [
+    {
+      type: FeeType.Base,
+      asset: {
+        unit: 'TRX',
+        type: Networks[scope].nativeToken.id,
+        amount: '0.1',
+        iconUrl: Networks[scope].nativeToken.iconUrl,
+      },
+    },
+  ] as ComputeFeeResult;
+
+  const MOCKED_COMPUTE_FEE_HIGH = [
+    {
+      type: FeeType.Base,
+      asset: {
+        unit: 'TRX',
+        type: Networks[scope].nativeToken.id,
+        amount: '1.5',
+        iconUrl: Networks[scope].nativeToken.iconUrl,
+      },
+    },
+  ] as ComputeFeeResult;
 
   beforeEach(() => {
     mockAccountsService = {
@@ -1195,9 +1304,12 @@ describe('ClientRequestHandler - signAndSendTransaction', () => {
 
     mockAssetsService = {
       getAssetsByAccountId: jest.fn(),
+      getAssetByAccountId: jest.fn(),
     } as unknown as jest.Mocked<AssetsService>;
 
-    mockSendService = {} as unknown as jest.Mocked<SendService>;
+    mockSendService = {
+      validateSend: jest.fn(),
+    } as unknown as jest.Mocked<SendService>;
 
     mockFeeCalculatorService = {
       computeFee: jest.fn(),
@@ -1255,7 +1367,6 @@ describe('ClientRequestHandler - signAndSendTransaction', () => {
   });
 
   it('rejects signAndSendTransaction when owner_address does not match the signer', async () => {
-    const scope = Network.Mainnet;
     const request = {
       jsonrpc: '2.0' as const,
       id: '1',
@@ -1305,7 +1416,6 @@ describe('ClientRequestHandler - signAndSendTransaction', () => {
   });
 
   it('accepts signAndSendTransaction when owner_address matches the signer', async () => {
-    const scope = Network.Mainnet;
     const request = {
       jsonrpc: '2.0' as const,
       id: '1',
@@ -1350,6 +1460,767 @@ describe('ClientRequestHandler - signAndSendTransaction', () => {
     const result = await clientRequestHandler.handle(request as JsonRpcRequest);
 
     expect(result).toStrictEqual({ transactionId });
+  });
+
+  describe('fees validation', () => {
+    describe('user has enough funds', () => {
+      it('approve operation for TRC20 (USDT) token only validates fee coverage', async () => {
+        const request = {
+          jsonrpc: '2.0' as const,
+          id: '1',
+          method: ClientRequestMethod.SignAndSendTransaction,
+          params: {
+            accountId: TEST_ACCOUNT_ID,
+            transaction: TEST_TRANSACTION_BASE64,
+            scope,
+            options: {
+              visible: false,
+              type: 'TriggerSmartContract',
+            },
+          },
+        };
+
+        mockAccountsService.findByIdOrThrow.mockResolvedValue(
+          MOCKED_ACCOUNT as any,
+        );
+
+        mockAccountsService.deriveTronKeypair.mockResolvedValue(
+          MOCKED_ACCOUNT_KEYPAIR as any,
+        );
+
+        const mockRawData = {
+          contract: [
+            {
+              type: 'TriggerSmartContract',
+              parameter: {
+                value: {
+                  // eslint-disable-next-line @typescript-eslint/naming-convention
+                  owner_address: '41045d01eb63374da930ee0da30d58516ac14ce04c79',
+                  // eslint-disable-next-line @typescript-eslint/naming-convention
+                  contract_address:
+                    '41A614F803B6FD780986A42C78EC9C7F77E6DED13C',
+                  data: '095ea7b3000000000000000000000000a614f803b6fd780986a42c78ec9c7f77e6ded13c00000000000000000000000000000000000000000000000000000000002f7470',
+                },
+              },
+            },
+          ],
+        };
+        mockTronWeb.utils.deserializeTx.deserializeTransaction.mockReturnValue(
+          mockRawData,
+        );
+
+        const signedTransaction = {
+          txID: 'test-tx-id',
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          raw_data: mockRawData,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          raw_data_hex: 'test-hex',
+          signature: ['test-signature'],
+        };
+        mockTronWeb.trx.sign.mockResolvedValue(signedTransaction);
+        mockTronWeb.trx.sendRawTransaction.mockResolvedValue(
+          MOCKED_SEND_RAW_TRANSACTION_RESULT,
+        );
+        mockAssetsService.getAssetsByAccountId.mockResolvedValue(
+          MOCKED_ASSETS_TRX_BY_ACCOUNT_ID,
+        );
+        mockFeeCalculatorService.computeFee.mockResolvedValue(
+          MOCKED_COMPUTE_FEE_LOW,
+        );
+
+        const result = await clientRequestHandler.handle(
+          request as JsonRpcRequest,
+        );
+
+        expect(result).toStrictEqual(MOCKED_TRANSACTION_ID_RESULT);
+        expect(mockAssetsService.getAssetsByAccountId).toHaveBeenCalledWith(
+          TEST_ACCOUNT_ID,
+          [
+            Networks[scope].nativeToken.id,
+            Networks[scope].bandwidth.id,
+            Networks[scope].energy.id,
+          ],
+        );
+        expect(mockSendService.validateSend).not.toHaveBeenCalled();
+        expect(mockTronWeb.trx.sign).toHaveBeenCalled();
+        expect(mockTronWeb.trx.sendRawTransaction).toHaveBeenCalled();
+      });
+
+      it('transfer operation for TRC20 (USDT) token', async () => {
+        const request = {
+          jsonrpc: '2.0' as const,
+          id: '1',
+          method: ClientRequestMethod.SignAndSendTransaction,
+          params: {
+            accountId: TEST_ACCOUNT_ID,
+            transaction: TEST_TRANSACTION_BASE64,
+            scope,
+            options: {
+              visible: false,
+              type: 'TriggerSmartContract',
+            },
+          },
+        };
+
+        mockAccountsService.findByIdOrThrow.mockResolvedValue(
+          MOCKED_ACCOUNT as any,
+        );
+
+        mockAccountsService.deriveTronKeypair.mockResolvedValue(
+          MOCKED_ACCOUNT_KEYPAIR as any,
+        );
+
+        const mockRawData = {
+          contract: [
+            {
+              type: 'TriggerSmartContract',
+              parameter: {
+                value: {
+                  // eslint-disable-next-line @typescript-eslint/naming-convention
+                  owner_address: '41045d01eb63374da930ee0da30d58516ac14ce04c79',
+                  // eslint-disable-next-line @typescript-eslint/naming-convention
+                  contract_address:
+                    '41A614F803B6FD780986A42C78EC9C7F77E6DED13C',
+                  data: 'a9059cbb000000000000000000000000a614f803b6fd780986a42c78ec9c7f77e6ded13c00000000000000000000000000000000000000000000000000000000002f7470',
+                },
+              },
+            },
+          ],
+        };
+        mockTronWeb.utils.deserializeTx.deserializeTransaction.mockReturnValue(
+          mockRawData,
+        );
+
+        const signedTransaction = {
+          txID: 'test-tx-id',
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          raw_data: mockRawData,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          raw_data_hex: 'test-hex',
+          signature: ['test-signature'],
+        };
+        mockTronWeb.trx.sign.mockResolvedValue(signedTransaction);
+        mockTronWeb.trx.sendRawTransaction.mockResolvedValue(
+          MOCKED_SEND_RAW_TRANSACTION_RESULT,
+        );
+        mockAssetsService.getAssetByAccountId.mockResolvedValue(
+          MOCKED_ASSET_USDT,
+        );
+        mockSendService.validateSend.mockResolvedValue({ valid: true });
+
+        const result = await clientRequestHandler.handle(
+          request as JsonRpcRequest,
+        );
+
+        expect(result).toStrictEqual(MOCKED_TRANSACTION_ID_RESULT);
+
+        expect(mockSendService.validateSend).toHaveBeenCalledWith({
+          scope,
+          fromAccountId: TEST_ACCOUNT_ID,
+          toAddress: MOCKED_ASSET_USDT_SLIP44_ID,
+          asset: MOCKED_ASSET_USDT,
+          amount: BigNumber(MOCKED_ASSET_USDT.uiAmount),
+          feeLimit: FEE_LIMIT,
+        });
+        expect(mockTronWeb.trx.sign).toHaveBeenCalled();
+        expect(mockTronWeb.trx.sendRawTransaction).toHaveBeenCalled();
+      });
+
+      describe('rango swap operation', () => {
+        it('from TRX to USDT', async () => {
+          const request = {
+            jsonrpc: '2.0' as const,
+            id: '1',
+            method: ClientRequestMethod.SignAndSendTransaction,
+            params: {
+              accountId: TEST_ACCOUNT_ID,
+              transaction: TEST_TRANSACTION_BASE64,
+              scope,
+              options: {
+                visible: false,
+                type: 'TriggerSmartContract',
+              },
+            },
+          };
+
+          mockAccountsService.findByIdOrThrow.mockResolvedValue(
+            MOCKED_ACCOUNT as any,
+          );
+
+          mockAccountsService.deriveTronKeypair.mockResolvedValue(
+            MOCKED_ACCOUNT_KEYPAIR as any,
+          );
+
+          const mockRawData = {
+            contract: [
+              {
+                type: 'TriggerSmartContract',
+                parameter: {
+                  value: {
+                    // eslint-disable-next-line @typescript-eslint/naming-convention
+                    owner_address:
+                      '41045d01eb63374da930ee0da30d58516ac14ce04c79',
+                    // eslint-disable-next-line @typescript-eslint/naming-convention
+                    contract_address:
+                      '41F742F4589459F0923FA579600815763D1646BEC3',
+                    // onChainSwaps(tuple request,tuple[] calls,address receiver) -> (Rango address and data)
+                    data: '14D08FCA00000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000220000000000000000000000000458437BE39F3A8BFDBFEE7BEF93E2C5F632CEFF400000000000000000000000000000000F20F82B71E344AC2804B42F4AFC1E3B90000000000000000000000000000000000000000000000000000000000000000000000000000000000000000A614F803B6FD780986A42C78EC9C7F77E6DED13C00000000000000000000000000000000000000000000000000000000000F201200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000222E0000000000000000000000003C067DCD94CB563404B312F3114ECD307FEAF531000000000000000000000000000000000000000000000000000000000005377100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000735000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000000084D6574614D61736B0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000018FF186CB1973D4B29700F2AAC6B1EEC9E55FFBD00000000000000000000000018FF186CB1973D4B29700F2AAC6B1EEC9E55FFBD0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000A614F803B6FD780986A42C78EC9C7F77E6DED13C000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000F201200000000000000000000000000000000000000000000000000000000000000E00000000000000000000000000000000000000000000000000000000000000344CEF9522900000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000180000000000000000000000000000000000000000000000000000000000000026000000000000000000000000000000000000000000000000000000000000002C000000000000000000000000000000000000000000000000000000000000F20120000000000000000000000000000000000000000000000000000000000053771000000000000000000000000F742F4589459F0923FA579600815763D1646BEC3000000000000000000000000000000000000000000000000000000006A04628100000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000834295921A488D9D42B4B3021ED1A3C39FB0F03E000000000000000000000000A614F803B6FD780986A42C78EC9C7F77E6DED13C00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000027631000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000B6F6C6475736463706F6F6C000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+                  },
+                },
+              },
+            ],
+          };
+          mockTronWeb.utils.deserializeTx.deserializeTransaction.mockReturnValue(
+            mockRawData,
+          );
+
+          const signedTransaction = {
+            txID: 'test-tx-id',
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            raw_data: mockRawData,
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            raw_data_hex: 'test-hex',
+            signature: ['test-signature'],
+          };
+          mockTronWeb.trx.sign.mockResolvedValue(signedTransaction);
+          mockTronWeb.trx.sendRawTransaction.mockResolvedValue(
+            MOCKED_SEND_RAW_TRANSACTION_RESULT,
+          );
+          mockAssetsService.getAssetByAccountId.mockResolvedValue(
+            MOCKED_ASSET_TRX,
+          );
+          mockSendService.validateSend.mockResolvedValue({ valid: true });
+
+          const result = await clientRequestHandler.handle(
+            request as JsonRpcRequest,
+          );
+
+          expect(result).toStrictEqual(MOCKED_TRANSACTION_ID_RESULT);
+
+          expect(mockSendService.validateSend).toHaveBeenCalledWith({
+            scope,
+            fromAccountId: TEST_ACCOUNT_ID,
+            toAddress: MOCKED_ACCOUNT.address,
+            asset: MOCKED_ASSET_TRX,
+            amount: BigNumber(MOCKED_ASSET_TRX.uiAmount),
+            feeLimit: FEE_LIMIT,
+          });
+          expect(mockTronWeb.trx.sign).toHaveBeenCalled();
+          expect(mockTronWeb.trx.sendRawTransaction).toHaveBeenCalled();
+        });
+
+        it('from USDT to TRX', async () => {
+          const request = {
+            jsonrpc: '2.0' as const,
+            id: '1',
+            method: ClientRequestMethod.SignAndSendTransaction,
+            params: {
+              accountId: TEST_ACCOUNT_ID,
+              transaction: TEST_TRANSACTION_BASE64,
+              scope,
+              options: {
+                visible: false,
+                type: 'TriggerSmartContract',
+              },
+            },
+          };
+
+          mockAccountsService.findByIdOrThrow.mockResolvedValue(
+            MOCKED_ACCOUNT as any,
+          );
+
+          mockAccountsService.deriveTronKeypair.mockResolvedValue(
+            MOCKED_ACCOUNT_KEYPAIR as any,
+          );
+
+          const mockRawData = {
+            contract: [
+              {
+                type: 'TriggerSmartContract',
+                parameter: {
+                  value: {
+                    // eslint-disable-next-line @typescript-eslint/naming-convention
+                    owner_address:
+                      '41045d01eb63374da930ee0da30d58516ac14ce04c79',
+                    // eslint-disable-next-line @typescript-eslint/naming-convention
+                    contract_address:
+                      '41F742F4589459F0923FA579600815763D1646BEC3',
+                    // onChainSwaps(tuple request,tuple[] calls,address receiver) -> (Rango address and data)
+                    data: '14D08FCA00000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000220000000000000000000000000458437BE39F3A8BFDBFEE7BEF93E2C5F632CEFF40000000000000000000000000000000072187F0370A7498C9E3AE2EE353424D1000000000000000000000000A614F803B6FD780986A42C78EC9C7F77E6DED13C000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000F201200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000222E0000000000000000000000003C067DCD94CB563404B312F3114ECD307FEAF53100000000000000000000000000000000000000000000000000000000002A5B2400000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000735000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000000084D6574614D61736B0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000018FF186CB1973D4B29700F2AAC6B1EEC9E55FFBD00000000000000000000000018FF186CB1973D4B29700F2AAC6B1EEC9E55FFBD000000000000000000000000A614F803B6FD780986A42C78EC9C7F77E6DED13C0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000F201200000000000000000000000000000000000000000000000000000000000000E00000000000000000000000000000000000000000000000000000000000000304CEF95229000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001A00000000000000000000000000000000000000000000000000000000000000220000000000000000000000000000000000000000000000000000000000000026000000000000000000000000000000000000000000000000000000000000F201200000000000000000000000000000000000000000000000000000000002A5B24000000000000000000000000F742F4589459F0923FA579600815763D1646BEC3000000000000000000000000000000000000000000000000000000006A0462E60000000000000000000000000000000000000000000000000000000000000004000000000000000000000000A614F803B6FD780986A42C78EC9C7F77E6DED13C00000000000000000000000074472E7D35395A6B5ADD427EECB7F4B62AD2B071000000000000000000000000891CDB91D149F23B1A45D9C5CA78A88D0CB44C1800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000027632000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+                  },
+                },
+              },
+            ],
+          };
+          mockTronWeb.utils.deserializeTx.deserializeTransaction.mockReturnValue(
+            mockRawData,
+          );
+
+          const signedTransaction = {
+            txID: 'test-tx-id',
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            raw_data: mockRawData,
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            raw_data_hex: 'test-hex',
+            signature: ['test-signature'],
+          };
+          mockTronWeb.trx.sign.mockResolvedValue(signedTransaction);
+          mockTronWeb.trx.sendRawTransaction.mockResolvedValue(
+            MOCKED_SEND_RAW_TRANSACTION_RESULT,
+          );
+          mockAssetsService.getAssetByAccountId.mockResolvedValue(
+            MOCKED_ASSET_USDT,
+          );
+          mockSendService.validateSend.mockResolvedValue({ valid: true });
+
+          const result = await clientRequestHandler.handle(
+            request as JsonRpcRequest,
+          );
+
+          expect(result).toStrictEqual(MOCKED_TRANSACTION_ID_RESULT);
+
+          expect(mockSendService.validateSend).toHaveBeenCalledWith({
+            scope,
+            fromAccountId: TEST_ACCOUNT_ID,
+            toAddress: MOCKED_ACCOUNT.address,
+            asset: MOCKED_ASSET_USDT,
+            amount: BigNumber(MOCKED_ASSET_TRX.uiAmount),
+            feeLimit: FEE_LIMIT,
+          });
+          expect(mockTronWeb.trx.sign).toHaveBeenCalled();
+          expect(mockTronWeb.trx.sendRawTransaction).toHaveBeenCalled();
+        });
+      });
+    });
+    describe('user does not have enough funds', () => {
+      it('approve operation for TRC20 (USDT) token fails only when fees are too high', async () => {
+        const request = {
+          jsonrpc: '2.0' as const,
+          id: '1',
+          method: ClientRequestMethod.SignAndSendTransaction,
+          params: {
+            accountId: TEST_ACCOUNT_ID,
+            transaction: TEST_TRANSACTION_BASE64,
+            scope,
+            options: {
+              visible: false,
+              type: 'TriggerSmartContract',
+            },
+          },
+        };
+
+        mockAccountsService.findByIdOrThrow.mockResolvedValue(
+          MOCKED_ACCOUNT as any,
+        );
+
+        mockAccountsService.deriveTronKeypair.mockResolvedValue(
+          MOCKED_ACCOUNT_KEYPAIR as any,
+        );
+
+        const mockRawData = {
+          contract: [
+            {
+              type: 'TriggerSmartContract',
+              parameter: {
+                value: {
+                  // eslint-disable-next-line @typescript-eslint/naming-convention
+                  owner_address: '41045d01eb63374da930ee0da30d58516ac14ce04c79',
+                  // eslint-disable-next-line @typescript-eslint/naming-convention
+                  contract_address:
+                    '41A614F803B6FD780986A42C78EC9C7F77E6DED13C',
+                  data: '095ea7b3000000000000000000000000a614f803b6fd780986a42c78ec9c7f77e6ded13c00000000000000000000000000000000000000000000000000000000002f7470',
+                },
+              },
+            },
+          ],
+        };
+        mockTronWeb.utils.deserializeTx.deserializeTransaction.mockReturnValue(
+          mockRawData,
+        );
+        mockAssetsService.getAssetsByAccountId.mockResolvedValue(
+          MOCKED_ASSETS_TRX_BY_ACCOUNT_ID,
+        );
+        mockFeeCalculatorService.computeFee.mockResolvedValue(
+          MOCKED_COMPUTE_FEE_HIGH,
+        );
+
+        const result = await clientRequestHandler.handle(
+          request as JsonRpcRequest,
+        );
+
+        expect(result).toStrictEqual(MOCKED_VALIDATION_RESULT_NOT_ENOUGH_FEES);
+        expect(mockSendService.validateSend).not.toHaveBeenCalled();
+        expect(mockTronWeb.trx.sign).not.toHaveBeenCalled();
+        expect(mockTronWeb.trx.sendRawTransaction).not.toHaveBeenCalled();
+      });
+
+      it('transfer operation for TRC20 (USDT) token', async () => {
+        const request = {
+          jsonrpc: '2.0' as const,
+          id: '1',
+          method: ClientRequestMethod.SignAndSendTransaction,
+          params: {
+            accountId: TEST_ACCOUNT_ID,
+            transaction: TEST_TRANSACTION_BASE64,
+            scope,
+            options: {
+              visible: false,
+              type: 'TriggerSmartContract',
+            },
+          },
+        };
+
+        mockAccountsService.findByIdOrThrow.mockResolvedValue(
+          MOCKED_ACCOUNT as any,
+        );
+
+        mockAccountsService.deriveTronKeypair.mockResolvedValue(
+          MOCKED_ACCOUNT_KEYPAIR as any,
+        );
+
+        const mockRawData = {
+          contract: [
+            {
+              type: 'TriggerSmartContract',
+              parameter: {
+                value: {
+                  // eslint-disable-next-line @typescript-eslint/naming-convention
+                  owner_address: '41045d01eb63374da930ee0da30d58516ac14ce04c79',
+                  // transfer(address,uint256)
+                  // eslint-disable-next-line @typescript-eslint/naming-convention
+                  contract_address:
+                    '41A614F803B6FD780986A42C78EC9C7F77E6DED13C',
+                  data: 'a9059cbb000000000000000000000000a614f803b6fd780986a42c78ec9c7f77e6ded13c00000000000000000000000000000000000000000000000000000000002f7470',
+                },
+              },
+            },
+          ],
+        };
+        mockTronWeb.utils.deserializeTx.deserializeTransaction.mockReturnValue(
+          mockRawData,
+        );
+
+        mockAssetsService.getAssetByAccountId.mockResolvedValue(
+          MOCKED_ASSET_USDT,
+        );
+        mockSendService.validateSend.mockResolvedValue({ valid: false });
+
+        const result = await clientRequestHandler.handle(
+          request as JsonRpcRequest,
+        );
+
+        expect(result).toStrictEqual(MOCKED_VALIDATION_RESULT_NOT_ENOUGH_FEES);
+
+        expect(mockSendService.validateSend).toHaveBeenCalledWith({
+          scope,
+          fromAccountId: TEST_ACCOUNT_ID,
+          toAddress: MOCKED_ASSET_USDT_SLIP44_ID,
+          asset: MOCKED_ASSET_USDT,
+          amount: BigNumber(MOCKED_ASSET_USDT.uiAmount),
+          feeLimit: FEE_LIMIT,
+        });
+        expect(mockTronWeb.trx.sign).not.toHaveBeenCalled();
+        expect(mockTronWeb.trx.sendRawTransaction).not.toHaveBeenCalled();
+      });
+      describe('rango swap operation', () => {
+        it('from TRX to USDT', async () => {
+          const request = {
+            jsonrpc: '2.0' as const,
+            id: '1',
+            method: ClientRequestMethod.SignAndSendTransaction,
+            params: {
+              accountId: TEST_ACCOUNT_ID,
+              transaction: TEST_TRANSACTION_BASE64,
+              scope,
+              options: {
+                visible: false,
+                type: 'TriggerSmartContract',
+              },
+            },
+          };
+
+          mockAccountsService.findByIdOrThrow.mockResolvedValue(
+            MOCKED_ACCOUNT as any,
+          );
+
+          mockAccountsService.deriveTronKeypair.mockResolvedValue(
+            MOCKED_ACCOUNT_KEYPAIR as any,
+          );
+
+          const mockRawData = {
+            contract: [
+              {
+                type: 'TriggerSmartContract',
+                parameter: {
+                  value: {
+                    // eslint-disable-next-line @typescript-eslint/naming-convention
+                    owner_address:
+                      '41045d01eb63374da930ee0da30d58516ac14ce04c79',
+                    // onChainSwaps(tuple request,tuple[] calls,address receiver) -> (Rango address and data)
+                    // eslint-disable-next-line @typescript-eslint/naming-convention
+                    contract_address:
+                      '41F742F4589459F0923FA579600815763D1646BEC3',
+                    data: '14D08FCA00000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000220000000000000000000000000458437BE39F3A8BFDBFEE7BEF93E2C5F632CEFF400000000000000000000000000000000F20F82B71E344AC2804B42F4AFC1E3B90000000000000000000000000000000000000000000000000000000000000000000000000000000000000000A614F803B6FD780986A42C78EC9C7F77E6DED13C00000000000000000000000000000000000000000000000000000000000F201200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000222E0000000000000000000000003C067DCD94CB563404B312F3114ECD307FEAF531000000000000000000000000000000000000000000000000000000000005377100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000735000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000000084D6574614D61736B0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000018FF186CB1973D4B29700F2AAC6B1EEC9E55FFBD00000000000000000000000018FF186CB1973D4B29700F2AAC6B1EEC9E55FFBD0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000A614F803B6FD780986A42C78EC9C7F77E6DED13C000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000F201200000000000000000000000000000000000000000000000000000000000000E00000000000000000000000000000000000000000000000000000000000000344CEF9522900000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000180000000000000000000000000000000000000000000000000000000000000026000000000000000000000000000000000000000000000000000000000000002C000000000000000000000000000000000000000000000000000000000000F20120000000000000000000000000000000000000000000000000000000000053771000000000000000000000000F742F4589459F0923FA579600815763D1646BEC3000000000000000000000000000000000000000000000000000000006A04628100000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000834295921A488D9D42B4B3021ED1A3C39FB0F03E000000000000000000000000A614F803B6FD780986A42C78EC9C7F77E6DED13C00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000027631000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000B6F6C6475736463706F6F6C000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+                  },
+                },
+              },
+            ],
+          };
+          mockTronWeb.utils.deserializeTx.deserializeTransaction.mockReturnValue(
+            mockRawData,
+          );
+
+          mockAssetsService.getAssetByAccountId.mockResolvedValue(
+            MOCKED_ASSET_TRX,
+          );
+          mockSendService.validateSend.mockResolvedValue({ valid: false });
+
+          const result = await clientRequestHandler.handle(
+            request as JsonRpcRequest,
+          );
+
+          expect(result).toStrictEqual(
+            MOCKED_VALIDATION_RESULT_NOT_ENOUGH_FEES,
+          );
+
+          expect(mockSendService.validateSend).toHaveBeenCalledWith({
+            scope,
+            fromAccountId: TEST_ACCOUNT_ID,
+            toAddress: MOCKED_ACCOUNT.address,
+            asset: MOCKED_ASSET_TRX,
+            amount: BigNumber(MOCKED_ASSET_TRX.uiAmount),
+            feeLimit: FEE_LIMIT,
+          });
+          expect(mockTronWeb.trx.sign).not.toHaveBeenCalled();
+          expect(mockTronWeb.trx.sendRawTransaction).not.toHaveBeenCalled();
+        });
+
+        it('from USDT to TRX', async () => {
+          const request = {
+            jsonrpc: '2.0' as const,
+            id: '1',
+            method: ClientRequestMethod.SignAndSendTransaction,
+            params: {
+              accountId: TEST_ACCOUNT_ID,
+              transaction: TEST_TRANSACTION_BASE64,
+              scope,
+              options: {
+                visible: false,
+                type: 'TriggerSmartContract',
+              },
+            },
+          };
+
+          mockAccountsService.findByIdOrThrow.mockResolvedValue({
+            id: TEST_ACCOUNT_ID,
+            address: 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx',
+            entropySource: 'test-entropy',
+            derivationPath: [],
+          } as any);
+
+          mockAccountsService.deriveTronKeypair.mockResolvedValue({
+            privateKeyHex: 'test-private-key',
+            address: '2zULvALYAf7zb8BgqZFckcYESYNnEXcCCNSG',
+          } as any);
+
+          const mockRawData = {
+            contract: [
+              {
+                type: 'TriggerSmartContract',
+                parameter: {
+                  value: {
+                    // eslint-disable-next-line @typescript-eslint/naming-convention
+                    owner_address:
+                      '41045d01eb63374da930ee0da30d58516ac14ce04c79',
+                    // eslint-disable-next-line @typescript-eslint/naming-convention
+                    contract_address:
+                      '41F742F4589459F0923FA579600815763D1646BEC3',
+                    // onChainSwaps(tuple request,tuple[] calls,address receiver) -> (Rango address and data)
+                    data: '14D08FCA00000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000220000000000000000000000000458437BE39F3A8BFDBFEE7BEF93E2C5F632CEFF40000000000000000000000000000000072187F0370A7498C9E3AE2EE353424D1000000000000000000000000A614F803B6FD780986A42C78EC9C7F77E6DED13C000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000F201200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000222E0000000000000000000000003C067DCD94CB563404B312F3114ECD307FEAF53100000000000000000000000000000000000000000000000000000000002A5B2400000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000735000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000000084D6574614D61736B0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000018FF186CB1973D4B29700F2AAC6B1EEC9E55FFBD00000000000000000000000018FF186CB1973D4B29700F2AAC6B1EEC9E55FFBD000000000000000000000000A614F803B6FD780986A42C78EC9C7F77E6DED13C0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000F201200000000000000000000000000000000000000000000000000000000000000E00000000000000000000000000000000000000000000000000000000000000304CEF95229000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001A00000000000000000000000000000000000000000000000000000000000000220000000000000000000000000000000000000000000000000000000000000026000000000000000000000000000000000000000000000000000000000000F201200000000000000000000000000000000000000000000000000000000002A5B24000000000000000000000000F742F4589459F0923FA579600815763D1646BEC3000000000000000000000000000000000000000000000000000000006A0462E60000000000000000000000000000000000000000000000000000000000000004000000000000000000000000A614F803B6FD780986A42C78EC9C7F77E6DED13C00000000000000000000000074472E7D35395A6B5ADD427EECB7F4B62AD2B071000000000000000000000000891CDB91D149F23B1A45D9C5CA78A88D0CB44C1800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000027632000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+                  },
+                },
+              },
+            ],
+          };
+          mockTronWeb.utils.deserializeTx.deserializeTransaction.mockReturnValue(
+            mockRawData,
+          );
+
+          const signedTransaction = {
+            txID: 'test-tx-id',
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            raw_data: mockRawData,
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            raw_data_hex: 'test-hex',
+            signature: ['test-signature'],
+          };
+          mockTronWeb.trx.sign.mockResolvedValue(signedTransaction);
+          mockTronWeb.trx.sendRawTransaction.mockResolvedValue({
+            result: true,
+            txid: 'test-tx-id',
+          });
+          mockAssetsService.getAssetByAccountId.mockResolvedValue(
+            MOCKED_ASSET_USDT,
+          );
+          mockSendService.validateSend.mockResolvedValue({ valid: false });
+
+          const result = await clientRequestHandler.handle(
+            request as JsonRpcRequest,
+          );
+
+          expect(result).toStrictEqual(
+            MOCKED_VALIDATION_RESULT_NOT_ENOUGH_FEES,
+          );
+
+          expect(mockSendService.validateSend).toHaveBeenCalledWith({
+            scope,
+            fromAccountId: TEST_ACCOUNT_ID,
+            toAddress: MOCKED_ACCOUNT.address,
+            asset: MOCKED_ASSET_USDT,
+            amount: BigNumber(MOCKED_ASSET_TRX.uiAmount),
+            feeLimit: FEE_LIMIT,
+          });
+          expect(mockTronWeb.trx.sign).not.toHaveBeenCalled();
+          expect(mockTronWeb.trx.sendRawTransaction).not.toHaveBeenCalled();
+        });
+      });
+    });
+
+    it('for unknown selector consider the validation as passed', async () => {
+      const request = {
+        jsonrpc: '2.0' as const,
+        id: '1',
+        method: ClientRequestMethod.SignAndSendTransaction,
+        params: {
+          accountId: TEST_ACCOUNT_ID,
+          transaction: TEST_TRANSACTION_BASE64,
+          scope,
+          options: {
+            visible: false,
+            type: 'TriggerSmartContract',
+          },
+        },
+      };
+
+      mockAccountsService.findByIdOrThrow.mockResolvedValue(
+        MOCKED_ACCOUNT as any,
+      );
+
+      mockAccountsService.deriveTronKeypair.mockResolvedValue(
+        MOCKED_ACCOUNT_KEYPAIR as any,
+      );
+
+      const mockRawData = {
+        contract: [
+          {
+            type: 'TriggerSmartContract',
+            parameter: {
+              value: {
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                owner_address: TronWeb.address.toHex(MOCKED_ACCOUNT.address),
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                contract_address: '41F742F4589459F0923FA579600815763D1646BEC3',
+                data: 'aaaaaaaa00000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000220000000000000000000000000458437BE39F3A8BFDBFEE7BEF93E2C5F632CEFF400000000000000000000000000000000F20F82B71E344AC2804B42F4AFC1E3B90000000000000000000000000000000000000000000000000000000000000000000000000000000000000000A614F803B6FD780986A42C78EC9C7F77E6DED13C00000000000000000000000000000000000000000000000000000000000F201200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000222E0000000000000000000000003C067DCD94CB563404B312F3114ECD307FEAF531000000000000000000000000000000000000000000000000000000000005377100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000735000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000000084D6574614D61736B0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000018FF186CB1973D4B29700F2AAC6B1EEC9E55FFBD00000000000000000000000018FF186CB1973D4B29700F2AAC6B1EEC9E55FFBD0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000A614F803B6FD780986A42C78EC9C7F77E6DED13C000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000F201200000000000000000000000000000000000000000000000000000000000000E00000000000000000000000000000000000000000000000000000000000000344CEF9522900000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000180000000000000000000000000000000000000000000000000000000000000026000000000000000000000000000000000000000000000000000000000000002C000000000000000000000000000000000000000000000000000000000000F20120000000000000000000000000000000000000000000000000000000000053771000000000000000000000000F742F4589459F0923FA579600815763D1646BEC3000000000000000000000000000000000000000000000000000000006A04628100000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000834295921A488D9D42B4B3021ED1A3C39FB0F03E000000000000000000000000A614F803B6FD780986A42C78EC9C7F77E6DED13C00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000027631000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000B6F6C6475736463706F6F6C000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+              },
+            },
+          },
+        ],
+      };
+      mockTronWeb.utils.deserializeTx.deserializeTransaction.mockReturnValue(
+        mockRawData,
+      );
+
+      const signedTransaction = {
+        txID: 'test-tx-id',
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        raw_data: mockRawData,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        raw_data_hex: 'test-hex',
+        signature: ['test-signature'],
+      };
+      mockTronWeb.trx.sign.mockResolvedValue(signedTransaction);
+      mockTronWeb.trx.sendRawTransaction.mockResolvedValue(
+        MOCKED_SEND_RAW_TRANSACTION_RESULT,
+      );
+
+      const result = await clientRequestHandler.handle(
+        request as JsonRpcRequest,
+      );
+
+      expect(result).toStrictEqual(MOCKED_TRANSACTION_ID_RESULT);
+
+      expect(mockTronWeb.trx.sign).toHaveBeenCalled();
+      expect(mockTronWeb.trx.sendRawTransaction).toHaveBeenCalled();
+    });
+
+    it('for untracked token consider the validation as passed', async () => {
+      const request = {
+        jsonrpc: '2.0' as const,
+        id: '1',
+        method: ClientRequestMethod.SignAndSendTransaction,
+        params: {
+          accountId: TEST_ACCOUNT_ID,
+          transaction: TEST_TRANSACTION_BASE64,
+          scope,
+          options: {
+            visible: false,
+            type: 'TriggerSmartContract',
+          },
+        },
+      };
+
+      mockAccountsService.findByIdOrThrow.mockResolvedValue(
+        MOCKED_ACCOUNT as any,
+      );
+
+      mockAccountsService.deriveTronKeypair.mockResolvedValue(
+        MOCKED_ACCOUNT_KEYPAIR as any,
+      );
+
+      const mockRawData = {
+        contract: [
+          {
+            type: 'TriggerSmartContract',
+            parameter: {
+              value: {
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                owner_address: TronWeb.address.toHex(MOCKED_ACCOUNT.address),
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                contract_address: '41F742F4589459F0923FA579600815763D1646BEC3',
+                // onChainSwaps(tuple request,tuple[] calls,address receiver) -> (Rango address and data)
+                data: '14D08FCA00000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000220000000000000000000000000458437BE39F3A8BFDBFEE7BEF93E2C5F632CEFF400000000000000000000000000000000F20F82B71E344AC2804B42F4AFC1E3B90000000000000000000000000000000000000000000000000000000000000000000000000000000000000000A614F803B6FD780986A42C78EC9C7F77E6DED13C00000000000000000000000000000000000000000000000000000000000F201200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000222E0000000000000000000000003C067DCD94CB563404B312F3114ECD307FEAF531000000000000000000000000000000000000000000000000000000000005377100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000735000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000000084D6574614D61736B0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000018FF186CB1973D4B29700F2AAC6B1EEC9E55FFBD00000000000000000000000018FF186CB1973D4B29700F2AAC6B1EEC9E55FFBD0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000A614F803B6FD780986A42C78EC9C7F77E6DED13C000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000F201200000000000000000000000000000000000000000000000000000000000000E00000000000000000000000000000000000000000000000000000000000000344CEF9522900000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000180000000000000000000000000000000000000000000000000000000000000026000000000000000000000000000000000000000000000000000000000000002C000000000000000000000000000000000000000000000000000000000000F20120000000000000000000000000000000000000000000000000000000000053771000000000000000000000000F742F4589459F0923FA579600815763D1646BEC3000000000000000000000000000000000000000000000000000000006A04628100000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000834295921A488D9D42B4B3021ED1A3C39FB0F03E000000000000000000000000A614F803B6FD780986A42C78EC9C7F77E6DED13C00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000027631000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000B6F6C6475736463706F6F6C000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+              },
+            },
+          },
+        ],
+      };
+      mockTronWeb.utils.deserializeTx.deserializeTransaction.mockReturnValue(
+        mockRawData,
+      );
+
+      const signedTransaction = {
+        txID: 'test-tx-id',
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        raw_data: mockRawData,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        raw_data_hex: 'test-hex',
+        signature: ['test-signature'],
+      };
+      mockTronWeb.trx.sign.mockResolvedValue(signedTransaction);
+      mockTronWeb.trx.sendRawTransaction.mockResolvedValue(
+        MOCKED_SEND_RAW_TRANSACTION_RESULT,
+      );
+      mockAssetsService.getAssetByAccountId.mockResolvedValue(null);
+
+      const result = await clientRequestHandler.handle(
+        request as JsonRpcRequest,
+      );
+
+      expect(result).toStrictEqual(MOCKED_TRANSACTION_ID_RESULT);
+
+      expect(mockTronWeb.trx.sign).toHaveBeenCalled();
+      expect(mockTronWeb.trx.sendRawTransaction).toHaveBeenCalled();
+    });
   });
 });
 

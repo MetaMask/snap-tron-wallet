@@ -457,7 +457,7 @@ export class SendService {
    *
    * @param tronWeb - TronWeb instance used to convert the transaction JSON into protobuf form and regenerate transaction metadata.
    * @param transaction - The TRX or TRC10 transfer transaction to update.
-   * @param feeLimit - The fee limit to assign to the transaction in SUN (1 TRX = 1,000,000 SUN). Defaults to FEE_LIMIT (100 TRX).
+   * @param feeLimit - The fee limit to assign to the transaction in SUN (1 TRX = 1,000,000 SUN).
    * If `undefined` or falsy, the transaction is left unchanged.
    */
   #setFeeLimit(

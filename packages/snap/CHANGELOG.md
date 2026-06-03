@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Adds `setKeyWith` helper for state read-modify-write operations ([#307](https://github.com/MetaMask/snap-tron-wallet/pull/307))
 
+### Fixed
+
+- Added additional fee validation during `#handleSignAndSendTransaction` ([#306](https://github.com/MetaMask/snap-tron-wallet/pull/306))
+
 ## [1.25.8]
 
 ### Fixed

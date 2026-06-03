@@ -13,9 +13,21 @@ import {
   sha256,
 } from '@metamask/utils';
 import { BigNumber } from 'bignumber.js';
-import type { TronWeb, Types } from 'tronweb';
+import { AbiCoder, formatUnits } from 'ethers';
+import type { Types } from 'tronweb';
+import { Types as TronWebTypes, TronWeb } from 'tronweb';
+import type { Transaction } from 'tronweb/lib/esm/types';
 
-import { ClientRequestMethod, SendErrorCodes } from './types';
+import type {
+  DecodedTronTxData,
+  TransactionRawData,
+  ValidateFeesForSignAndSendTransactionDataReturnType,
+} from './types';
+import {
+  ClientRequestMethod,
+  SendErrorCodes,
+  TransactionDataSelectorsProps,
+} from './types';
 import {
   ClaimTrxStakingRewardsRequestStruct,
   ClaimUnstakedTrxRequestStruct,
@@ -35,7 +47,13 @@ import {
 } from './validation';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
-import { FEE_LIMIT, Network, Networks, ZERO } from '../../constants';
+import {
+  FEE_LIMIT,
+  Network,
+  Networks,
+  ZERO,
+  ZERO_ADDRESS,
+} from '../../constants';
 import type { AccountsService } from '../../services/accounts/AccountsService';
 import type { AssetsService } from '../../services/assets/AssetsService';
 import type {
@@ -58,11 +76,6 @@ import {
   assertTransactionStructure,
 } from '../../validation/transaction';
 import { BackgroundEventMethod } from '../cronjob';
-
-type TransactionRawData = Types.Transaction['raw_data'] & {
-  // eslint-disable-next-line @typescript-eslint/naming-convention
-  fee_limit?: number;
-};
 
 export class ClientRequestHandler {
   readonly #logger: ILogger;
@@ -243,6 +256,17 @@ export class ClientRequestHandler {
 
     assertTransactionStructure(rawData);
     assertTransactionSignerConsistency(rawData, signerAddress);
+
+    const feeValidationResult =
+      await this.#validateFeesForSignAndSendTransaction(
+        rawData,
+        rawDataHex,
+        scope,
+        accountId,
+      );
+    if (!feeValidationResult.valid) {
+      return feeValidationResult;
+    }
 
     const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);
     const transaction = {
@@ -1141,5 +1165,310 @@ export class ClientRequestHandler {
       raw_data: rawData,
     });
     return tronWeb.utils.transaction.txPbToRawDataHex(transactionPb);
+  }
+
+  /**
+   * Decodes supported TRON smart contract calldata into a normalized shape used
+   * by transaction validation.
+   *
+   * Returns `undefined` when the transaction does not include calldata. Throws
+   * when calldata is present but does not contain a valid 4-byte selector.
+   *
+   * @param triggerSmartContractParameters - Trigger smart contract parameters
+   * containing the target contract address and calldata to decode.
+   * @returns The decoded transaction data for supported selectors, an
+   * `unknown` method payload for unsupported selectors, or `undefined` when no
+   * calldata is present.
+   * @throws {Error} If the calldata is too short to contain a function selector.
+   */
+  #decodeTronTxData(
+    triggerSmartContractParameters: Types.TriggerSmartContract,
+  ): DecodedTronTxData | undefined {
+    const abiCoder = AbiCoder.defaultAbiCoder();
+    const { contract_address: contractAddress, data } =
+      triggerSmartContractParameters;
+
+    if (!data) {
+      return undefined;
+    }
+
+    const hexData = data.toLowerCase()?.replace(/^0x/u, '');
+    if (hexData.length < 8) {
+      throw new Error('Invalid data: too short');
+    }
+
+    const selector = hexData.slice(0, 8);
+    const dataToDecode = `0x${hexData.slice(8)}`;
+
+    const toTronAddress = (hex20Address: string): string => {
+      const normalizedHex20 = hex20Address.toLowerCase().replace(/^0x/u, '');
+      const hex41 = `41${normalizedHex20}`;
+
+      return TronWeb.address.fromHex(hex41);
+    };
+
+    this.#logger.log('Found selector from transaction data', selector);
+
+    // ERC20/TRC20 approve(address,uint256)
+    if (selector === TransactionDataSelectorsProps.Approve.selector) {
+      const [receiver, amount] = abiCoder.decode(
+        TransactionDataSelectorsProps.Approve.inputs,
+        dataToDecode,
+      ) as unknown as [string, bigint];
+      const receiverAddress = toTronAddress(receiver);
+
+      return {
+        selector,
+        method: TransactionDataSelectorsProps.Approve.method,
+        receiver: receiverAddress,
+        amount,
+        asset: TronWeb.address.fromHex(contractAddress),
+      };
+    }
+    // ERC20/TRC20 transfer(address,uint256)
+    if (selector === TransactionDataSelectorsProps.Transfer.selector) {
+      const [receiver, amount] = abiCoder.decode(
+        TransactionDataSelectorsProps.Transfer.inputs,
+        dataToDecode,
+      ) as unknown as [string, bigint];
+      const receiverAddress = toTronAddress(receiver);
+
+      return {
+        selector,
+        method: TransactionDataSelectorsProps.Transfer.method,
+        receiver: receiverAddress,
+        amount,
+        asset: TronWeb.address.fromHex(contractAddress),
+      };
+    }
+
+    // Rango onChainSwaps(tuple request,tuple[] calls,address receiver)
+    if (selector === TransactionDataSelectorsProps.RangoOnChainSwaps.selector) {
+      const [txRequest, , receiver] = abiCoder.decode(
+        TransactionDataSelectorsProps.RangoOnChainSwaps.inputs,
+        dataToDecode,
+      ) as unknown as [
+        {
+          requestId: string;
+          fromToken: string;
+          toToken: string;
+          amountIn: bigint;
+        },
+        object[],
+        string,
+      ];
+
+      const receiverAddress = toTronAddress(receiver);
+      return {
+        selector,
+        method: TransactionDataSelectorsProps.RangoOnChainSwaps.method,
+        receiver: receiverAddress,
+        amount: txRequest.amountIn,
+        asset:
+          txRequest.fromToken === ZERO_ADDRESS
+            ? ZERO_ADDRESS
+            : toTronAddress(txRequest.fromToken),
+      };
+    }
+
+    this.#logger.log('Received selector is not mapped to any known selector');
+
+    return { selector, method: 'unknown' };
+  }
+
+  /**
+   * Performs balance and fee validation for sign-and-send
+   * transactions decoded from Tron smart contract call data.
+   *
+   * If the transaction data cannot be decoded, the validation is skipped and
+   * the transaction is treated as valid. When decoding succeeds, this method
+   * resolves the transferred asset, validates the receiver and amount, and
+   * checks that the account can cover the transfer plus network fees.
+   *
+   * @param rawData - The raw transaction payload to inspect.
+   * @param rawDataHex - The serialized raw transaction payload encoded as hex.
+   * @param scope - The CAIP-2 network scope used to resolve the asset.
+   * @param accountId - The account initiating the transaction.
+   * @returns The validation result indicating whether the transaction can be
+   * processed or which send error applies.
+   */
+  async #validateFeesForSignAndSendTransaction(
+    rawData: TransactionRawData,
+    rawDataHex: string,
+    scope: Network,
+    accountId: string,
+  ): Promise<ValidateFeesForSignAndSendTransactionDataReturnType> {
+    const [contractParams] = rawData.contract;
+    const triggerSmartContractParameters =
+      contractParams?.type === TronWebTypes.ContractType.TriggerSmartContract
+        ? (contractParams.parameter.value as Types.TriggerSmartContract)
+        : null;
+    const decodedContractParameterData = triggerSmartContractParameters
+      ? this.#decodeTronTxData(triggerSmartContractParameters)
+      : undefined;
+
+    this.#logger.log(
+      'Decoded transaction parameters',
+      decodedContractParameterData,
+    );
+
+    if (!decodedContractParameterData) {
+      return {
+        valid: true,
+      };
+    }
+
+    const { receiver, amount, method } = decodedContractParameterData;
+    if (method === 'unknown') {
+      return {
+        valid: true,
+      };
+    }
+    if (!receiver || amount === undefined) {
+      return {
+        valid: false,
+        errors: [{ code: SendErrorCodes.Invalid }],
+      };
+    }
+
+    if (method === TransactionDataSelectorsProps.Approve.method) {
+      this.#logger.log('Approve operation. Calculating only fee coverage');
+      return this.#validateTransactionFeeCoverage({
+        accountId,
+        rawData,
+        rawDataHex,
+        scope,
+      });
+    }
+
+    const slipIdentifier =
+      decodedContractParameterData?.asset === ZERO_ADDRESS
+        ? 'slip44:195'
+        : `trc20:${decodedContractParameterData?.asset as string}`;
+
+    const assetId = `${scope}/${slipIdentifier}`;
+    this.#logger.log('Asset found in the decoded transaction data', assetId);
+
+    const asset = await this.#assetsService.getAssetByAccountId(
+      accountId,
+      assetId,
+    );
+
+    // dApp transfer or swap of a valid but untracked TRC20 token
+    if (!asset) {
+      return {
+        valid: true,
+      };
+    }
+
+    const amountBN = new BigNumber(formatUnits(amount, asset.decimals));
+
+    /**
+     * Validate that the user has enough funds to cover both the amount
+     * and all associated fees (including account activation if applicable).
+     * This prevents users from confirming sends that we know will fail.
+     */
+    const validation = await this.#sendService.validateSend({
+      scope,
+      fromAccountId: accountId,
+      toAddress: receiver,
+      asset,
+      amount: amountBN,
+      feeLimit: FEE_LIMIT,
+    });
+
+    if (!validation.valid) {
+      return {
+        valid: false,
+        errors: [
+          {
+            code:
+              validation.errorCode ??
+              SendErrorCodes.InsufficientBalanceToCoverFee,
+          },
+        ],
+      };
+    }
+    return {
+      valid: true,
+    };
+  }
+
+  /**
+   * Validates that a transaction has enough balance to cover fees.
+   *
+   * This method checks if the account has enough native tokens (TRX) to pay for
+   * transaction fees after accounting for bandwidth and energy consumption.
+   *
+   * @param params - The validation parameters.
+   * @param params.accountId - The ID of the account initiating the transaction.
+   * @param params.rawData - The raw transaction data to validate.
+   * @param params.rawDataHex - The hexadecimal-encoded raw transaction data.
+   * @param params.scope - The CAIP-2 network scope (mainnet/testnet).
+   * @returns A validation result indicating whether the account can cover the fees,
+   * or an error code if validation fails.
+   */
+  async #validateTransactionFeeCoverage({
+    accountId,
+    rawData,
+    rawDataHex,
+    scope,
+  }: {
+    accountId: string;
+    rawData: TransactionRawData;
+    rawDataHex: string;
+    scope: Network;
+  }): Promise<ValidateFeesForSignAndSendTransactionDataReturnType> {
+    const [nativeTokenAsset, bandwidthAsset, energyAsset] =
+      await this.#assetsService.getAssetsByAccountId(accountId, [
+        Networks[scope].nativeToken.id,
+        Networks[scope].bandwidth.id,
+        Networks[scope].energy.id,
+      ]);
+
+    const nativeTokenBalance = nativeTokenAsset
+      ? new BigNumber(nativeTokenAsset.uiAmount)
+      : ZERO;
+    const availableBandwidth = bandwidthAsset
+      ? new BigNumber(bandwidthAsset.rawAmount)
+      : ZERO;
+    const availableEnergy = energyAsset
+      ? new BigNumber(energyAsset.rawAmount)
+      : ZERO;
+
+    const fees = await this.#feeCalculatorService.computeFee({
+      scope,
+      transaction: {
+        visible: false,
+        txID: bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2),
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        raw_data: rawData,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        raw_data_hex: rawDataHex,
+      } as Transaction,
+      availableEnergy,
+      availableBandwidth,
+      feeLimit: rawData.fee_limit,
+    });
+
+    const trxFee = new BigNumber(
+      fees.find((fee) => fee.asset.type === Networks[scope].nativeToken.id)
+        ?.asset.amount ?? '0',
+    );
+
+    if (trxFee.isGreaterThan(nativeTokenBalance)) {
+      this.#logger.log('Insufficient TRX balance to cover fees', {
+        totalTrxNeeded: trxFee.toString(),
+        nativeTokenBalance: nativeTokenBalance.toString(),
+      });
+      return {
+        valid: false,
+        errors: [{ code: SendErrorCodes.InsufficientBalanceToCoverFee }],
+      };
+    }
+
+    return {
+      valid: true,
+    };
   }
 }
