@@ -281,7 +281,15 @@ export class AccountsService {
       },
     };
 
-    await this.#accountsRepository.create(tronKeyringAccount);
+    const persistedAccount =
+      await this.#accountsRepository.create(tronKeyringAccount);
+
+    if (persistedAccount.id !== tronKeyringAccount.id) {
+      this.#logger.warn(
+        '[🔑 Keyring] An account already exists with the same derivation path and entropy source. Skipping account creation.',
+      );
+      return asStrictKeyringAccount(persistedAccount);
+    }
 
     try {
       const keyringAccount = asStrictKeyringAccount(tronKeyringAccount);
@@ -436,6 +444,16 @@ export class AccountsService {
 
     if (newAccountCount > 0) {
       await this.#accountsRepository.mergeKeyringAccounts(newAccounts);
+
+      const persistedAccounts =
+        await this.#accountsRepository.findByEntropySourceAndRange(
+          entropySource,
+          range,
+        );
+
+      for (const account of persistedAccounts) {
+        allAccounts.set(account.index, account);
+      }
     }
 
     const result: KeyringAccount[] = [];

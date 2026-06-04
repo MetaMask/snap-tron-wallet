@@ -77,9 +77,28 @@ export class AccountsRepository {
   }
 
   async create(account: TronKeyringAccount): Promise<TronKeyringAccount> {
-    await this.#state.setKey(`${this.#storageKey}.${account.id}`, account);
+    let persistedAccount = account;
 
-    return account;
+    await this.#state.setKeyWith<Record<string, TronKeyringAccount>>(
+      this.#storageKey,
+      (current) => {
+        const existing = current ?? {};
+        const conflictingAccount = Object.values(existing).find(
+          (existingAccount) =>
+            existingAccount.entropySource === account.entropySource &&
+            existingAccount.index === account.index,
+        );
+
+        if (conflictingAccount) {
+          persistedAccount = conflictingAccount;
+          return existing;
+        }
+
+        return { ...existing, [account.id]: account };
+      },
+    );
+
+    return persistedAccount;
   }
 
   /**
@@ -92,10 +111,29 @@ export class AccountsRepository {
   ): Promise<void> {
     await this.#state.setKeyWith<Record<string, TronKeyringAccount>>(
       this.#storageKey,
-      (current) => ({
-        ...(current ?? {}),
-        ...newAccounts,
-      }),
+      (current) => {
+        const existing = current ?? {};
+        const occupiedIndices = new Set(
+          Object.values(existing).map(
+            (existingAccount) =>
+              `${existingAccount.entropySource}:${existingAccount.index}`,
+          ),
+        );
+        const accountsToAdd: Record<string, TronKeyringAccount> = {};
+
+        for (const [id, account] of Object.entries(newAccounts)) {
+          const indexKey = `${account.entropySource}:${account.index}`;
+
+          if (occupiedIndices.has(indexKey)) {
+            continue;
+          }
+
+          accountsToAdd[id] = account;
+          occupiedIndices.add(indexKey);
+        }
+
+        return { ...existing, ...accountsToAdd };
+      },
     );
   }
 

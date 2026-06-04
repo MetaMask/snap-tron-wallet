@@ -147,6 +147,11 @@ async function withAccountsService(
     configurable: true,
   });
 
+  const keyringAccounts: TronKeyringAccount[] = [];
+
+  const getAccountIndexKey = (account: TronKeyringAccount) =>
+    `${account.entropySource}:${account.index}`;
+
   const mockAccountsRepository: jest.Mocked<
     Pick<
       AccountsRepository,
@@ -160,14 +165,70 @@ async function withAccountsService(
       | 'delete'
     >
   > = {
-    getAll: jest.fn().mockResolvedValue([]),
-    findById: jest.fn().mockResolvedValue(null),
-    findByIds: jest.fn().mockResolvedValue([]),
-    findByAddress: jest.fn().mockResolvedValue(null),
-    findByEntropySourceAndRange: jest.fn().mockResolvedValue([]),
-    create: jest.fn().mockResolvedValue(undefined),
-    mergeKeyringAccounts: jest.fn().mockResolvedValue(undefined),
-    delete: jest.fn().mockResolvedValue(undefined),
+    getAll: jest.fn().mockImplementation(async () => [...keyringAccounts]),
+    findById: jest.fn().mockImplementation(async (id: string) => {
+      return keyringAccounts.find((account) => account.id === id) ?? null;
+    }),
+    findByIds: jest.fn().mockImplementation(async (ids: string[]) => {
+      return keyringAccounts.filter((account) => ids.includes(account.id));
+    }),
+    findByAddress: jest.fn().mockImplementation(async (address: string) => {
+      return (
+        keyringAccounts.find((account) => account.address === address) ?? null
+      );
+    }),
+    findByEntropySourceAndRange: jest
+      .fn()
+      .mockImplementation(
+        async (entropySource: string, range: { from: number; to: number }) => {
+          return keyringAccounts
+            .filter(
+              (account) =>
+                account.entropySource === entropySource &&
+                account.index >= range.from &&
+                account.index <= range.to,
+            )
+            .sort((first, second) => first.index - second.index);
+        },
+      ),
+    create: jest
+      .fn()
+      .mockImplementation(async (account: TronKeyringAccount) => {
+        const conflicting = keyringAccounts.find(
+          (existing) =>
+            getAccountIndexKey(existing) === getAccountIndexKey(account),
+        );
+
+        if (conflicting) {
+          return conflicting;
+        }
+
+        keyringAccounts.push(account);
+        return account;
+      }),
+    mergeKeyringAccounts: jest
+      .fn()
+      .mockImplementation(
+        async (newAccounts: Record<string, TronKeyringAccount>) => {
+          const occupied = new Set(keyringAccounts.map(getAccountIndexKey));
+
+          for (const account of Object.values(newAccounts)) {
+            const indexKey = getAccountIndexKey(account);
+
+            if (!occupied.has(indexKey)) {
+              keyringAccounts.push(account);
+              occupied.add(indexKey);
+            }
+          }
+        },
+      ),
+    delete: jest.fn().mockImplementation(async (id: string) => {
+      const index = keyringAccounts.findIndex((account) => account.id === id);
+
+      if (index >= 0) {
+        keyringAccounts.splice(index, 1);
+      }
+    }),
   };
 
   const mockConfigProvider: jest.Mocked<Pick<ConfigProvider, 'get'>> = {
@@ -334,6 +395,9 @@ describe('AccountsService', () => {
           expect(
             mockAccountsRepository.findByEntropySourceAndRange,
           ).toHaveBeenCalledWith('test-entropy', { from: 0, to: 1 });
+          expect(
+            mockAccountsRepository.findByEntropySourceAndRange,
+          ).toHaveBeenCalledTimes(2);
           expect(mockAccountsRepository.getAll).not.toHaveBeenCalled();
 
           expect(
@@ -380,6 +444,39 @@ describe('AccountsService', () => {
               (account) => account.index === 100,
             ),
           ).toBe(true);
+        },
+        coinJson,
+      );
+    });
+
+    it('returns persisted accounts when merge skips indices taken concurrently', async () => {
+      const coinJson = await getTronTestCoinTypeJson();
+      const concurrentAccount: TronKeyringAccount = {
+        id: 'concurrent-0',
+        entropySource: 'test-entropy',
+        derivationPath: "m/44'/195'/0'/0/0",
+        index: 0,
+        type: TrxAccountType.Eoa,
+        address: 'TConcurrent0',
+        scopes: [TrxScope.Mainnet, TrxScope.Nile, TrxScope.Shasta],
+        options: {},
+        methods: ['signMessage', 'signTransaction'],
+      };
+
+      await withAccountsService(
+        async ({ accountsService, mockAccountsRepository }) => {
+          mockAccountsRepository.findByEntropySourceAndRange
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([concurrentAccount]);
+
+          const result = await accountsService.createAccounts({
+            type: AccountCreationType.Bip44DeriveIndex,
+            entropySource: 'test-entropy',
+            groupIndex: 0,
+          });
+
+          expect(result).toHaveLength(1);
+          expect(result[0]?.id).toBe('concurrent-0');
         },
         coinJson,
       );
