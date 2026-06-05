@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Validate balances on a best-effort basis for raw transaction `signAndSend` requests ([#325](https://github.com/MetaMask/snap-tron-wallet/pull/325))
+
 ## [1.26.0]
 
 ### Added
