@@ -122,7 +122,6 @@ export class AccountsRepository {
         const accountsToAdd: Record<string, TronKeyringAccount> = {};
 
         for (const [id, account] of Object.entries(newAccounts)) {
-          // Tron accounts use a fixed BIP-44 path template; uniqueness is entropy + index.
           const indexKey = `${account.entropySource}:${account.index}`;
 
           if (occupiedIndices.has(indexKey)) {
