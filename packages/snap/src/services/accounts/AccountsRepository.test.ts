@@ -50,6 +50,41 @@ describe('AccountsRepository', () => {
     ]);
   });
 
+  it('skips duplicate indices within the same merge batch', async () => {
+    const base: TronKeyringAccount = {
+      id: 'first',
+      entropySource: 'test-entropy',
+      derivationPath: "m/44'/195'/0'/0/0",
+      index: 0,
+      type: TrxAccountType.Eoa,
+      address: 'TAddress0',
+      scopes: [TrxScope.Mainnet, TrxScope.Nile, TrxScope.Shasta],
+      options: {},
+      methods: ['signMessage', 'signTransaction'],
+    };
+    const state = new InMemoryState<UnencryptedStateValue>({
+      keyringAccounts: {},
+      assets: {},
+      tokenPrices: {},
+      transactions: {},
+      mapInterfaceNameToId: {},
+    });
+    const repository = new AccountsRepository(state);
+
+    await repository.mergeKeyringAccounts({
+      first: base,
+      second: {
+        ...base,
+        id: 'second',
+      },
+    });
+
+    const accounts = await repository.getAll();
+
+    expect(accounts).toHaveLength(1);
+    expect(accounts[0]?.id).toBe('first');
+  });
+
   it('returns the existing account when create races on the same index', async () => {
     const existing: TronKeyringAccount = {
       id: 'existing-0',

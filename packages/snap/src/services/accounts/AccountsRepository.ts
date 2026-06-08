@@ -15,6 +15,67 @@ type AccountCreationRange = {
   to: number;
 };
 
+type KeyringAccountsState = Record<string, TronKeyringAccount>;
+
+/**
+ * Tron accounts use a fixed BIP-44 path template; uniqueness is entropy + index.
+ *
+ * @param account - The account to key.
+ * @returns A stable conflict key for the account.
+ */
+function getAccountIndexKey(account: TronKeyringAccount): string {
+  return `${account.entropySource}:${account.index}`;
+}
+
+/**
+ * Finds an account in state by entropy source and index key.
+ *
+ * @param accounts - Existing keyring accounts.
+ * @param indexKey - Conflict key from {@link getAccountIndexKey}.
+ * @returns The matching account, if any.
+ */
+function findAccountByIndexKey(
+  accounts: KeyringAccountsState,
+  indexKey: string,
+): TronKeyringAccount | undefined {
+  return Object.values(accounts).find(
+    (account) => getAccountIndexKey(account) === indexKey,
+  );
+}
+
+/**
+ * Merges incoming accounts into existing state, skipping entropy/index conflicts.
+ *
+ * @param existing - Current keyring accounts.
+ * @param incoming - Accounts to merge.
+ * @returns Merged state and the subset that was actually added.
+ */
+function mergeAccountsWithoutIndexConflicts(
+  existing: KeyringAccountsState,
+  incoming: KeyringAccountsState,
+): { merged: KeyringAccountsState; added: KeyringAccountsState } {
+  const occupiedIndices = new Set(
+    Object.values(existing).map(getAccountIndexKey),
+  );
+  const added: KeyringAccountsState = {};
+
+  for (const [id, account] of Object.entries(incoming)) {
+    const indexKey = getAccountIndexKey(account);
+
+    if (occupiedIndices.has(indexKey)) {
+      continue;
+    }
+
+    added[id] = account;
+    occupiedIndices.add(indexKey);
+  }
+
+  return {
+    merged: { ...existing, ...added },
+    added,
+  };
+}
+
 export class AccountsRepository {
   readonly #storageKey = 'keyringAccounts';
 
@@ -79,22 +140,21 @@ export class AccountsRepository {
   async create(account: TronKeyringAccount): Promise<TronKeyringAccount> {
     let persistedAccount = account;
 
-    await this.#state.setKeyWith<Record<string, TronKeyringAccount>>(
+    await this.#state.setKeyWith<KeyringAccountsState>(
       this.#storageKey,
       (current) => {
         const existing = current ?? {};
-        const conflictingAccount = Object.values(existing).find(
-          (existingAccount) =>
-            existingAccount.entropySource === account.entropySource &&
-            existingAccount.index === account.index,
-        );
+        const { merged, added } = mergeAccountsWithoutIndexConflicts(existing, {
+          [account.id]: account,
+        });
 
-        if (conflictingAccount) {
-          persistedAccount = conflictingAccount;
-          return existing;
+        if (!(account.id in added)) {
+          persistedAccount =
+            findAccountByIndexKey(existing, getAccountIndexKey(account)) ??
+            account;
         }
 
-        return { ...existing, [account.id]: account };
+        return merged;
       },
     );
 
@@ -109,30 +169,11 @@ export class AccountsRepository {
   async mergeKeyringAccounts(
     newAccounts: Record<string, TronKeyringAccount>,
   ): Promise<void> {
-    await this.#state.setKeyWith<Record<string, TronKeyringAccount>>(
+    await this.#state.setKeyWith<KeyringAccountsState>(
       this.#storageKey,
       (current) => {
         const existing = current ?? {};
-        const occupiedIndices = new Set(
-          Object.values(existing).map(
-            (existingAccount) =>
-              `${existingAccount.entropySource}:${existingAccount.index}`,
-          ),
-        );
-        const accountsToAdd: Record<string, TronKeyringAccount> = {};
-
-        for (const [id, account] of Object.entries(newAccounts)) {
-          const indexKey = `${account.entropySource}:${account.index}`;
-
-          if (occupiedIndices.has(indexKey)) {
-            continue;
-          }
-
-          accountsToAdd[id] = account;
-          occupiedIndices.add(indexKey);
-        }
-
-        return { ...existing, ...accountsToAdd };
+        return mergeAccountsWithoutIndexConflicts(existing, newAccounts).merged;
       },
     );
   }
