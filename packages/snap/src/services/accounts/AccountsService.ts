@@ -48,11 +48,6 @@ const CURVE = 'secp256k1' as const;
 const MAX_BIP44_ACCOUNT_INDEX = 0x7fffffff;
 
 /**
- * Batch size for creating accounts in a single operation.
- */
-const CREATE_ACCOUNTS_BATCH_SIZE = 100;
-
-/**
  * Range of inclusive account indices to create.
  *
  * @param from - The starting index.
@@ -371,49 +366,23 @@ export class AccountsService {
       allAccounts.set(account.index, account);
     }
 
-    let deriveTronAddressPromise: Promise<TronAddressDeriver> | undefined;
-
-    const createTronAddressDeriver = async (): Promise<TronAddressDeriver> => {
-      const bip44Node = (await this.#snapClient.getBip32Entropy({
-        entropySource,
-        path: ['m', "44'", "195'"],
-        curve: CURVE,
-      })) as JsonBIP44Node;
-
-      return createTronBip44AddressDeriver(bip44Node);
-    };
-
-    const getTronAddressDeriver = async (): Promise<TronAddressDeriver> => {
-      deriveTronAddressPromise ??= createTronAddressDeriver();
-      return deriveTronAddressPromise;
-    };
+    const missingIndices: number[] = [];
+    for (let groupIndex = range.from; groupIndex <= range.to; groupIndex += 1) {
+      if (!allAccounts.has(groupIndex)) {
+        missingIndices.push(groupIndex);
+      }
+    }
 
     const newAccounts: Record<string, TronKeyringAccount> = {};
-    let newAccountCount = 0;
 
-    for (
-      let batchStart = range.from;
-      batchStart <= range.to;
-      batchStart += CREATE_ACCOUNTS_BATCH_SIZE
-    ) {
-      const batchEnd = Math.min(
-        batchStart + CREATE_ACCOUNTS_BATCH_SIZE - 1,
-        range.to,
-      );
+    if (missingIndices.length > 0) {
+      const tronAddressDeriver =
+        await this.#createTronAddressDeriver(entropySource);
 
-      for (
-        let groupIndex = batchStart;
-        groupIndex <= batchEnd;
-        groupIndex += 1
-      ) {
-        if (allAccounts.has(groupIndex)) {
-          continue;
-        }
-
+      for (const groupIndex of missingIndices) {
         const id = globalThis.crypto.randomUUID();
         const derivationPath =
           AccountsService.getDefaultDerivationPath(groupIndex);
-        const tronAddressDeriver = await getTronAddressDeriver();
         const { address } = await tronAddressDeriver(groupIndex);
 
         const tronKeyringAccount: TronKeyringAccount = {
@@ -438,11 +407,8 @@ export class AccountsService {
 
         allAccounts.set(groupIndex, tronKeyringAccount);
         newAccounts[id] = tronKeyringAccount;
-        newAccountCount += 1;
       }
-    }
 
-    if (newAccountCount > 0) {
       await this.#accountsRepository.mergeKeyringAccounts(newAccounts);
 
       const persistedAccounts =
@@ -577,6 +543,18 @@ export class AccountsService {
       this.synchronizeAssets(accounts),
       this.synchronizeTransactions(accounts),
     ]);
+  }
+
+  async #createTronAddressDeriver(
+    entropySource: EntropySourceId,
+  ): Promise<TronAddressDeriver> {
+    const bip44Node = (await this.#snapClient.getBip32Entropy({
+      entropySource,
+      path: ['m', "44'", "195'"],
+      curve: CURVE,
+    })) as JsonBIP44Node;
+
+    return createTronBip44AddressDeriver(bip44Node);
   }
 
   #getLowestUnusedKeyringAccountIndex(

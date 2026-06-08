@@ -411,7 +411,7 @@ describe('AccountsService', () => {
       );
     });
 
-    it('creates more than 100 accounts in internal batches', async () => {
+    it('creates more than 100 accounts with a single merge and entropy call', async () => {
       const coinJson = await getTronTestCoinTypeJson();
 
       await withAccountsService(
