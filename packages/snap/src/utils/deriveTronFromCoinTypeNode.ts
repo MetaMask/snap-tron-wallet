@@ -83,23 +83,3 @@ export async function createTronBip44AddressDeriver(
     throw sanitizeSensitiveError(error);
   }
 }
-
-/**
- * Derives a Tron address from a BIP-44 coin-type node at `m/44'/195'`, without an extra
- * `snap_getBip32Entropy` call per address index.
- *
- * @param options0 - The options for the derivation.
- * @param options0.coinTypeNodeJson - JSON node from `snap_getBip32Entropy` at path `m/44'/195'`.
- * @param options0.addressIndex - BIP-44 `address_index` under account `0'` and change `0`.
- * @returns The derived Tron address and public key bytes.
- */
-export async function deriveTronAddressFromCoinTypeNodeJson({
-  coinTypeNodeJson,
-  addressIndex,
-}: {
-  coinTypeNodeJson: JsonBIP44Node;
-  addressIndex: number;
-}): Promise<{ address: string; publicKeyBytes: Uint8Array }> {
-  const derive = await createTronBip44AddressDeriver(coinTypeNodeJson);
-  return derive(addressIndex);
-}
