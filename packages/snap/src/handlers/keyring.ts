@@ -47,7 +47,10 @@ import type { ConfirmationHandler } from '../services/confirmation/ConfirmationH
 import type { TransactionExpirationRefresherService } from '../services/transaction-expiration-refresher/TransactionExpirationRefresherService';
 import type { TransactionsService } from '../services/transactions/TransactionsService';
 import type { WalletService } from '../services/wallet/WalletService';
-import { withCatchAndThrowSnapError } from '../utils/errors';
+import {
+  sanitizeSensitiveError,
+  withCatchAndThrowSnapError,
+} from '../utils/errors';
 import { createPrefixedLogger, type ILogger } from '../utils/logger';
 import {
   CreateAccountOptionsStruct,
@@ -198,8 +201,7 @@ export class KeyringHandler implements Keyring {
       return await this.#accountsService.createAccounts(options);
     } catch (error: unknown) {
       this.#logger.error({ error }, 'Error creating accounts');
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      throw new Error(`Error creating accounts: ${message}`, { cause: error });
+      throw sanitizeSensitiveError(error);
     }
   }
 
