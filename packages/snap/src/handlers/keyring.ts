@@ -196,11 +196,10 @@ export class KeyringHandler implements Keyring {
   ): Promise<KeyringAccount[]> {
     try {
       return await this.#accountsService.createAccounts(options);
-      // TODO: Replace `any` with type
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.#logger.error({ error }, 'Error creating accounts');
-      throw new Error(`Error creating accounts: ${error.message}`);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Error creating accounts: ${message}`, { cause: error });
     }
   }
 
