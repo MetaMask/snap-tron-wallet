@@ -1258,6 +1258,29 @@ describe('ClientRequestHandler', () => {
       expect(result).toStrictEqual({ signature: mockSignature });
     });
 
+    it('accepts a nonce that contains colons (splits on the last ":")', async () => {
+      const mockSignature = '0xdeadbeef';
+      mockAccountsService.findById.mockResolvedValue({
+        id: TEST_ACCOUNT_ID,
+        address: TEST_ADDRESS,
+        entropySource: 'test-entropy',
+        derivationPath: [],
+      } as any);
+      mockAccountsService.deriveTronKeypair.mockResolvedValue({
+        privateKeyHex: TEST_PRIVATE_KEY,
+      } as any);
+      mockTronWeb.trx.signMessageV2.mockReturnValue(mockSignature);
+
+      const message = buildProofMessage(TEST_ADDRESS, 'ns:abc:123');
+      const result = await clientRequestHandler.handle(buildRequest(message));
+
+      expect(mockTronWeb.trx.signMessageV2).toHaveBeenCalledWith(
+        message,
+        TEST_PRIVATE_KEY,
+      );
+      expect(result).toStrictEqual({ signature: mockSignature });
+    });
+
     it('throws when the message does not start with the proof prefix', async () => {
       await expect(
         clientRequestHandler.handle(
