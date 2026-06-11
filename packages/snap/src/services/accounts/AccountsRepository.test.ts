@@ -28,10 +28,6 @@ function createEmptyState(
 }
 
 /**
- *
- * @param overrides
- */
-/**
  * Builds a test keyring account with sensible defaults.
  *
  * @param overrides - Partial account fields to override defaults.
