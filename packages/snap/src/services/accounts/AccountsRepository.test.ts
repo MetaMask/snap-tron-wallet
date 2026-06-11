@@ -6,10 +6,6 @@ import { InMemoryState } from '../state/InMemoryState';
 import type { UnencryptedStateValue } from '../state/State';
 
 /**
- *
- * @param keyringAccounts
- */
-/**
  * Creates an empty in-memory state for repository tests.
  *
  * @param keyringAccounts - Initial keyring accounts keyed by account id.
