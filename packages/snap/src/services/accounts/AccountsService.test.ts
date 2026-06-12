@@ -211,15 +211,27 @@ async function withAccountsService(
       .mockImplementation(
         async (newAccounts: Record<string, TronKeyringAccount>) => {
           const occupied = new Set(keyringAccounts.map(getAccountIndexKey));
+          const conflicted: TronKeyringAccount[] = [];
 
           for (const account of Object.values(newAccounts)) {
             const indexKey = getAccountIndexKey(account);
 
-            if (!occupied.has(indexKey)) {
+            if (occupied.has(indexKey)) {
+              const existing = keyringAccounts.find(
+                (existingAccount) =>
+                  getAccountIndexKey(existingAccount) === indexKey,
+              );
+
+              if (existing) {
+                conflicted.push(existing);
+              }
+            } else {
               keyringAccounts.push(account);
               occupied.add(indexKey);
             }
           }
+
+          return conflicted;
         },
       ),
     delete: jest.fn().mockImplementation(async (id: string) => {
@@ -397,7 +409,7 @@ describe('AccountsService', () => {
           ).toHaveBeenCalledWith('test-entropy', { from: 0, to: 1 });
           expect(
             mockAccountsRepository.findByEntropySourceAndRange,
-          ).toHaveBeenCalledTimes(2);
+          ).toHaveBeenCalledTimes(1);
           expect(mockAccountsRepository.getAll).not.toHaveBeenCalled();
 
           expect(
@@ -465,9 +477,12 @@ describe('AccountsService', () => {
 
       await withAccountsService(
         async ({ accountsService, mockAccountsRepository }) => {
-          mockAccountsRepository.findByEntropySourceAndRange
-            .mockResolvedValueOnce([])
-            .mockResolvedValueOnce([concurrentAccount]);
+          mockAccountsRepository.findByEntropySourceAndRange.mockResolvedValueOnce(
+            [],
+          );
+          mockAccountsRepository.mergeKeyringAccounts.mockResolvedValueOnce([
+            concurrentAccount,
+          ]);
 
           const result = await accountsService.createAccounts({
             type: AccountCreationType.Bip44DeriveIndex,
