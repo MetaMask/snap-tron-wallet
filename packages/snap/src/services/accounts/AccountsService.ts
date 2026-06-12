@@ -409,15 +409,10 @@ export class AccountsService {
         newAccounts[id] = tronKeyringAccount;
       }
 
-      await this.#accountsRepository.mergeKeyringAccounts(newAccounts);
+      const conflictedAccounts =
+        await this.#accountsRepository.mergeKeyringAccounts(newAccounts);
 
-      const persistedAccounts =
-        await this.#accountsRepository.findByEntropySourceAndRange(
-          entropySource,
-          range,
-        );
-
-      for (const account of persistedAccounts) {
+      for (const account of conflictedAccounts) {
         allAccounts.set(account.index, account);
       }
     }

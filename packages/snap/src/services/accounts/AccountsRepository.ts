@@ -165,17 +165,40 @@ export class AccountsRepository {
    * Merges multiple keyring accounts into `keyringAccounts` in a single atomic state update.
    *
    * @param newAccounts - The new accounts to merge.
+   * @returns Existing accounts that blocked incoming entries with the same entropy source and index.
    */
   async mergeKeyringAccounts(
     newAccounts: Record<string, TronKeyringAccount>,
-  ): Promise<void> {
+  ): Promise<TronKeyringAccount[]> {
+    const conflictedAccounts: TronKeyringAccount[] = [];
+
     await this.#state.setKeyWith<KeyringAccountsState>(
       this.#storageKey,
       (current) => {
         const existing = current ?? {};
-        return mergeAccountsWithoutIndexConflicts(existing, newAccounts).merged;
+        const { merged, added } = mergeAccountsWithoutIndexConflicts(
+          existing,
+          newAccounts,
+        );
+
+        for (const account of Object.values(newAccounts)) {
+          if (!(account.id in added)) {
+            const conflicted = findAccountByIndexKey(
+              existing,
+              getAccountIndexKey(account),
+            );
+
+            if (conflicted) {
+              conflictedAccounts.push(conflicted);
+            }
+          }
+        }
+
+        return merged;
       },
     );
+
+    return conflictedAccounts;
   }
 
   async delete(id: string): Promise<void> {

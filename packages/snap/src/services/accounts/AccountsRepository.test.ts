@@ -121,7 +121,7 @@ describe('AccountsRepository', () => {
       createEmptyState({ [existing.id]: existing }),
     );
 
-    await repository.mergeKeyringAccounts({
+    const conflicted = await repository.mergeKeyringAccounts({
       'duplicate-index': {
         ...existing,
         id: 'duplicate-index',
@@ -137,11 +137,24 @@ describe('AccountsRepository', () => {
 
     const accounts = await repository.getAll();
 
+    expect(conflicted).toStrictEqual([existing]);
     expect(accounts).toHaveLength(2);
     expect(accounts.map((account) => account.id).sort()).toStrictEqual([
       'existing-0',
       'new-index',
     ]);
+  });
+
+  it('returns an empty array when all merge entries are added', async () => {
+    const base = createTestAccount({ id: 'first' });
+    const repository = new AccountsRepository(createEmptyState());
+
+    const conflicted = await repository.mergeKeyringAccounts({
+      first: base,
+    });
+
+    expect(conflicted).toStrictEqual([]);
+    expect(await repository.getAll()).toHaveLength(1);
   });
 
   it('skips duplicate indices within the same merge batch', async () => {
