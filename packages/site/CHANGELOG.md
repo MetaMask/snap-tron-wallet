@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.26.0]
 
-### Added
+### Changed
 
-- feat: add `keyring_createAccounts` ([#308](https://github.com/MetaMask/snap-tron-wallet/pull/308))
+- Bump `keyring-api` to version 22.0.0 ([#308](https://github.com/MetaMask/snap-tron-wallet/pull/308))
 
 ## [1.15.1]
 
