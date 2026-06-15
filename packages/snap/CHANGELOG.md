@@ -9,17 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.26.0]
 
-### Uncategorized
-
-- chore: track error in ConfirmationHandler NEB-1240 ([#324](https://github.com/MetaMask/snap-tron-wallet/pull/324))
-- chore: add error cause in keyring & ConfirmationHandler & validators NEB-1236 ([#316](https://github.com/MetaMask/snap-tron-wallet/pull/316))
-- chore: track errors in AssetsService NEB-1238 ([#322](https://github.com/MetaMask/snap-tron-wallet/pull/322))
-
 ### Added
 
 - Add `signProofOfOwnership` client request method ([#327](https://github.com/MetaMask/snap-tron-wallet/pull/327))
   - This method silently signs `metamask:proof-of-ownership:<nonce>:<address>` messages with the account's secp256k1 key via TronWeb's `signMessageV2`
-- Adds `setKeyWith` helper for state read-modify-write operations ([#307](https://github.com/MetaMask/snap-tron-wallet/pull/307))
+- Add `setKeyWith` helper for state read-modify-write operations ([#307](https://github.com/MetaMask/snap-tron-wallet/pull/307))
 - Add support for `keyring_createAccounts` method to enable batch account creation ([#308](https://github.com/MetaMask/snap-tron-wallet/pull/308)).
 
 ## [1.25.8]
