@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.26.0]
 
-### Uncategorized
+### Added
 
 - feat: add `keyring_createAccounts` ([#308](https://github.com/MetaMask/snap-tron-wallet/pull/308))
 
