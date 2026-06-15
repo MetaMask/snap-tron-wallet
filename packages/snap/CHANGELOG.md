@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.26.0]
+
+### Uncategorized
+
+- chore: track error in ConfirmationHandler NEB-1240 ([#324](https://github.com/MetaMask/snap-tron-wallet/pull/324))
+- chore: add error cause in keyring & ConfirmationHandler & validators NEB-1236 ([#316](https://github.com/MetaMask/snap-tron-wallet/pull/316))
+- chore: track errors in AssetsService NEB-1238 ([#322](https://github.com/MetaMask/snap-tron-wallet/pull/322))
+
 ### Added
 
 - Add `signProofOfOwnership` client request method ([#327](https://github.com/MetaMask/snap-tron-wallet/pull/327))
@@ -532,7 +540,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release of Tron wallet snap
 - Support for TRX and token assets balances ([#12](https://github.com/MetaMask/snap-tron-wallet/pull/12))
 
-[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.8...HEAD
+[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.26.0...HEAD
+[1.26.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.8...v1.26.0
 [1.25.8]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.7...v1.25.8
 [1.25.7]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.6...v1.25.7
 [1.25.6]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.5...v1.25.6
