@@ -9,14 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.27.0]
 
-### Uncategorized
-
-- chore: track errors in trackEvent handler of SnapClient WPN-366 ([#319](https://github.com/MetaMask/snap-tron-wallet/pull/319))
-
 ### Changed
 
 - TRC-20 approvals are now classified as `TransactionType.TokenApprove` ([#328](https://github.com/MetaMask/snap-tron-wallet/pull/328))
   - Approvals were previously classified as `TransactionType.Unknown`.
+- chore: track errors in trackEvent handler of SnapClient WPN-366 ([#319](https://github.com/MetaMask/snap-tron-wallet/pull/319))
 
 ## [1.26.0]
 
