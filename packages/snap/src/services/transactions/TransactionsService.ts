@@ -1,11 +1,13 @@
-import type { Transaction } from '@metamask/keyring-api';
-import { KeyringEvent } from '@metamask/keyring-api';
+import type { CaipAssetType, Transaction } from '@metamask/keyring-api';
+import { KeyringEvent, TransactionType } from '@metamask/keyring-api';
 import { emitSnapKeyringEvent } from '@metamask/keyring-snap-sdk';
 import { groupBy } from 'lodash';
 
 import { TransactionMapper } from './TransactionsMapper';
 import type { TransactionsRepository } from './TransactionsRepository';
 import { isSpam } from './utils/isSpam';
+import type { PriceApiClient } from '../../clients/price-api/PriceApiClient';
+import type { SpotPrices } from '../../clients/price-api/types';
 import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
 import type { TRC10TokenMetadata } from '../../clients/tron-http/types';
 import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
@@ -28,21 +30,26 @@ export class TransactionsService {
 
   readonly #tronHttpClient: TronHttpClient;
 
+  readonly #priceApiClient: PriceApiClient;
+
   constructor({
     logger,
     transactionsRepository,
     trongridApiClient,
     tronHttpClient,
+    priceApiClient,
   }: {
     logger: ILogger;
     transactionsRepository: TransactionsRepository;
     trongridApiClient: TrongridApiClient;
     tronHttpClient: TronHttpClient;
+    priceApiClient: PriceApiClient;
   }) {
     this.#logger = createPrefixedLogger(logger, '[🧾 TransactionsService]');
     this.#transactionsRepository = transactionsRepository;
     this.#trongridApiClient = trongridApiClient;
     this.#tronHttpClient = tronHttpClient;
+    this.#priceApiClient = priceApiClient;
   }
 
   /**
@@ -283,8 +290,13 @@ export class TransactionsService {
       trc10TokenMetadata,
     });
 
+    const spotPrices = await this.#fetchSpotPricesForTokens(
+      mappedTransactions,
+      account,
+    );
+
     const filteredTransactions = mappedTransactions.filter(
-      (transaction) => !isSpam(transaction, account),
+      (transaction) => !isSpam(transaction, account, { spotPrices }),
     );
 
     this.#logger.info(
@@ -384,6 +396,53 @@ export class TransactionsService {
     ]);
 
     return { enrichedRawTransactions, trc10TokenMetadata };
+  }
+
+  /**
+   * Pre-fetches spot prices for all TRC10/TRC20 token assets received in the
+   * given transactions. The result is passed as context to `isSpam()` so that
+   * price-based spam detectors can run without making individual async calls.
+   * Returns `undefined` when the price API is unavailable so that detectors
+   * skip gracefully (fail-open).
+   *
+   * @param transactions - The mapped transactions to inspect.
+   * @param account - The account associated with the transactions.
+   * @returns Spot prices keyed by CAIP asset type, or `undefined` on API failure.
+   */
+  async #fetchSpotPricesForTokens(
+    transactions: Transaction[],
+    account: TronKeyringAccount,
+  ): Promise<SpotPrices | undefined> {
+    const tokenAssetTypes = new Set<string>();
+    for (const tx of transactions) {
+      if (tx.type !== TransactionType.Receive) continue;
+      for (const movement of tx.to) {
+        if (
+          movement.address === account.address &&
+          movement.asset?.fungible &&
+          (movement.asset.type.includes('/trc10:') ||
+            movement.asset.type.includes('/trc20:'))
+        ) {
+          tokenAssetTypes.add(movement.asset.type);
+        }
+      }
+    }
+
+    if (tokenAssetTypes.size === 0) {
+      return {};
+    }
+
+    try {
+      return await this.#priceApiClient.getMultipleSpotPrices([
+        ...tokenAssetTypes,
+      ] as CaipAssetType[]);
+    } catch (error) {
+      this.#logger.warn(
+        { error },
+        'Failed to fetch spot prices for spam filtering, keeping all transactions',
+      );
+      return undefined;
+    }
   }
 
   async findByAccounts(accounts: TronKeyringAccount[]): Promise<Transaction[]> {
