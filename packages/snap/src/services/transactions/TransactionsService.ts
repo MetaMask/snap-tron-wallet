@@ -8,6 +8,7 @@ import type { TransactionsRepository } from './TransactionsRepository';
 import { isSpam } from './utils/isSpam';
 import type { PriceApiClient } from '../../clients/price-api/PriceApiClient';
 import type { SpotPrices } from '../../clients/price-api/types';
+import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
 import type { TRC10TokenMetadata } from '../../clients/tron-http/types';
 import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
@@ -32,24 +33,29 @@ export class TransactionsService {
 
   readonly #priceApiClient: PriceApiClient;
 
+  readonly #snapClient: SnapClient;
+
   constructor({
     logger,
     transactionsRepository,
     trongridApiClient,
     tronHttpClient,
     priceApiClient,
+    snapClient,
   }: {
     logger: ILogger;
     transactionsRepository: TransactionsRepository;
     trongridApiClient: TrongridApiClient;
     tronHttpClient: TronHttpClient;
     priceApiClient: PriceApiClient;
+    snapClient: SnapClient;
   }) {
     this.#logger = createPrefixedLogger(logger, '[🧾 TransactionsService]');
     this.#transactionsRepository = transactionsRepository;
     this.#trongridApiClient = trongridApiClient;
     this.#tronHttpClient = tronHttpClient;
     this.#priceApiClient = priceApiClient;
+    this.#snapClient = snapClient;
   }
 
   /**
@@ -441,6 +447,7 @@ export class TransactionsService {
         { error },
         'Failed to fetch spot prices for spam filtering, keeping all transactions',
       );
+      await this.#snapClient.trackError(error as Error);
       return undefined;
     }
   }

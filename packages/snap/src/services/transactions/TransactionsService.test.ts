@@ -6,6 +6,7 @@ import { TransactionMapper } from './TransactionsMapper';
 import type { TransactionsRepository } from './TransactionsRepository';
 import { TransactionsService } from './TransactionsService';
 import type { PriceApiClient } from '../../clients/price-api/PriceApiClient';
+import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
 import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
 import type {
@@ -29,6 +30,7 @@ describe('TransactionsService', () => {
   let mockTrongridApiClient: jest.Mocked<TrongridApiClient>;
   let mockTronHttpClient: jest.Mocked<TronHttpClient>;
   let mockPriceApiClient: jest.Mocked<PriceApiClient>;
+  let mockSnapClient: jest.Mocked<SnapClient>;
 
   const mockAccount: TronKeyringAccount = {
     id: 'test-account-id',
@@ -98,6 +100,10 @@ describe('TransactionsService', () => {
       getMultipleSpotPrices: jest.fn().mockResolvedValue({}),
     } as unknown as jest.Mocked<PriceApiClient>;
 
+    mockSnapClient = {
+      trackError: jest.fn().mockResolvedValue(undefined),
+    } as unknown as jest.Mocked<SnapClient>;
+
     // Create service instance
     transactionsService = new TransactionsService({
       logger: mockLogger,
@@ -105,6 +111,7 @@ describe('TransactionsService', () => {
       trongridApiClient: mockTrongridApiClient,
       tronHttpClient: mockTronHttpClient,
       priceApiClient: mockPriceApiClient,
+      snapClient: mockSnapClient,
     });
   });
 
@@ -713,6 +720,9 @@ describe('TransactionsService', () => {
             '[🧾 TransactionsService]',
             expect.objectContaining({ error: expect.any(Error) }),
             'Failed to fetch spot prices for spam filtering, keeping all transactions',
+          );
+          expect(mockSnapClient.trackError).toHaveBeenCalledWith(
+            expect.any(Error),
           );
         } finally {
           mapSpy.mockRestore();
