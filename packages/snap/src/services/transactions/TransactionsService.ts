@@ -46,68 +46,114 @@ export class TransactionsService {
   }
 
   /**
-   * Enriches potential swap transactions with full internal_transactions data.
-   * TronGrid's /transactions endpoint often returns empty internal_transactions,
-   * but we need this data for accurate TRX↔TRC20 swap detection.
+   * Enriches potential swap transactions with full internal_transactions data and
+   * recovers any TRC20 transfer records that were absent from the main address-level
+   * TRC20 list (e.g. due to TronGrid indexing lag or pagination limits).
+   *
+   * For each TriggerSmartContract transaction with call_value > 0:
+   * fetches internal_transactions via TronHTTP, and if the transaction has no
+   * corresponding TRC20 entry, re-queries TronGrid with a narrow timestamp
+   * window to recover the missing transfer.
    *
    * @param scope - The network scope.
+   * @param address - The account address (needed for TRC20 re-fetch).
    * @param rawTransactions - Array of transactions to potentially enrich.
-   * @returns Array of enriched transactions.
+   * @param existingTrc20TxIds - Set of txIDs that already have TRC20 data.
+   * @returns Enriched raw transactions and any additionally recovered TRC20 transfers.
    */
   async #enrichPotentialSwaps(
     scope: Network,
+    address: string,
     rawTransactions: TransactionInfo[],
-  ): Promise<TransactionInfo[]> {
+    existingTrc20TxIds: Set<string>,
+  ): Promise<{
+    enrichedTransactions: TransactionInfo[];
+    additionalTrc20Transfers: ContractTransactionInfo[];
+  }> {
+    const additionalTrc20Transfers: ContractTransactionInfo[] = [];
+
     const enrichmentPromises = rawTransactions.map(async (tx) => {
-      // Only enrich TriggerSmartContract transactions that might be swaps
-      // and are missing internal_transactions from TronGrid's /transactions endpoint.
-      // We also check for call_value > 0 as these are potential TRX swaps.
       const isTriggerSmartContract =
         tx.raw_data.contract?.[0]?.type === 'TriggerSmartContract';
       const hasEmptyInternalTransactions =
         !tx.internal_transactions || tx.internal_transactions.length === 0;
-      const hasCallValue =
-        // TODO: Replace `any` with type
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (tx.raw_data.contract?.[0]?.parameter?.value as any)?.call_value > 0;
+      const contractValue = tx.raw_data.contract?.[0]?.parameter?.value as
+        | Record<string, unknown>
+        | undefined;
+      const hasCallValue = Number(contractValue?.call_value ?? 0) > 0;
 
-      if (
-        isTriggerSmartContract &&
-        hasEmptyInternalTransactions &&
-        hasCallValue
-      ) {
-        this.#logger.debug(
-          `Attempting to enrich transaction ${tx.txID} with full details for swap detection.`,
-        );
-        try {
-          const fullTxInfo = await this.#tronHttpClient.getTransactionInfoById(
-            scope,
-            tx.txID,
+      if (isTriggerSmartContract && hasCallValue) {
+        let enrichedTx = tx;
+
+        // Step 1: Fetch internal_transactions when they are missing.
+        if (hasEmptyInternalTransactions) {
+          this.#logger.debug(
+            `Attempting to enrich transaction ${tx.txID} with full details for swap detection.`,
           );
+          try {
+            const fullTxInfo =
+              await this.#tronHttpClient.getTransactionInfoById(scope, tx.txID);
 
-          if (fullTxInfo) {
-            // Merge internal_transactions from fullTxInfo into the existing tx
-            return {
-              ...tx,
-              // eslint-disable-next-line @typescript-eslint/naming-convention
-              internal_transactions: fullTxInfo.internal_transactions ?? [],
-            };
+            if (fullTxInfo) {
+              enrichedTx = {
+                ...tx,
+                // The TronHTTP internal_transactions format differs from TronGrid's
+                // InternalTransaction type; both are accessed via `any` in the mapper.
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                internal_transactions:
+                  (fullTxInfo.internal_transactions as unknown as TransactionInfo['internal_transactions']) ??
+                  [],
+              };
+            }
+          } catch (error) {
+            this.#logger.warn(
+              { txId: tx.txID, error },
+              `Failed to enrich transaction ${tx.txID}`,
+            );
           }
-        } catch (error) {
-          this.#logger.warn(
-            { txId: tx.txID, error },
-            `Failed to enrich transaction ${tx.txID}`,
-          );
         }
+
+        // Step 2: Re-fetch TRC20 transfers when this tx has no TRC20 record yet.
+        // TronGrid's TRC20 index can lag behind the raw transaction index, so the
+        // address-level list may not include the transfer at the time of first sync.
+        if (!existingTrc20TxIds.has(tx.txID)) {
+          try {
+            const blockTs = tx.block_timestamp;
+            const trc20ForWindow =
+              await this.#trongridApiClient.getContractTransactionInfoByAddress(
+                scope,
+                address,
+                { minTimestamp: blockTs - 3000, maxTimestamp: blockTs + 3000 },
+              );
+            const matching = trc20ForWindow.filter(
+              (t) => t.transaction_id === tx.txID,
+            );
+            if (matching.length > 0) {
+              this.#logger.debug(
+                `Recovered ${matching.length} TRC20 transfer(s) for ${tx.txID} via timestamp re-fetch.`,
+              );
+              additionalTrc20Transfers.push(...matching);
+            }
+          } catch (error) {
+            this.#logger.warn(
+              { txId: tx.txID, error },
+              `Failed to re-fetch TRC20 transfers for ${tx.txID}`,
+            );
+          }
+        }
+
+        return enrichedTx;
       }
-      return tx; // Return original transaction if not enriched or on error
+
+      return tx;
     });
 
-    const enrichedTransactions = await Promise.allSettled(enrichmentPromises);
-
-    return enrichedTransactions
+    const results = await Promise.allSettled(enrichmentPromises);
+    const enrichedTransactions = results
       .map((result) => (result.status === 'fulfilled' ? result.value : null))
       .filter(Boolean) as TransactionInfo[];
+
+    return { enrichedTransactions, additionalTrc20Transfers };
   }
 
   /**
@@ -253,33 +299,57 @@ export class TransactionsService {
     }
 
     /**
-     * Step 5: Process transactions (enrichment + mapping)
+     * Step 5: Pre-compute TRC20 context for enrichment
      *
-     * Enrich potential swaps with internal_transactions data
-     * and fetch TRC10 token metadata for transactions to process.
-     */
-    const { enrichedRawTransactions, trc10TokenMetadata } =
-      await this.#fetchEnrichmentData(scope, transactionsToProcess);
-
-    this.#logger.info(
-      `Enriched ${enrichedRawTransactions.length} transactions, fetched metadata for ${trc10TokenMetadata.size} TRC10 tokens.`,
-    );
-
-    /**
-     * Step 6: Map transactions to keyring format
-     *
-     * Filter TRC20 assistance data to only include transactions matching processed txs.
+     * Determine which transactions already have TRC20 data so the enrichment
+     * step can identify gaps and attempt a targeted re-fetch.
      */
     const processedTxIds = new Set(transactionsToProcess.map((tx) => tx.txID));
     const relevantTrc20Transactions = trc20Transactions.filter((tx) =>
       processedTxIds.has(tx.transaction_id),
     );
+    const existingTrc20TxIds = new Set(
+      relevantTrc20Transactions.map((tx) => tx.transaction_id),
+    );
+
+    /**
+     * Step 6: Process transactions (enrichment + mapping)
+     *
+     * Enrich potential swaps with internal_transactions data, attempt to recover
+     * missing TRC20 transfers, and fetch TRC10 token metadata for transactions to process.
+     */
+    const {
+      enrichedRawTransactions,
+      additionalTrc20Transfers,
+      trc10TokenMetadata,
+    } = await this.#fetchEnrichmentData(
+      scope,
+      account.address,
+      transactionsToProcess,
+      existingTrc20TxIds,
+    );
+
+    this.#logger.info(
+      `Enriched ${enrichedRawTransactions.length} transactions, recovered ${additionalTrc20Transfers.length} TRC20 transfer(s), fetched metadata for ${trc10TokenMetadata.size} TRC10 tokens.`,
+    );
+
+    /**
+     * Step 7: Map transactions to keyring format
+     *
+     * Merge any additionally recovered TRC20 transfers with the original list.
+     */
+    const mergedTrc20Transactions = [
+      ...relevantTrc20Transactions,
+      ...additionalTrc20Transfers.filter(
+        (tx) => !existingTrc20TxIds.has(tx.transaction_id),
+      ),
+    ];
 
     const mappedTransactions = TransactionMapper.mapTransactions({
       scope,
       account,
       rawTransactions: enrichedRawTransactions,
-      trc20Transactions: relevantTrc20Transactions,
+      trc20Transactions: mergedTrc20Transactions,
       trc10TokenMetadata,
     });
 
@@ -368,22 +438,36 @@ export class TransactionsService {
    * - TRC10 metadata scans for TransferAssetContract
    *
    * @param scope - The network scope.
+   * @param address - The account address (passed through to swap enrichment).
    * @param rawTransactions - The raw transactions to enrich.
-   * @returns Enriched transactions and TRC10 token metadata.
+   * @param existingTrc20TxIds - TxIDs that already have TRC20 data (passed through to swap enrichment).
+   * @returns Enriched transactions, any additionally recovered TRC20 transfers, and TRC10 token metadata.
    */
   async #fetchEnrichmentData(
     scope: Network,
+    address: string,
     rawTransactions: TransactionInfo[],
+    existingTrc20TxIds: Set<string>,
   ): Promise<{
     enrichedRawTransactions: TransactionInfo[];
+    additionalTrc20Transfers: ContractTransactionInfo[];
     trc10TokenMetadata: Map<string, TRC10TokenMetadata>;
   }> {
-    const [enrichedRawTransactions, trc10TokenMetadata] = await Promise.all([
-      this.#enrichPotentialSwaps(scope, rawTransactions),
+    const [swapEnrichmentResult, trc10TokenMetadata] = await Promise.all([
+      this.#enrichPotentialSwaps(
+        scope,
+        address,
+        rawTransactions,
+        existingTrc20TxIds,
+      ),
       this.#fetchTrc10TokenMetadata(scope, rawTransactions),
     ]);
 
-    return { enrichedRawTransactions, trc10TokenMetadata };
+    return {
+      enrichedRawTransactions: swapEnrichmentResult.enrichedTransactions,
+      additionalTrc20Transfers: swapEnrichmentResult.additionalTrc20Transfers,
+      trc10TokenMetadata,
+    };
   }
 
   async findByAccounts(accounts: TronKeyringAccount[]): Promise<Transaction[]> {

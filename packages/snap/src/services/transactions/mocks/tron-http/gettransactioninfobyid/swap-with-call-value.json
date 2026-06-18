@@ -1,0 +1,28 @@
+{
+  "id": "abcd1234efgh5678abcd1234efgh5678abcd1234efgh5678abcd1234efgh5678",
+  "fee": 345000,
+  "blockNumber": 77641500,
+  "blockTimeStamp": 1763586060000,
+  "contractResult": [
+    "0000000000000000000000000000000000000000000000000000000000000001"
+  ],
+  "contract_address": "41f742f4589459f0923fa579600815763d1646bec3",
+  "receipt": {
+    "net_fee": 345000,
+    "result": "SUCCESS"
+  },
+  "internal_transactions": [
+    {
+      "hash": "aaaa1111bbbb2222cccc3333dddd4444eeee5555ffff6666aaaa1111bbbb2222",
+      "caller_address": "41f742f4589459f0923fa579600815763d1646bec3",
+      "transferTo_address": "41a614f803b6fd780986a42c78ec9c7f77e6ded13c",
+      "callValueInfo": [
+        {
+          "callValue": 500000
+        }
+      ],
+      "note": "63616c6c",
+      "rejected": false
+    }
+  ]
+}

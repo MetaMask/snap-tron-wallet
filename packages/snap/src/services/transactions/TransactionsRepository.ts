@@ -1,5 +1,5 @@
 import type { Transaction } from '@metamask/keyring-api';
-import { TransactionStatus } from '@metamask/keyring-api';
+import { TransactionStatus, TransactionType } from '@metamask/keyring-api';
 import { chain } from 'lodash';
 
 import type { State, UnencryptedStateValue } from '../state/State';
@@ -49,6 +49,11 @@ export class TransactionsRepository {
    * This allows pending transactions to be re-fetched and updated when
    * their confirmed version becomes available from the network.
    *
+   * Transactions classified as Unknown are also excluded so that they are
+   * re-evaluated on the next sync — this handles the race condition where a
+   * TRX→TRC20 swap is initially classified as Unknown because TronGrid's TRC20
+   * index has not yet caught up, and should later resolve to Swap.
+   *
    * @param accountId - The account ID to get confirmed transaction IDs for.
    * @returns Set of transaction IDs for confirmed transactions only.
    */
@@ -59,7 +64,11 @@ export class TransactionsRepository {
 
     return new Set(
       (transactions ?? [])
-        .filter((tx) => tx.status !== TransactionStatus.Unconfirmed)
+        .filter(
+          (tx) =>
+            tx.status !== TransactionStatus.Unconfirmed &&
+            tx.type !== TransactionType.Unknown,
+        )
         .map((tx) => tx.id),
     );
   }

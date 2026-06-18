@@ -199,11 +199,15 @@ export class TrongridApiClient {
    * @see https://developers.tron.network/reference/get-trc20-transaction-info-by-account-address
    * @param scope - The network to query (e.g., 'mainnet', 'shasta')
    * @param address - The TRON address to query
+   * @param options - Optional query parameters.
+   * @param options.minTimestamp - Lower bound on block_timestamp (milliseconds, inclusive).
+   * @param options.maxTimestamp - Upper bound on block_timestamp (milliseconds, inclusive).
    * @returns Promise<ContractTransactionInfo[]> - Contract transaction data in camelCase
    */
   async getContractTransactionInfoByAddress(
     scope: Network,
     address: string,
+    options?: { minTimestamp?: number; maxTimestamp?: number },
   ): Promise<ContractTransactionInfo[]> {
     const client = this.#clients.get(scope);
     if (!client) {
@@ -211,10 +215,18 @@ export class TrongridApiClient {
     }
 
     const { baseUrl, headers } = client;
+    const queryParams: Record<string, string> = {};
+    if (options?.minTimestamp !== undefined) {
+      queryParams.min_timestamp = String(options.minTimestamp);
+    }
+    if (options?.maxTimestamp !== undefined) {
+      queryParams.max_timestamp = String(options.maxTimestamp);
+    }
     const url = buildUrl({
       baseUrl,
       path: '/v1/accounts/{address}/transactions/trc20',
       pathParams: { address },
+      ...(Object.keys(queryParams).length > 0 ? { queryParams } : {}),
     });
 
     const response = await fetch(url, { headers });

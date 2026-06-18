@@ -881,9 +881,50 @@ export class TransactionMapper {
       };
     }
 
-    // Handle TRX-only smart contract calls (e.g., deposits, registrations)
-    // If there's a callValue (TRX sent) and no TRC20 transfers, map as a TRX send
+    // Detect any internal TRX movement — indicates DEX/contract activity routing TRX.
+    // Computed early so it can inform classification when TRC20 data is absent.
+    const hasAnyInternalTrxMovement = (
+      trongridTransaction.internal_transactions ?? []
+    )
+      // TODO: Replace `any` with type
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .some((internal: any) =>
+        // TODO: Replace `any` with type
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        internal.callValueInfo?.some((vi: any) => (vi.callValue ?? 0) > 0),
+      );
+
+    // Handle the case where TRX was sent directly to a contract but TRC20 data is missing.
     if (trc20Transfers.length === 0 && callValue && callValue > 0) {
+      // Internal TRX movements indicate this is a DEX swap where TronGrid's TRC20
+      // index has not yet caught up. Return Unknown so the transaction is excluded
+      // from the confirmed-tx cache and re-evaluated on the next sync cycle.
+      if (hasAnyInternalTrxMovement) {
+        if (!ownerAddress) {
+          return null;
+        }
+        const timestamp = Math.floor(
+          trongridTransaction.block_timestamp / 1000,
+        );
+        const fees = TransactionMapper.#calculateTronFees(
+          scope,
+          trongridTransaction,
+        );
+        return {
+          type: TransactionType.Unknown,
+          id: trongridTransaction.txID,
+          from: [],
+          to: [],
+          events: [{ status, timestamp }],
+          chain: scope,
+          status,
+          account: account.id,
+          timestamp,
+          fees,
+        };
+      }
+
+      // No internal TRX activity — genuine TRX deposit or contract registration.
       if (!ownerAddress || !contractAddress) {
         return null;
       }
@@ -986,18 +1027,6 @@ export class TransactionMapper {
 
     // Also check if there's a call_value (TRX sent directly to contract)
     const hasCallValue = callValue && callValue > 0;
-
-    // Check if there are ANY internal_transactions with TRX movement (indicates DEX swap)
-    const hasAnyInternalTrxMovement =
-      trongridTransaction.internal_transactions &&
-      trongridTransaction.internal_transactions.length > 0 &&
-      // TODO: Replace `any` with type
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      trongridTransaction.internal_transactions.some((internal: any) =>
-        // TODO: Replace `any` with type
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        internal.callValueInfo?.some((vi: any) => (vi.callValue ?? 0) > 0),
-      );
 
     // TRX → TRC20: User receives TRC20 and there's TRX being sent or internal TRX movements
     if (

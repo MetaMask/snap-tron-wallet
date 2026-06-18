@@ -141,5 +141,28 @@ describe('TransactionsRepository', () => {
         new Set(['confirmed-tx-1', 'confirmed-tx-2', 'failed-tx']),
       );
     });
+
+    it('excludes confirmed Unknown-type transactions to allow re-evaluation', async () => {
+      // A swap misclassified as Unknown (TronGrid TRC20 lag) must be re-processed
+      // on the next sync so it can eventually resolve to Swap.
+      const unknownTx: Transaction = {
+        ...createMockTransaction(
+          'unknown-swap-tx',
+          TransactionStatus.Confirmed,
+        ),
+        type: TransactionType.Unknown,
+      };
+      const confirmedSendTx = createMockTransaction(
+        'confirmed-send-tx',
+        TransactionStatus.Confirmed,
+      );
+      mockState.getKey.mockResolvedValue([unknownTx, confirmedSendTx]);
+
+      const result =
+        await transactionsRepository.getConfirmedTransactionIds(mockAccountId);
+
+      expect(result.has('unknown-swap-tx')).toBe(false);
+      expect(result.has('confirmed-send-tx')).toBe(true);
+    });
   });
 });

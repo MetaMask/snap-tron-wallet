@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
+/* eslint-disable @typescript-eslint/no-non-null-assertion, @typescript-eslint/naming-convention */
 import type { Transaction } from '@metamask/keyring-api';
 import { TransactionStatus, TransactionType } from '@metamask/keyring-api';
 
@@ -14,7 +14,9 @@ import type {
 import { KnownCaip19Id, Network, Networks } from '../../constants';
 import type { TronKeyringAccount } from '../../entities/keyring-account';
 import type { ILogger } from '../../utils/logger';
+import swapWithCallValueInfoMock from './mocks/tron-http/gettransactioninfobyid/swap-with-call-value.json';
 import nativeTransferMock from './mocks/trongrid/account-transactions/native-transfer.json';
+import swapWithCallValueMock from './mocks/trongrid/account-transactions/swap-transaction-with-call-value.json';
 import trc10TransferMock from './mocks/trongrid/account-transactions/trc10-transfer.json';
 import trc20TransferMock from './mocks/trongrid/account-transactions/trc20-transfer.json';
 import contractInfoMock from './mocks/trongrid/account-trc20-transactions/contract-info.json';
@@ -496,6 +498,219 @@ describe('TransactionsService', () => {
       // The pending transaction should be returned so it can be updated
       expect(result).toHaveLength(1);
       expect(result[0]!.id).toBe(pendingTxId);
+    });
+
+    it('classifies a TRX→TRC20 swap as Unknown when TRC20 data is absent (TronGrid lag)', async () => {
+      // Simulate first sync: raw tx has call_value > 0 but TRC20 list is empty.
+      // TronHTTP returns internal_transactions with TRX movements (enrichment runs).
+      mockTransactionsRepository.getConfirmedTransactionIds.mockResolvedValue(
+        new Set(),
+      );
+      mockTrongridApiClient.getTransactionInfoByAddress.mockResolvedValue([
+        swapWithCallValueMock,
+      ] as TransactionInfo[]);
+      // TRC20 list is empty — TronGrid hasn't indexed the transfer yet
+      mockTrongridApiClient.getContractTransactionInfoByAddress.mockResolvedValue(
+        [],
+      );
+      // TronHTTP enrichment returns internal_transactions with TRX movement
+      mockTronHttpClient.getTransactionInfoById.mockResolvedValue(
+        swapWithCallValueInfoMock as any,
+      );
+
+      const result = await transactionsService.fetchNewTransactionsForAccount(
+        Network.Mainnet,
+        mockAccount,
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0]!.type).toBe(TransactionType.Unknown);
+    });
+
+    it('correctly classifies the swap on re-evaluation once TRC20 data becomes available', async () => {
+      // Simulate second sync: the Unknown transaction is NOT in confirmedTxIds
+      // (because Unknown type is excluded), so it gets re-processed.
+      // This time TronGrid's TRC20 list includes the USDT transfer.
+      mockTransactionsRepository.getConfirmedTransactionIds.mockResolvedValue(
+        new Set(), // Unknown tx is excluded from confirmed set
+      );
+      mockTrongridApiClient.getTransactionInfoByAddress.mockResolvedValue([
+        swapWithCallValueMock,
+      ] as TransactionInfo[]);
+      // TRC20 list now contains the USDT transfer
+      mockTrongridApiClient.getContractTransactionInfoByAddress.mockResolvedValue(
+        [
+          {
+            transaction_id: swapWithCallValueMock.txID,
+            token_info: {
+              symbol: 'USDT',
+              address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+              decimals: 6,
+              name: 'Tether USD',
+            },
+            block_timestamp: swapWithCallValueMock.block_timestamp,
+            from: 'TDexContractAddress',
+            to: mockAccount.address,
+            type: 'Transfer',
+            value: '2916449',
+          } as ContractTransactionInfo,
+        ],
+      );
+      mockTronHttpClient.getTransactionInfoById.mockResolvedValue(
+        swapWithCallValueInfoMock as any,
+      );
+
+      const result = await transactionsService.fetchNewTransactionsForAccount(
+        Network.Mainnet,
+        mockAccount,
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0]!.type).toBe(TransactionType.Swap);
+    });
+
+    it('attempts TRC20 re-fetch during enrichment for potential swaps missing TRC20 data', async () => {
+      // Verify that during enrichment the service calls TronGrid TRC20 with a
+      // timestamp window to recover transfers not in the initial address-level list.
+      mockTransactionsRepository.getConfirmedTransactionIds.mockResolvedValue(
+        new Set(),
+      );
+      mockTrongridApiClient.getTransactionInfoByAddress.mockResolvedValue([
+        swapWithCallValueMock,
+      ] as TransactionInfo[]);
+      // Address-level TRC20 list is empty
+      mockTrongridApiClient.getContractTransactionInfoByAddress.mockResolvedValue(
+        [],
+      );
+      mockTronHttpClient.getTransactionInfoById.mockResolvedValue(
+        swapWithCallValueInfoMock as any,
+      );
+
+      await transactionsService.fetchNewTransactionsForAccount(
+        Network.Mainnet,
+        mockAccount,
+      );
+
+      // The service must call getContractTransactionInfoByAddress at least twice:
+      // once for the main address-level fetch and once for the per-tx re-fetch.
+      expect(
+        mockTrongridApiClient.getContractTransactionInfoByAddress,
+      ).toHaveBeenCalledTimes(2);
+
+      // The re-fetch call must use timestamp bounds around the tx's block_timestamp.
+      const { calls } =
+        mockTrongridApiClient.getContractTransactionInfoByAddress.mock;
+      const reFetchCall = calls.find(
+        ([, , opts]) => opts?.minTimestamp !== undefined,
+      );
+      expect(reFetchCall).toBeDefined();
+      expect(reFetchCall![2]).toMatchObject({
+        minTimestamp: swapWithCallValueMock.block_timestamp - 3000,
+        maxTimestamp: swapWithCallValueMock.block_timestamp + 3000,
+      });
+    });
+
+    it('handles TronHTTP enrichment failure gracefully and logs a warning', async () => {
+      mockTransactionsRepository.getConfirmedTransactionIds.mockResolvedValue(
+        new Set(),
+      );
+      mockTrongridApiClient.getTransactionInfoByAddress.mockResolvedValue([
+        swapWithCallValueMock,
+      ] as TransactionInfo[]);
+      mockTrongridApiClient.getContractTransactionInfoByAddress.mockResolvedValue(
+        [],
+      );
+      // Simulate TronHTTP throwing during enrichment
+      mockTronHttpClient.getTransactionInfoById.mockRejectedValue(
+        new Error('Network timeout'),
+      );
+
+      const result = await transactionsService.fetchNewTransactionsForAccount(
+        Network.Mainnet,
+        mockAccount,
+      );
+
+      // The transaction is still mapped (unenriched), and a warning is logged
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ txId: swapWithCallValueMock.txID }),
+        expect.stringContaining('Failed to enrich transaction'),
+      );
+      // Transaction is still returned (unenriched, so no internal_transactions → Send)
+      expect(result).toHaveLength(1);
+    });
+
+    it('merges re-fetched TRC20 transfers that match the swap txID', async () => {
+      // Simulate case where address-level TRC20 list misses the transfer but
+      // the per-tx timestamp re-fetch returns it. Covers the matching.length > 0 branch.
+      mockTransactionsRepository.getConfirmedTransactionIds.mockResolvedValue(
+        new Set(),
+      );
+      mockTrongridApiClient.getTransactionInfoByAddress.mockResolvedValue([
+        swapWithCallValueMock,
+      ] as TransactionInfo[]);
+
+      const usdtTransfer: ContractTransactionInfo = {
+        transaction_id: swapWithCallValueMock.txID,
+        token_info: {
+          symbol: 'USDT',
+          address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+          decimals: 6,
+          name: 'Tether USD',
+        },
+        block_timestamp: swapWithCallValueMock.block_timestamp,
+        from: 'TDexContractAddress',
+        to: mockAccount.address,
+        type: 'Transfer',
+        value: '2916449',
+      };
+
+      // Address-level TRC20 list is empty; re-fetch returns the matching transfer
+      mockTrongridApiClient.getContractTransactionInfoByAddress
+        .mockResolvedValueOnce([]) // first call: address-level fetch
+        .mockResolvedValueOnce([usdtTransfer]); // second call: per-tx re-fetch
+      mockTronHttpClient.getTransactionInfoById.mockResolvedValue(
+        swapWithCallValueInfoMock as any,
+      );
+
+      const result = await transactionsService.fetchNewTransactionsForAccount(
+        Network.Mainnet,
+        mockAccount,
+      );
+
+      // The recovered TRC20 transfer should cause the tx to be mapped as a Swap
+      expect(result).toHaveLength(1);
+      expect(result[0]!.type).toBe(TransactionType.Swap);
+    });
+
+    it('handles TRC20 re-fetch failure gracefully and logs a warning', async () => {
+      mockTransactionsRepository.getConfirmedTransactionIds.mockResolvedValue(
+        new Set(),
+      );
+      mockTrongridApiClient.getTransactionInfoByAddress.mockResolvedValue([
+        swapWithCallValueMock,
+      ] as TransactionInfo[]);
+      mockTronHttpClient.getTransactionInfoById.mockResolvedValue(
+        swapWithCallValueInfoMock as any,
+      );
+
+      // First call (address-level) succeeds with empty list; second call (re-fetch) throws
+      mockTrongridApiClient.getContractTransactionInfoByAddress
+        .mockResolvedValueOnce([])
+        .mockRejectedValueOnce(new Error('TronGrid timeout'));
+
+      const result = await transactionsService.fetchNewTransactionsForAccount(
+        Network.Mainnet,
+        mockAccount,
+      );
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ txId: swapWithCallValueMock.txID }),
+        expect.stringContaining('Failed to re-fetch TRC20 transfers'),
+      );
+      // Transaction still returned even though re-fetch failed
+      expect(result).toHaveLength(1);
     });
   });
 

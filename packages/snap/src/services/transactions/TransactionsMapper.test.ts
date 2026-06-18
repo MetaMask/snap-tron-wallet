@@ -9,8 +9,10 @@ import type {
 import { Network } from '../../constants';
 import type { TronKeyringAccount } from '../../entities/keyring-account';
 import swapTransactionInfoMock from './mocks/tron-http/gettransactioninfobyid/swap-transaction.json';
+import swapWithCallValueInfoMock from './mocks/tron-http/gettransactioninfobyid/swap-with-call-value.json';
 import failedTransactionMock from './mocks/trongrid/account-transactions/failed-transaction.json';
 import nativeTransferMock from './mocks/trongrid/account-transactions/native-transfer.json';
+import swapWithCallValueMock from './mocks/trongrid/account-transactions/swap-transaction-with-call-value.json';
 import swapAccountTransactionMock from './mocks/trongrid/account-transactions/swap-transaction.json';
 import trc10TransferMock from './mocks/trongrid/account-transactions/trc10-transfer.json';
 import trc20TransferMock from './mocks/trongrid/account-transactions/trc20-transfer.json';
@@ -1117,6 +1119,102 @@ describe('TransactionMapper', () => {
 
       expect(result).not.toBeNull();
       expect(result?.type).toStrictEqual(TransactionType.Receive);
+    });
+  });
+
+  describe('TRX contract call with missing TRC20 data', () => {
+    // Build a TriggerSmartContract tx that has call_value > 0 so the enrichment
+    // path has run, but TRC20 transfers are still empty (TronGrid indexing lag).
+    const callValueTx = {
+      ...(swapWithCallValueMock as unknown as TransactionInfo),
+    };
+
+    // The TronHTTP mock defines internal_transactions as a plain array; cast once
+    // outside the individual tests to avoid per-test conditional expressions.
+    const internalTransactionsFromHttp = (
+      swapWithCallValueInfoMock as {
+        internal_transactions: TransactionInfo['internal_transactions'];
+      }
+    ).internal_transactions;
+
+    it('returns Unknown when internal TRX movements suggest a swap but TRC20 data is absent', () => {
+      // Simulate the enrichment step having populated internal_transactions
+      // (TronHTTP returned them) but TronGrid's TRC20 index hasn't caught up yet.
+      const enrichedTx: TransactionInfo = {
+        ...callValueTx,
+        internal_transactions: internalTransactionsFromHttp,
+      };
+
+      const result = TransactionMapper.mapTransaction({
+        scope: Network.Mainnet,
+        account: mockAccount,
+        trongridTransaction: enrichedTx,
+        trc20Transfers: [],
+      });
+
+      expect(result).not.toBeNull();
+      // Must be Unknown, not Send — the transaction should be re-evaluated once
+      // TronGrid's TRC20 index has caught up.
+      expect(result?.type).toStrictEqual(TransactionType.Unknown);
+    });
+
+    it('returns Send for a genuine TRX deposit with call_value > 0 and no internal TRX movements', () => {
+      // No internal_transactions means this is a simple deposit/registration,
+      // not a DEX swap routing TRX through internal calls.
+      const depositTx: TransactionInfo = {
+        ...callValueTx,
+        internal_transactions: [],
+      };
+
+      const result = TransactionMapper.mapTransaction({
+        scope: Network.Mainnet,
+        account: mockAccount,
+        trongridTransaction: depositTx,
+        trc20Transfers: [],
+      });
+
+      expect(result).not.toBeNull();
+      expect(result?.type).toStrictEqual(TransactionType.Send);
+      expect(result?.from[0]?.asset).toHaveProperty('unit', 'TRX');
+      // 500000000 sun = 0.5 TRX
+      expect(result?.from[0]?.asset).toHaveProperty('amount', '0.5');
+    });
+
+    it('correctly maps the swap once TRC20 data becomes available on re-evaluation', () => {
+      // Simulate the next sync: TronGrid now returns the USDT transfer.
+      const enrichedTx: TransactionInfo = {
+        ...callValueTx,
+        internal_transactions: internalTransactionsFromHttp,
+      };
+
+      const trc20Transfers: ContractTransactionInfo[] = [
+        {
+          transaction_id: callValueTx.txID,
+          token_info: {
+            symbol: 'USDT',
+            address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+            decimals: 6,
+            name: 'Tether USD',
+          },
+          block_timestamp: callValueTx.block_timestamp,
+          from: 'TDexContractAddress1234567890abcdef',
+          to: mockAccount.address,
+          type: 'Transfer',
+          value: '2916449',
+        },
+      ];
+
+      const result = TransactionMapper.mapTransaction({
+        scope: Network.Mainnet,
+        account: mockAccount,
+        trongridTransaction: enrichedTx,
+        trc20Transfers,
+      });
+
+      expect(result).not.toBeNull();
+      expect(result?.type).toStrictEqual(TransactionType.Swap);
+      expect(result?.from[0]?.asset).toHaveProperty('unit', 'TRX');
+      expect(result?.to[0]?.asset).toHaveProperty('unit', 'USDT');
     });
   });
 
