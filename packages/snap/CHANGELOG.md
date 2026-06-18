@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Filter spam TRC10/TRC20 token by excluding received token transactions whose token has no price data ([#332](https://github.com/MetaMask/snap-tron-wallet/pull/332))
 
+### Changed
+
+- Track error in signAndSendTransaction method of SendService ([#323](https://github.com/MetaMask/snap-tron-wallet/pull/323))
+- Track errors in FeeCalculationService ([#318](https://github.com/MetaMask/snap-tron-wallet/pull/318))
+
 ## [1.27.0]
 
 ### Changed
