@@ -5,10 +5,17 @@ import { groupBy } from 'lodash';
 
 import { TransactionMapper } from './TransactionsMapper';
 import type { TransactionsRepository } from './TransactionsRepository';
+import {
+  buildContractTransactionInfos,
+  getReconstructedTransferAssetTypes,
+  parseTransferLogs,
+  type ParsedTransferLog,
+} from './trc20LogParser';
 import { isSpam } from './utils/isSpam';
 import type { PriceApiClient } from '../../clients/price-api/PriceApiClient';
 import type { SpotPrices } from '../../clients/price-api/types';
 import type { SnapClient } from '../../clients/snap/SnapClient';
+import type { TokenApiClient } from '../../clients/token-api/TokenApiClient';
 import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
 import type { TRC10TokenMetadata } from '../../clients/tron-http/types';
 import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
@@ -22,6 +29,23 @@ import type { TronKeyringAccount } from '../../entities/keyring-account';
 import type { ILogger } from '../../utils/logger';
 import { createPrefixedLogger } from '../../utils/logger';
 
+/**
+ * Builds a stable identity key for a TRC20 transfer, used to de-duplicate
+ * transfers reconstructed from event logs against those returned by TronGrid.
+ *
+ * @param transfer - The TRC20 transfer.
+ * @returns A key combining the transaction, parties, token and value.
+ */
+function transferKey(transfer: ContractTransactionInfo): string {
+  return [
+    transfer.transaction_id,
+    transfer.from,
+    transfer.to,
+    transfer.value,
+    transfer.token_info.address,
+  ].join('|');
+}
+
 export class TransactionsService {
   readonly #logger: ILogger;
 
@@ -33,6 +57,8 @@ export class TransactionsService {
 
   readonly #priceApiClient: PriceApiClient;
 
+  readonly #tokenApiClient: TokenApiClient;
+
   readonly #snapClient: SnapClient;
 
   constructor({
@@ -41,6 +67,7 @@ export class TransactionsService {
     trongridApiClient,
     tronHttpClient,
     priceApiClient,
+    tokenApiClient,
     snapClient,
   }: {
     logger: ILogger;
@@ -48,6 +75,7 @@ export class TransactionsService {
     trongridApiClient: TrongridApiClient;
     tronHttpClient: TronHttpClient;
     priceApiClient: PriceApiClient;
+    tokenApiClient: TokenApiClient;
     snapClient: SnapClient;
   }) {
     this.#logger = createPrefixedLogger(logger, '[🧾 TransactionsService]');
@@ -55,22 +83,32 @@ export class TransactionsService {
     this.#trongridApiClient = trongridApiClient;
     this.#tronHttpClient = tronHttpClient;
     this.#priceApiClient = priceApiClient;
+    this.#tokenApiClient = tokenApiClient;
     this.#snapClient = snapClient;
   }
 
   /**
-   * Enriches potential swap transactions with full internal_transactions data.
-   * TronGrid's /transactions endpoint often returns empty internal_transactions,
-   * but we need this data for accurate TRX↔TRC20 swap detection.
+   * Enriches potential swap transactions with full details fetched from the
+   * full node. TronGrid's /transactions endpoint often returns empty
+   * internal_transactions, and its address-level TRC20 endpoint can lag behind
+   * for freshly-confirmed transactions. For each enriched transaction this
+   * merges the full internal_transactions and reconstructs the account's TRC20
+   * transfers from the event logs, so a TRX-to-TRC20 swap is not misclassified
+   * as a plain TRX send while TronGrid's TRC20 index catches up.
    *
    * @param scope - The network scope.
    * @param rawTransactions - Array of transactions to potentially enrich.
-   * @returns Array of enriched transactions.
+   * @param accountAddress - The account address, used to keep only its transfers.
+   * @returns Enriched transactions and the TRC20 transfers reconstructed from logs.
    */
   async #enrichPotentialSwaps(
     scope: Network,
     rawTransactions: TransactionInfo[],
-  ): Promise<TransactionInfo[]> {
+    accountAddress: string,
+  ): Promise<{
+    enrichedRawTransactions: TransactionInfo[];
+    reconstructedTransfers: ParsedTransferLog[];
+  }> {
     const enrichmentPromises = rawTransactions.map(async (tx) => {
       // Only enrich TriggerSmartContract transactions that might be swaps
       // and are missing internal_transactions from TronGrid's /transactions endpoint.
@@ -99,11 +137,27 @@ export class TransactionsService {
           );
 
           if (fullTxInfo) {
-            // Merge internal_transactions from fullTxInfo into the existing tx
+            // Reconstruct the account's TRC20 transfers from the event logs.
+            const transfers = parseTransferLogs(
+              fullTxInfo.log,
+              tx.txID,
+              fullTxInfo.blockTimeStamp ?? tx.block_timestamp,
+            ).filter(
+              (transfer) =>
+                transfer.from === accountAddress ||
+                transfer.to === accountAddress,
+            );
+
             return {
-              ...tx,
-              // eslint-disable-next-line @typescript-eslint/naming-convention
-              internal_transactions: fullTxInfo.internal_transactions ?? [],
+              // Merge internal_transactions from fullTxInfo into the existing tx.
+              // The full node shape differs from TransactionInfo's; the mapper
+              // reads these fields defensively, matching the prior cast.
+              tx: {
+                ...tx,
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                internal_transactions: fullTxInfo.internal_transactions ?? [],
+              } as TransactionInfo,
+              transfers,
             };
           }
         } catch (error) {
@@ -113,14 +167,23 @@ export class TransactionsService {
           );
         }
       }
-      return tx; // Return original transaction if not enriched or on error
+      // Return the original transaction if not enriched or on error.
+      return { tx, transfers: [] as ParsedTransferLog[] };
     });
 
-    const enrichedTransactions = await Promise.allSettled(enrichmentPromises);
+    const settled = await Promise.allSettled(enrichmentPromises);
 
-    return enrichedTransactions
-      .map((result) => (result.status === 'fulfilled' ? result.value : null))
-      .filter(Boolean) as TransactionInfo[];
+    const enrichedRawTransactions: TransactionInfo[] = [];
+    const reconstructedTransfers: ParsedTransferLog[] = [];
+
+    for (const result of settled) {
+      if (result.status === 'fulfilled') {
+        enrichedRawTransactions.push(result.value.tx);
+        reconstructedTransfers.push(...result.value.transfers);
+      }
+    }
+
+    return { enrichedRawTransactions, reconstructedTransfers };
   }
 
   /**
@@ -271,8 +334,15 @@ export class TransactionsService {
      * Enrich potential swaps with internal_transactions data
      * and fetch TRC10 token metadata for transactions to process.
      */
-    const { enrichedRawTransactions, trc10TokenMetadata } =
-      await this.#fetchEnrichmentData(scope, transactionsToProcess);
+    const {
+      enrichedRawTransactions,
+      reconstructedTransfers,
+      trc10TokenMetadata,
+    } = await this.#fetchEnrichmentData(
+      scope,
+      transactionsToProcess,
+      account.address,
+    );
 
     this.#logger.info(
       `Enriched ${enrichedRawTransactions.length} transactions, fetched metadata for ${trc10TokenMetadata.size} TRC10 tokens.`,
@@ -281,18 +351,26 @@ export class TransactionsService {
     /**
      * Step 6: Map transactions to keyring format
      *
-     * Filter TRC20 assistance data to only include transactions matching processed txs.
+     * Filter TRC20 assistance data to only include transactions matching processed txs,
+     * then merge in any TRC20 transfers reconstructed from event logs (covering
+     * transfers TronGrid's TRC20 index has not yet caught up on).
      */
     const processedTxIds = new Set(transactionsToProcess.map((tx) => tx.txID));
     const relevantTrc20Transactions = trc20Transactions.filter((tx) =>
       processedTxIds.has(tx.transaction_id),
     );
 
+    const mergedTrc20Transactions = await this.#mergeReconstructedTransfers(
+      scope,
+      relevantTrc20Transactions,
+      reconstructedTransfers,
+    );
+
     const mappedTransactions = TransactionMapper.mapTransactions({
       scope,
       account,
       rawTransactions: enrichedRawTransactions,
-      trc20Transactions: relevantTrc20Transactions,
+      trc20Transactions: mergedTrc20Transactions,
       trc10TokenMetadata,
     });
 
@@ -387,21 +465,83 @@ export class TransactionsService {
    *
    * @param scope - The network scope.
    * @param rawTransactions - The raw transactions to enrich.
-   * @returns Enriched transactions and TRC10 token metadata.
+   * @param accountAddress - The account address, used to keep only its transfers.
+   * @returns Enriched transactions, reconstructed TRC20 transfers and TRC10 token metadata.
    */
   async #fetchEnrichmentData(
     scope: Network,
     rawTransactions: TransactionInfo[],
+    accountAddress: string,
   ): Promise<{
     enrichedRawTransactions: TransactionInfo[];
+    reconstructedTransfers: ParsedTransferLog[];
     trc10TokenMetadata: Map<string, TRC10TokenMetadata>;
   }> {
-    const [enrichedRawTransactions, trc10TokenMetadata] = await Promise.all([
-      this.#enrichPotentialSwaps(scope, rawTransactions),
+    const [enrichmentResult, trc10TokenMetadata] = await Promise.all([
+      this.#enrichPotentialSwaps(scope, rawTransactions, accountAddress),
       this.#fetchTrc10TokenMetadata(scope, rawTransactions),
     ]);
 
-    return { enrichedRawTransactions, trc10TokenMetadata };
+    return {
+      enrichedRawTransactions: enrichmentResult.enrichedRawTransactions,
+      reconstructedTransfers: enrichmentResult.reconstructedTransfers,
+      trc10TokenMetadata,
+    };
+  }
+
+  /**
+   * Merges TRC20 transfers reconstructed from event logs into the TRC20
+   * transfers returned by TronGrid, resolving each token's metadata and
+   * skipping any transfer TronGrid already provided. Used so a swap whose
+   * TRC20 receive has not yet been indexed by TronGrid is still mapped as a
+   * swap. On metadata-resolution failure it returns the existing transfers
+   * unchanged (fail-open).
+   *
+   * @param scope - The network scope.
+   * @param existing - TRC20 transfers already provided by TronGrid.
+   * @param reconstructed - TRC20 transfers reconstructed from event logs.
+   * @returns The merged, de-duplicated TRC20 transfers.
+   */
+  async #mergeReconstructedTransfers(
+    scope: Network,
+    existing: ContractTransactionInfo[],
+    reconstructed: ParsedTransferLog[],
+  ): Promise<ContractTransactionInfo[]> {
+    if (reconstructed.length === 0) {
+      return existing;
+    }
+
+    let metadataByAssetType;
+    try {
+      metadataByAssetType = await this.#tokenApiClient.getTokensMetadata(
+        getReconstructedTransferAssetTypes(reconstructed, scope),
+      );
+    } catch (error) {
+      this.#logger.warn(
+        { error },
+        'Failed to resolve metadata for reconstructed TRC20 transfers, skipping reconstruction',
+      );
+      return existing;
+    }
+
+    const rebuilt = buildContractTransactionInfos(
+      reconstructed,
+      scope,
+      metadataByAssetType,
+    );
+
+    const seen = new Set(existing.map(transferKey));
+    const additions: ContractTransactionInfo[] = [];
+
+    for (const transfer of rebuilt) {
+      const key = transferKey(transfer);
+      if (!seen.has(key)) {
+        seen.add(key);
+        additions.push(transfer);
+      }
+    }
+
+    return [...existing, ...additions];
   }
 
   /**

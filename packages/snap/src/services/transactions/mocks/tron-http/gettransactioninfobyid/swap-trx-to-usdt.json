@@ -1,0 +1,25 @@
+{
+  "id": "9911223344556677889900aabbccddeeff00112233445566778899aabbccdd00",
+  "fee": 72646600,
+  "blockNumber": 77641497,
+  "blockTimeStamp": 1763586027000,
+  "contract_address": "41f742f4589459f0923fa579600815763d1646bec3",
+  "receipt": {
+    "energy_fee": 70437600,
+    "energy_usage_total": 704376,
+    "net_fee": 2209000,
+    "result": "SUCCESS"
+  },
+  "log": [
+    {
+      "address": "a614f803b6fd780986a42c78ec9c7f77e6ded13c",
+      "topics": [
+        "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+        "000000000000000000000000a0a9d57ee9df8308bc29bcf881a569305260a0a5",
+        "000000000000000000000000458437be39f3a8bfdbfee7bef93e2c5f632ceff4"
+      ],
+      "data": "00000000000000000000000000000000000000000000000000000000002c8061"
+    }
+  ],
+  "internal_transactions": []
+}

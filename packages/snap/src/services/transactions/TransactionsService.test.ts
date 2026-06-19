@@ -7,6 +7,7 @@ import type { TransactionsRepository } from './TransactionsRepository';
 import { TransactionsService } from './TransactionsService';
 import type { PriceApiClient } from '../../clients/price-api/PriceApiClient';
 import type { SnapClient } from '../../clients/snap/SnapClient';
+import type { TokenApiClient } from '../../clients/token-api/TokenApiClient';
 import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
 import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
 import type {
@@ -16,7 +17,9 @@ import type {
 import { KnownCaip19Id, Network, Networks } from '../../constants';
 import type { TronKeyringAccount } from '../../entities/keyring-account';
 import type { ILogger } from '../../utils/logger';
+import swapFullNodeInfoMock from './mocks/tron-http/gettransactioninfobyid/swap-trx-to-usdt.json';
 import nativeTransferMock from './mocks/trongrid/account-transactions/native-transfer.json';
+import swapTrxToUsdtMock from './mocks/trongrid/account-transactions/swap-trx-to-usdt.json';
 import trc10TransferMock from './mocks/trongrid/account-transactions/trc10-transfer.json';
 import trc20TransferMock from './mocks/trongrid/account-transactions/trc20-transfer.json';
 import contractInfoMock from './mocks/trongrid/account-trc20-transactions/contract-info.json';
@@ -30,6 +33,7 @@ describe('TransactionsService', () => {
   let mockTrongridApiClient: jest.Mocked<TrongridApiClient>;
   let mockTronHttpClient: jest.Mocked<TronHttpClient>;
   let mockPriceApiClient: jest.Mocked<PriceApiClient>;
+  let mockTokenApiClient: jest.Mocked<TokenApiClient>;
   let mockSnapClient: jest.Mocked<SnapClient>;
 
   const mockAccount: TronKeyringAccount = {
@@ -100,6 +104,11 @@ describe('TransactionsService', () => {
       getMultipleSpotPrices: jest.fn().mockResolvedValue({}),
     } as unknown as jest.Mocked<PriceApiClient>;
 
+    // Create mock TokenApiClient — default: no metadata resolved
+    mockTokenApiClient = {
+      getTokensMetadata: jest.fn().mockResolvedValue({}),
+    } as unknown as jest.Mocked<TokenApiClient>;
+
     mockSnapClient = {
       trackError: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<SnapClient>;
@@ -111,6 +120,7 @@ describe('TransactionsService', () => {
       trongridApiClient: mockTrongridApiClient,
       tronHttpClient: mockTronHttpClient,
       priceApiClient: mockPriceApiClient,
+      tokenApiClient: mockTokenApiClient,
       snapClient: mockSnapClient,
     });
   });
@@ -728,6 +738,138 @@ describe('TransactionsService', () => {
           mapSpy.mockRestore();
         }
       });
+    });
+  });
+
+  describe('reconstructs swap transfers from event logs', () => {
+    const USDT_BASE58 = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
+    const SENDER_BASE58 = 'TQcia2H2TU3WrFk9sKtdK9qCfkW8XirfPQ';
+    const SWAP_TX_ID =
+      '9911223344556677889900aabbccddeeff00112233445566778899aabbccdd00';
+
+    const usdtMetadata = {
+      name: 'Tether USD',
+      symbol: 'USDT',
+      fungible: true,
+      iconUrl: '',
+      units: [{ name: 'Tether USD', symbol: 'USDT', decimals: 6 }],
+    };
+
+    /* eslint-disable @typescript-eslint/naming-convention */
+    const reconstructedUsdtTransfer = {
+      transaction_id: SWAP_TX_ID,
+      token_info: {
+        symbol: 'USDT',
+        address: USDT_BASE58,
+        decimals: 6,
+        name: 'Tether USD',
+      },
+      block_timestamp: 1763586027000,
+      from: SENDER_BASE58,
+      to: mockAccount.address,
+      type: 'Transfer',
+      value: '2916449',
+    };
+    /* eslint-enable @typescript-eslint/naming-convention */
+
+    /**
+     * Sets up a swap whose TRX-to-USDT receive is not yet in TronGrid's TRC20
+     * list, but is present in the full-node event logs.
+     */
+    const arrangeStaleTrc20 = (): void => {
+      mockTrongridApiClient.getTransactionInfoByAddress.mockResolvedValue([
+        swapTrxToUsdtMock,
+      ] as unknown as TransactionInfo[]);
+      mockTronHttpClient.getTransactionInfoById.mockResolvedValue(
+        swapFullNodeInfoMock as never,
+      );
+    };
+
+    it('reconstructs the missing TRC20 receive and feeds it to the mapper', async () => {
+      arrangeStaleTrc20();
+      mockTrongridApiClient.getContractTransactionInfoByAddress.mockResolvedValue(
+        [],
+      );
+      mockTokenApiClient.getTokensMetadata.mockResolvedValue({
+        [KnownCaip19Id.UsdtMainnet]: usdtMetadata,
+      } as never);
+
+      const mapSpy = jest
+        .spyOn(TransactionMapper, 'mapTransactions')
+        .mockReturnValue([]);
+
+      try {
+        await transactionsService.fetchNewTransactionsForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
+
+        expect(mockTokenApiClient.getTokensMetadata).toHaveBeenCalledWith([
+          KnownCaip19Id.UsdtMainnet,
+        ]);
+
+        const { trc20Transactions } = mapSpy.mock.calls[0]![0];
+        expect(trc20Transactions).toStrictEqual([reconstructedUsdtTransfer]);
+      } finally {
+        mapSpy.mockRestore();
+      }
+    });
+
+    it('does not duplicate a transfer TronGrid already returned', async () => {
+      arrangeStaleTrc20();
+      mockTrongridApiClient.getContractTransactionInfoByAddress.mockResolvedValue(
+        [reconstructedUsdtTransfer] as unknown as ContractTransactionInfo[],
+      );
+      mockTokenApiClient.getTokensMetadata.mockResolvedValue({
+        [KnownCaip19Id.UsdtMainnet]: usdtMetadata,
+      } as never);
+
+      const mapSpy = jest
+        .spyOn(TransactionMapper, 'mapTransactions')
+        .mockReturnValue([]);
+
+      try {
+        await transactionsService.fetchNewTransactionsForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
+
+        const { trc20Transactions } = mapSpy.mock.calls[0]![0];
+        expect(trc20Transactions).toHaveLength(1);
+      } finally {
+        mapSpy.mockRestore();
+      }
+    });
+
+    it('keeps existing transfers when token metadata resolution fails', async () => {
+      arrangeStaleTrc20();
+      mockTrongridApiClient.getContractTransactionInfoByAddress.mockResolvedValue(
+        [],
+      );
+      mockTokenApiClient.getTokensMetadata.mockRejectedValue(
+        new Error('Token API unavailable'),
+      );
+
+      const mapSpy = jest
+        .spyOn(TransactionMapper, 'mapTransactions')
+        .mockReturnValue([]);
+
+      try {
+        await transactionsService.fetchNewTransactionsForAccount(
+          Network.Mainnet,
+          mockAccount,
+        );
+
+        const { trc20Transactions } = mapSpy.mock.calls[0]![0];
+        expect(trc20Transactions).toStrictEqual([]);
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+          '[🧾 TransactionsService]',
+          expect.objectContaining({ error: expect.any(Error) }),
+          'Failed to resolve metadata for reconstructed TRC20 transfers, skipping reconstruction',
+        );
+      } finally {
+        mapSpy.mockRestore();
+      }
     });
   });
 
