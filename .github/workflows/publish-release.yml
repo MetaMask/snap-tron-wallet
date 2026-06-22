@@ -4,7 +4,7 @@ on:
   workflow_call:
     secrets:
       NPM_TOKEN:
-        required: true
+        required: false
       SLACK_WEBHOOK_URL:
         required: true
       RPC_URL_LIST_MAINNET:
@@ -43,6 +43,10 @@ on:
         required: true
       TRON_HTTP_BASE_URL_SHASTA:
         required: true
+
+permissions:
+  contents: read
+
 jobs:
   publish-release:
     permissions:
@@ -50,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout and setup environment
-        uses: MetaMask/action-checkout-and-setup@v1
+        uses: MetaMask/action-checkout-and-setup@v3
         with:
           is-high-risk-environment: true
           ref: ${{ github.sha }}
@@ -97,16 +101,17 @@ jobs:
     needs: publish-release
     steps:
       - name: Checkout and setup environment
-        uses: MetaMask/action-checkout-and-setup@v1
+        uses: MetaMask/action-checkout-and-setup@v3
         with:
           is-high-risk-environment: true
           ref: ${{ github.sha }}
+          skip-install: true
       - name: Restore build artifacts
         uses: actions/download-artifact@v4
         with:
           name: publish-release-artifacts-${{ github.sha }}
       - name: Dry Run Publish
-        uses: MetaMask/action-npm-publish@v5
+        uses: MetaMask/action-npm-publish@v6
         with:
           slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
           subteam: S042S7RE4AE # @metamask-npm-publishers
@@ -117,18 +122,22 @@ jobs:
     environment: npm-publish
     runs-on: ubuntu-latest
     needs: publish-npm-dry-run
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout and setup environment
-        uses: MetaMask/action-checkout-and-setup@v1
+        uses: MetaMask/action-checkout-and-setup@v3
         with:
           is-high-risk-environment: true
           ref: ${{ github.sha }}
+          skip-install: true
       - name: Restore build artifacts
         uses: actions/download-artifact@v4
         with:
           name: publish-release-artifacts-${{ github.sha }}
       - name: Publish
-        uses: MetaMask/action-npm-publish@v5
+        uses: MetaMask/action-npm-publish@v6
         with:
           npm-token: ${{ secrets.NPM_TOKEN }}
         env:
