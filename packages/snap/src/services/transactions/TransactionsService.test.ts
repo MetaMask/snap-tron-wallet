@@ -815,6 +815,85 @@ describe('TransactionsService', () => {
       }
     });
 
+    it('maps the reconstructed transfer as a TRX-to-USDT swap end-to-end', async () => {
+      // No mapper stub here: the real mapper runs so we assert the final
+      // classification and amount scaling, not just the mapper's input.
+      arrangeStaleTrc20();
+      mockTrongridApiClient.getContractTransactionInfoByAddress.mockResolvedValue(
+        [],
+      );
+      mockTokenApiClient.getTokensMetadata.mockResolvedValue({
+        [KnownCaip19Id.UsdtMainnet]: usdtMetadata,
+      } as never);
+
+      const result = await transactionsService.fetchNewTransactionsForAccount(
+        Network.Mainnet,
+        mockAccount,
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        id: SWAP_TX_ID,
+        type: TransactionType.Swap,
+        status: TransactionStatus.Confirmed,
+        account: mockAccount.id,
+        chain: Network.Mainnet,
+        timestamp: 1763586027,
+        from: [
+          {
+            address: mockAccount.address,
+            asset: {
+              type: KnownCaip19Id.TrxMainnet,
+              unit: 'TRX',
+              amount: '0.0875',
+              fungible: true,
+            },
+          },
+        ],
+        to: [
+          {
+            address: mockAccount.address,
+            asset: {
+              type: KnownCaip19Id.UsdtMainnet,
+              unit: 'USDT',
+              // 2916449 scaled by 6 decimals — would be wrong with the
+              // UNKNOWN/9-decimals fallback.
+              amount: '2.916449',
+              fungible: true,
+            },
+          },
+        ],
+      });
+    });
+
+    it('misclassifies the swap as a TRX send without log reconstruction', async () => {
+      // Regression guard: the same transaction, but the full node returns no
+      // Transfer logs, so nothing is reconstructed and TronGrid's TRC20 list is
+      // still empty. This is the pre-fix behaviour the feature corrects.
+      mockTrongridApiClient.getTransactionInfoByAddress.mockResolvedValue([
+        swapTrxToUsdtMock,
+      ] as unknown as TransactionInfo[]);
+      mockTronHttpClient.getTransactionInfoById.mockResolvedValue({
+        ...swapFullNodeInfoMock,
+        log: [],
+      } as never);
+      mockTrongridApiClient.getContractTransactionInfoByAddress.mockResolvedValue(
+        [],
+      );
+
+      const result = await transactionsService.fetchNewTransactionsForAccount(
+        Network.Mainnet,
+        mockAccount,
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.type).toBe(TransactionType.Send);
+      expect(result[0]?.to[0]?.asset).toMatchObject({
+        type: KnownCaip19Id.TrxMainnet,
+      });
+      expect(mockTokenApiClient.getTokensMetadata).not.toHaveBeenCalled();
+    });
+
     it('does not duplicate a transfer TronGrid already returned', async () => {
       arrangeStaleTrc20();
       mockTrongridApiClient.getContractTransactionInfoByAddress.mockResolvedValue(
