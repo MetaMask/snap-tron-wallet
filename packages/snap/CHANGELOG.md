@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Map TRX/TRC20 swap to swap transaction instead of send ([#339](https://github.com/MetaMask/snap-tron-wallet/pull/339))
+
 ## [1.28.0]
 
 ### Added
