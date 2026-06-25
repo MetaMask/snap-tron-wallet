@@ -413,6 +413,32 @@ describe('ConfirmTransactionRequest render', () => {
     });
   });
 
+  it('adds recognized transaction prompts to the confirmation context', async () => {
+    await withRender(async ({ callRender, mockSnapClient }) => {
+      const approveRawData = buildTransactionRawData({
+        from: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+        to: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+        amount: 0,
+        data: '095ea7b30000000000000000000000002efffc7686e54ab669a1cdb1e2cc17cf4b4eca960000000000000000000000000000000000000000000000000000000000002710',
+        contractType: Types.ContractType.TriggerSmartContract,
+      });
+
+      await callRender({ transactionRawData: approveRawData });
+
+      const contextArg = mockSnapClient.createInterface.mock.calls[0]?.[1];
+      expect(contextArg).toStrictEqual(
+        expect.objectContaining({
+          transactionPrompt: expect.objectContaining({
+            titleKey: 'confirmation.transactionAction.authorizeToken',
+            actionKey: 'confirmation.transactionAction.authorizeToken',
+            targetLabelKey: 'confirmation.transactionTarget.spender',
+            targetAddress: 'TEFik7dGm6r5Y1Af9mGwnELuJLa1jXDDUB',
+          }),
+        }),
+      );
+    });
+  });
+
   it('schedules price refresh when pricing data is enabled', async () => {
     await withRender(async ({ callRender, mockSnapClient }) => {
       await callRender();

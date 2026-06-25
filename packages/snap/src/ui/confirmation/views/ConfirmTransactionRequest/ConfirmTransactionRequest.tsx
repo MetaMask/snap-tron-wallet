@@ -39,6 +39,7 @@ export const ConfirmTransactionRequest = ({
     tokenPricesFetchStatus,
     scan,
     scanFetchStatus,
+    transactionPrompt,
   },
 }: {
   context: ConfirmTransactionRequestContext;
@@ -101,7 +102,9 @@ export const ConfirmTransactionRequest = ({
         <Box alignment="center" center>
           <Box>{null}</Box>
           <Heading size="lg">
-            {translate(`confirmation.transaction.title`)}
+            {translate(
+              transactionPrompt?.titleKey ?? 'confirmation.transaction.title',
+            )}
           </Heading>
           <Box>{null}</Box>
         </Box>
@@ -111,6 +114,37 @@ export const ConfirmTransactionRequest = ({
 
         {/* Additional Details */}
         <Section>
+          {/* DeFi operations */}
+          {transactionPrompt ? (
+            <Box alignment="space-between" direction="horizontal">
+              <SnapText fontWeight="medium" color="alternative">
+                {translate('confirmation.transactionAction')}
+              </SnapText>
+              <SnapText>{translate(transactionPrompt.actionKey)}</SnapText>
+            </Box>
+          ) : null}
+          {transactionPrompt?.targetAddress &&
+          transactionPrompt.targetLabelKey ? (
+            <Box alignment="space-between" direction="horizontal">
+              <SnapText fontWeight="medium" color="alternative">
+                {translate(transactionPrompt.targetLabelKey)}
+              </SnapText>
+              <Link
+                href={getExplorerUrl(
+                  scope,
+                  'address',
+                  transactionPrompt.targetAddress,
+                )}
+              >
+                <Address
+                  address={`${scope}:${transactionPrompt.targetAddress}`}
+                  truncate
+                  displayName
+                  avatar
+                />
+              </Link>
+            </Box>
+          ) : null}
           {/* Request from */}
           <Box alignment="space-between" direction="horizontal">
             <Box alignment="space-between" direction="horizontal" center>

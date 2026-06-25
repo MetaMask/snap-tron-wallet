@@ -1,3 +1,24 @@
+import { isHexString, remove0x } from '@metamask/utils';
+
+/**
+ * Normalizes a hex string by validating it, lowercasing it, and removing
+ * the optional 0x prefix.
+ *
+ * @param value - The value to normalize.
+ * @returns The normalized hex string without `0x`, or null when invalid.
+ */
+export function normalizeHex(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  if (!isHexString(value)) {
+    return null;
+  }
+
+  return remove0x(value).toLowerCase();
+}
+
 /**
  * Converts a hex-encoded string to UTF-8.
  *

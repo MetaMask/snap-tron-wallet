@@ -8,6 +8,7 @@ import {
   Heading,
   Icon,
   Image,
+  Link,
   Section,
   Text as SnapText,
   Tooltip,
@@ -20,6 +21,7 @@ import { SimulationStatus } from '../../../../services/transaction-scan/types';
 import { TRX_IMAGE_SVG } from '../../../../static/tron-logo';
 import { FetchStatus } from '../../../../types/snap';
 import { formatOrigin } from '../../../../utils/formatOrigin';
+import { getExplorerUrl } from '../../../../utils/getExplorerUrl';
 import { i18n } from '../../../../utils/i18n';
 import { EstimatedChanges } from '../../components/EstimatedChanges/EstimatedChanges';
 import { Fees } from '../../components/Fees';
@@ -42,6 +44,7 @@ export const ConfirmSignTransaction = ({
     fees,
     tokenPrices,
     tokenPricesFetchStatus,
+    transactionPrompt,
   } = context;
 
   /**
@@ -102,7 +105,10 @@ export const ConfirmSignTransaction = ({
         <Box alignment="center" center>
           <Box>{null}</Box>
           <Heading size="lg">
-            {translate('confirmation.signTransaction.title')}
+            {translate(
+              transactionPrompt?.titleKey ??
+                'confirmation.signTransaction.title',
+            )}
           </Heading>
           <Box>{null}</Box>
         </Box>
@@ -112,6 +118,40 @@ export const ConfirmSignTransaction = ({
 
         {/* Transaction Details */}
         <Section>
+          {transactionPrompt ? (
+            <Box alignment="space-between" direction="horizontal">
+              <SnapText fontWeight="medium" color="alternative">
+                {translate('confirmation.transactionAction')}
+              </SnapText>
+              <SnapText>{translate(transactionPrompt.actionKey)}</SnapText>
+            </Box>
+          ) : null}
+          {transactionPrompt?.targetAddress &&
+          transactionPrompt.targetLabelKey ? (
+            <Box alignment="space-between" direction="horizontal">
+              <SnapText fontWeight="medium" color="alternative">
+                {translate(transactionPrompt.targetLabelKey)}
+              </SnapText>
+              <Link
+                href={getExplorerUrl(
+                  scope,
+                  'address',
+                  transactionPrompt.targetAddress,
+                )}
+              >
+                <Address
+                  address={
+                    `${scope}:${transactionPrompt.targetAddress}` as
+                      | `0x${string}`
+                      | `${string}:${string}:${string}`
+                  }
+                  truncate
+                  displayName
+                  avatar
+                />
+              </Link>
+            </Box>
+          ) : null}
           {/* Request from */}
           {origin ? (
             <Box alignment="space-between" direction="horizontal">

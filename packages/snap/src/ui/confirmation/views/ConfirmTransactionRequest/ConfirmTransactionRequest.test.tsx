@@ -202,6 +202,27 @@ describe('ConfirmTransactionRequest', () => {
     expect(result).toBeDefined();
   });
 
+  it('renders a recognized transaction prompt', () => {
+    const context: ConfirmTransactionRequestContext = {
+      ...baseContext,
+      transactionPrompt: {
+        titleKey: 'confirmation.transactionAction.authorizeToken',
+        actionKey: 'confirmation.transactionAction.authorizeToken',
+        targetLabelKey: 'confirmation.transactionTarget.spender',
+        targetAddress: 'TEFik7dGm6r5Y1Af9mGwnELuJLa1jXDDUB',
+      },
+    };
+
+    const result = ConfirmTransactionRequest({ context });
+    const serialized = JSON.stringify(result);
+
+    expect(serialized).toContain(
+      'confirmation.transactionAction.authorizeToken',
+    );
+    expect(serialized).toContain('confirmation.transactionTarget.spender');
+    expect(serialized).toContain('TEFik7dGm6r5Y1Af9mGwnELuJLa1jXDDUB');
+  });
+
   it('renders with Malicious validation', () => {
     const maliciousScanResult: TransactionScanResult = {
       ...mockScanResult,

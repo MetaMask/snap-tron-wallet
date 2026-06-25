@@ -6,6 +6,7 @@ import type { AssetEntity } from '../../../../entities/assets';
 import type { ComputeFeeResult } from '../../../../services/send/types';
 import type { TransactionScanResult } from '../../../../services/transaction-scan/types';
 import type { FetchStatus, Preferences } from '../../../../types/snap';
+import type { TransactionPrompt } from '../../utils/transactionPrompt';
 
 export const CONFIRM_TRANSACTION_INTERFACE_NAME = 'confirmTransaction';
 
@@ -25,4 +26,5 @@ export type ConfirmTransactionRequestContext = {
   scanFetchStatus: FetchStatus;
   transactionRawData: Json;
   accountType: string;
+  transactionPrompt?: TransactionPrompt | null;
 };

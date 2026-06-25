@@ -4,6 +4,24 @@
     "confirmation.transaction.title": {
       "message": "トランザクションリクエスト"
     },
+    "confirmation.transactionAction": {
+      "message": "Action"
+    },
+    "confirmation.transactionAction.authorizeToken": {
+      "message": "Authorize token spending"
+    },
+    "confirmation.transactionAction.enableCollateral": {
+      "message": "Enable collateral"
+    },
+    "confirmation.transactionAction.disableCollateral": {
+      "message": "Disable collateral"
+    },
+    "confirmation.transactionTarget.spender": {
+      "message": "Spender"
+    },
+    "confirmation.transactionTarget.collateralMarket": {
+      "message": "Collateral market"
+    },
     "confirmation.estimatedChanges.title": {
       "message": "予測される増減額"
     },

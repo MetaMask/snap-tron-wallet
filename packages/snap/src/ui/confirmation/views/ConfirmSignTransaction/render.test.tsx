@@ -305,6 +305,56 @@ describe('ConfirmSignTransaction render', () => {
     expect(mockTransactionScanService.scanTransaction).not.toHaveBeenCalled();
   });
 
+  it('adds recognized transaction prompts to the confirmation context', async () => {
+    const request: KeyringRequest = {
+      id: '00000000-0000-4000-8000-000000000008',
+      origin: 'https://justlend.org',
+      account: mockAccount.id,
+      scope: Network.Mainnet,
+      request: {
+        method: TronMultichainMethod.SignTransaction,
+        params: {
+          address: mockAccount.address,
+          transaction: {
+            rawDataHex: toBase64('transaction'),
+            type: 'TriggerSmartContract',
+          },
+        },
+      },
+    };
+
+    const mockRawData = {
+      contract: [
+        {
+          type: 'TriggerSmartContract',
+          parameter: {
+            value: {
+              data: 'ede4edd00000000000000000000000002efffc7686e54ab669a1cdb1e2cc17cf4b4eca96',
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              owner_address: '41458437be39f3a8bfdbfee7bef93e2c5f632ceff4',
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              contract_address: '41a614f803b6fd780986a42c78ec9c7f77e6ded13c',
+            },
+          },
+        },
+      ],
+    };
+
+    await render(request, mockAccount, mockRawData as any);
+
+    const contextArg = mockSnapClient.createInterface.mock.calls[0]?.[1];
+    expect(contextArg).toStrictEqual(
+      expect.objectContaining({
+        transactionPrompt: expect.objectContaining({
+          titleKey: 'confirmation.transactionAction.disableCollateral',
+          actionKey: 'confirmation.transactionAction.disableCollateral',
+          targetLabelKey: 'confirmation.transactionTarget.collateralMarket',
+          targetAddress: 'TEFik7dGm6r5Y1Af9mGwnELuJLa1jXDDUB',
+        }),
+      }),
+    );
+  });
+
   it('uses fallback locale when preferences fail to load', async () => {
     mockSnapClient.getPreferences.mockRejectedValue(
       new Error('Failed to load'),

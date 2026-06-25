@@ -1,6 +1,22 @@
-import { hexToString } from './hex';
+import { hexToString, normalizeHex } from './hex';
 
 describe('hex utilities', () => {
+  describe('normalizeHex', () => {
+    it('removes the 0x prefix and lowercases hex strings', () => {
+      expect(normalizeHex('0xABCDEF')).toBe('abcdef');
+    });
+
+    it('normalizes unprefixed hex strings', () => {
+      expect(normalizeHex('ABCDEF')).toBe('abcdef');
+    });
+
+    it('returns null for invalid values', () => {
+      expect(normalizeHex('0xinvalid')).toBeNull();
+      expect(normalizeHex('')).toBeNull();
+      expect(normalizeHex(null)).toBeNull();
+    });
+  });
+
   describe('hexToString', () => {
     it('decodes hex string to UTF-8', () => {
       expect(hexToString('5452433230416473434f4d')).toBe('TRC20AdsCOM');

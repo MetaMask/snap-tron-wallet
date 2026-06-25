@@ -4,6 +4,7 @@ import type { TronKeyringAccount } from '../../../../entities/keyring-account';
 import type { ComputeFeeResult } from '../../../../services/send/types';
 import type { TransactionScanResult } from '../../../../services/transaction-scan/types';
 import type { FetchStatus, Preferences } from '../../../../types/snap';
+import type { TransactionPrompt } from '../../utils/transactionPrompt';
 
 export const CONFIRM_SIGN_TRANSACTION_INTERFACE_NAME = 'confirmSignTransaction';
 
@@ -23,4 +24,5 @@ export type ConfirmSignTransactionContext = {
   tokenPricesFetchStatus: FetchStatus;
   fees: ComputeFeeResult;
   feesFetchStatus: FetchStatus;
+  transactionPrompt?: TransactionPrompt | null;
 };

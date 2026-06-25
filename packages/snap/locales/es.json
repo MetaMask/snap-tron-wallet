@@ -4,6 +4,24 @@
     "confirmation.transaction.title": {
       "message": "Solicitud de transacción"
     },
+    "confirmation.transactionAction": {
+      "message": "Acción"
+    },
+    "confirmation.transactionAction.authorizeToken": {
+      "message": "Autorizar gasto de tokens"
+    },
+    "confirmation.transactionAction.enableCollateral": {
+      "message": "Activar garantía"
+    },
+    "confirmation.transactionAction.disableCollateral": {
+      "message": "Desactivar garantía"
+    },
+    "confirmation.transactionTarget.spender": {
+      "message": "Autorizado"
+    },
+    "confirmation.transactionTarget.collateralMarket": {
+      "message": "Mercado de garantía"
+    },
     "confirmation.estimatedChanges.title": {
       "message": "Cambios estimados"
     },

@@ -20,6 +20,7 @@ import type {
 import { TRX_IMAGE_SVG } from '../../../../static/tron-logo';
 import { FetchStatus } from '../../../../types/snap';
 import { getIconUrlForKnownAsset } from '../../utils/getIconUrlForKnownAsset';
+import { getTransactionPrompt } from '../../utils/transactionPrompt';
 
 export const DEFAULT_CONFIRMATION_CONTEXT: ConfirmTransactionRequestContext = {
   scope: Network.Mainnet,
@@ -44,6 +45,7 @@ export const DEFAULT_CONFIRMATION_CONTEXT: ConfirmTransactionRequestContext = {
   scan: null,
   scanFetchStatus: FetchStatus.Initial,
   transactionRawData: null,
+  transactionPrompt: null,
   accountType: '',
   preferences: {
     locale: 'en',
@@ -100,6 +102,7 @@ export async function render(
     ...DEFAULT_CONFIRMATION_CONTEXT,
     ...incomingContext,
     transactionRawData: transactionRawData as unknown as Json,
+    transactionPrompt: getTransactionPrompt(transactionRawData),
     tokenPricesFetchStatus: FetchStatus.Loading, // Start as Loading (first fetch) not Fetching
     scanFetchStatus: FetchStatus.Loading, // Start as Loading (first fetch) not Fetching
   };

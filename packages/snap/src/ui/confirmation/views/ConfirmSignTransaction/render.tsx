@@ -16,6 +16,7 @@ import { TRX_IMAGE_SVG } from '../../../../static/tron-logo';
 import { FetchStatus } from '../../../../types/snap';
 import { SignTransactionRequestStruct } from '../../../../validation/structs';
 import { getIconUrlForKnownAsset } from '../../utils/getIconUrlForKnownAsset';
+import { getTransactionPrompt } from '../../utils/transactionPrompt';
 
 export const DEFAULT_CONTEXT: ConfirmSignTransactionContext = {
   scope: Network.Mainnet,
@@ -32,6 +33,7 @@ export const DEFAULT_CONTEXT: ConfirmSignTransactionContext = {
   tokenPricesFetchStatus: FetchStatus.Initial,
   fees: [],
   feesFetchStatus: FetchStatus.Initial,
+  transactionPrompt: null,
   preferences: {
     locale: 'en',
     currency: 'usd',
@@ -80,6 +82,7 @@ export async function render(
     scanFetchStatus: FetchStatus.Loading, // Start as Loading (first fetch) not Fetching
     tokenPricesFetchStatus: FetchStatus.Initial,
     feesFetchStatus: FetchStatus.Initial,
+    transactionPrompt: getTransactionPrompt(rawData),
   };
 
   const { assetsService, feeCalculatorService, priceApiClient } = snapContext;
