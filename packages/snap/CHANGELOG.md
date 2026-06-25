@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Added clear confirmation prompts for `TRC20` token approvals and JustLend collateral enable/disable transactions ([#341](https://github.com/MetaMask/snap-tron-wallet/pull/341))
+
 ## [1.28.0]
 
 ### Added
