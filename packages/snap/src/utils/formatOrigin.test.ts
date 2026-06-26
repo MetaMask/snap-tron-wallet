@@ -1,20 +1,17 @@
 import { formatOrigin } from './formatOrigin';
 
 describe('formatOrigin', () => {
-  it('formats "metamask" as "MetaMask"', () => {
+  it('maps "metamask" to "MetaMask" (case-insensitive)', () => {
     expect(formatOrigin('metamask')).toBe('MetaMask');
-  });
-
-  it('formats "METAMASK" as "MetaMask"', () => {
     expect(formatOrigin('METAMASK')).toBe('MetaMask');
-  });
-
-  it('formats "MetaMask" as "MetaMask"', () => {
     expect(formatOrigin('MetaMask')).toBe('MetaMask');
+    expect(formatOrigin('MeTaMaSk')).toBe('MetaMask');
   });
 
-  it('formats "MeTaMaSk" (mixed case) as "MetaMask"', () => {
-    expect(formatOrigin('MeTaMaSk')).toBe('MetaMask');
+  it('maps "wallet-connect" to "WalletConnect" (case-insensitive)', () => {
+    expect(formatOrigin('wallet-connect')).toBe('WalletConnect');
+    expect(formatOrigin('WALLET-CONNECT')).toBe('WalletConnect');
+    expect(formatOrigin('Wallet-Connect')).toBe('WalletConnect');
   });
 
   it('extracts hostname from valid URLs', () => {
@@ -29,11 +26,10 @@ describe('formatOrigin', () => {
     );
   });
 
-  it('returns original value for invalid URLs', () => {
-    // Note: These should be rejected by validation, but formatOrigin is lenient
-    expect(formatOrigin('example.com')).toBe('example.com');
-    expect(formatOrigin('not-a-url')).toBe('not-a-url');
-    expect(formatOrigin('just some text')).toBe('just some text');
+  it('returns an empty string for non-URL / invalid origins', () => {
+    expect(formatOrigin('example.com')).toBe('');
+    expect(formatOrigin('not-a-url')).toBe('');
+    expect(formatOrigin('just some text')).toBe('');
   });
 
   it('returns "Unknown" for undefined', () => {
