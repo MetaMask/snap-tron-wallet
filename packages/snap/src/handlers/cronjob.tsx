@@ -491,7 +491,6 @@ export class CronHandler {
       );
 
       let { scan, scanFetchStatus } = interfaceContext;
-      let freshTransactionHex = transaction.rawDataHex;
 
       if (shouldRefreshScan) {
         const options: string[] = [];
@@ -503,19 +502,21 @@ export class CronHandler {
         }
 
         try {
-          const freshTransaction =
-            await this.#transactionExpirationRefresherService.ensureFreshSerializedTransaction(
+          // Deserialize the original payload without modifying it. Re-scanning
+          // the unchanged transaction is what surfaces expiration over time in
+          // the warning banner; the payload itself is never refreshed.
+          const { raw_data: rawData } =
+            await this.#transactionExpirationRefresherService.deserializeTransaction(
               {
                 scope,
                 type: transaction.type,
                 rawDataHex: transaction.rawDataHex,
               },
             );
-          freshTransactionHex = freshTransaction.raw_data_hex;
 
           scan = await this.#transactionScanService.scanTransaction({
             accountAddress: account.address,
-            transactionRawData: freshTransaction.raw_data,
+            transactionRawData: rawData,
             origin,
             scope,
             options,
@@ -546,10 +547,6 @@ export class CronHandler {
         ...latestContext,
         scan,
         scanFetchStatus,
-        transaction: {
-          ...latestContext.transaction,
-          rawDataHex: freshTransactionHex,
-        },
       };
 
       await this.#snapClient.updateInterface(

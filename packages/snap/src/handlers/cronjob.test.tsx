@@ -393,7 +393,7 @@ function buildCronHandler({
   mockTransactionScanService: MockTransactionScanService;
   transactionExpirationRefresherService: Pick<
     TransactionExpirationRefresherService,
-    'ensureFreshRawData' | 'ensureFreshSerializedTransaction'
+    'ensureFreshRawData' | 'deserializeTransaction'
   >;
 }): CronHandler {
   return new CronHandler({
@@ -420,14 +420,6 @@ type WithCronHandlerCallback = (payload: {
   mockTransactionScanService: MockTransactionScanService;
   mockTronWebFactory: MockTronWebFactory;
 }) => Promise<void> | void;
-
-type MockTronWebWithTransactionRebuild = {
-  utils: {
-    transaction: {
-      txJsonToPb: jest.Mock;
-    };
-  };
-};
 
 /**
  * Options for the `withCronHandler` factory function.
@@ -484,8 +476,8 @@ async function withCronHandler(
     });
   const passThroughTransactionExpirationRefresherService = {
     ensureFreshRawData: jest.fn(async ({ rawData }) => rawData),
-    ensureFreshSerializedTransaction:
-      transactionExpirationRefresherService.ensureFreshSerializedTransaction.bind(
+    deserializeTransaction:
+      transactionExpirationRefresherService.deserializeTransaction.bind(
         transactionExpirationRefresherService,
       ),
   };
@@ -694,7 +686,7 @@ describe('CronHandler', () => {
   });
 
   describe('refreshSignTransaction', () => {
-    it('refreshes transaction metadata before refreshing security scan', async () => {
+    it('rescans the original payload without modifying it', async () => {
       const blockTimestamp = MOCK_BLOCK_TIMESTAMP;
       const currentBlock = createBlock({
         number: 200_000,
@@ -702,6 +694,7 @@ describe('CronHandler', () => {
         hashSegment: '0011223344556677',
       });
       const interfaceContext = buildMockSignTransactionInterfaceContext();
+      const originalRawDataHex = interfaceContext.transaction.rawDataHex;
 
       await withCronHandler(
         {
@@ -711,56 +704,47 @@ describe('CronHandler', () => {
             [CONFIRM_SIGN_TRANSACTION_INTERFACE_NAME]: 'interface-id-456',
           },
         },
-        async ({
-          cronHandler,
-          mockSnapClient,
-          mockTransactionScanService,
-          mockTronWebFactory,
-        }) => {
+        async ({ cronHandler, mockSnapClient, mockTransactionScanService }) => {
           await cronHandler.refreshSignTransaction();
 
           const scanPayload =
             mockTransactionScanService.scanTransaction.mock.calls[0]?.[0];
           const scannedRawData = scanPayload?.transactionRawData;
-          const mockTronWeb = mockTronWebFactory.createClient.mock.results[0]
-            ?.value as MockTronWebWithTransactionRebuild;
-          const transactionForRebuild =
-            mockTronWeb.utils.transaction.txJsonToPb.mock.calls[0]?.[0];
           const finalUpdateCall = mockSnapClient.updateInterface.mock.calls[1];
           const finalContext =
             finalUpdateCall?.[2] as ConfirmSignTransactionContext;
 
+          // The scanned payload is the deserialized original — never refreshed,
+          // so its stale TAPOS/expiration values are preserved as-is.
           expect(scannedRawData).toStrictEqual(
             expect.objectContaining({
-              ref_block_bytes: getRefBlockBytes(200_000), // eslint-disable-line @typescript-eslint/naming-convention
-              ref_block_hash: '0011223344556677', // eslint-disable-line @typescript-eslint/naming-convention
-              expiration: blockTimestamp + 60_000,
-              timestamp: blockTimestamp,
+              ref_block_bytes: '0001', // eslint-disable-line @typescript-eslint/naming-convention
+              ref_block_hash: 'outdatedhash', // eslint-disable-line @typescript-eslint/naming-convention
+              expiration: blockTimestamp - 1,
+              timestamp: blockTimestamp - 60_000,
             }),
           );
-          expect(transactionForRebuild.txID).not.toBe('');
-          expect(finalContext.transaction.rawDataHex).toBe(
-            'refreshed-raw-data-hex',
-          );
+          // The stored serialized payload is left untouched.
+          expect(finalContext.transaction.rawDataHex).toBe(originalRawDataHex);
         },
       );
     });
 
-    it('sets error state when transaction metadata refresh fails', async () => {
+    it('sets error state when the scan fails', async () => {
       await withCronHandler(
         {
-          currentBlockError: new Error('node offline'),
           interfaceContext: buildMockSignTransactionInterfaceContext(),
           mapInterfaceNameToId: {
             [CONFIRM_SIGN_TRANSACTION_INTERFACE_NAME]: 'interface-id-456',
           },
         },
         async ({ cronHandler, mockSnapClient, mockTransactionScanService }) => {
+          mockTransactionScanService.scanTransaction.mockRejectedValue(
+            new Error('Scan API error'),
+          );
+
           await cronHandler.refreshSignTransaction();
 
-          expect(
-            mockTransactionScanService.scanTransaction,
-          ).not.toHaveBeenCalled();
           expect(mockSnapClient.updateInterface).toHaveBeenCalledTimes(2);
 
           const finalUpdateCall = mockSnapClient.updateInterface.mock.calls[1];

@@ -49,16 +49,20 @@ export class TransactionExpirationRefresherService {
   }
 
   /**
-   * Ensures serialized TRON transaction raw data has fresh TAPOS and expiration
-   * metadata, returning the transaction fields needed by confirmation scans.
+   * Deserializes a serialized TRON transaction into the metadata fields needed
+   * by confirmation scans, **without** modifying the payload.
    *
-   * @param params - Refresh inputs.
+   * Used on the dApp signing path, where the dApp broadcasts using its original
+   * TxID: the payload (expiration/TAPOS) must never be refreshed here, otherwise
+   * the signed bytes and the broadcast would diverge.
+   *
+   * @param params - Deserialization inputs.
    * @param params.scope - Network scope used to create a TronWeb client.
    * @param params.type - Serialized transaction contract type.
    * @param params.rawDataHex - Serialized transaction raw data.
    * @returns Transaction metadata built from the serialized raw data.
    */
-  async ensureFreshSerializedTransaction({
+  async deserializeTransaction({
     scope,
     type,
     rawDataHex,
@@ -67,32 +71,18 @@ export class TransactionExpirationRefresherService {
     type: string;
     rawDataHex: string;
   }): Promise<TransactionWithMetadata> {
-    try {
-      const tronWeb = this.#tronWebFactory.createClient(scope);
-      const rawData = tronWeb.utils.deserializeTx.deserializeTransaction(
-        type,
-        rawDataHex,
-      ) as Types.Transaction['raw_data'];
-      const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);
-      const transaction = {
-        txID,
-        raw_data: rawData,
-        raw_data_hex: rawDataHex,
-      };
-      const freshRawData = await this.#ensureFreshRawData(tronWeb, rawData);
+    const tronWeb = this.#tronWebFactory.createClient(scope);
+    const rawData = tronWeb.utils.deserializeTx.deserializeTransaction(
+      type,
+      rawDataHex,
+    ) as Types.Transaction['raw_data'];
+    const txID = bytesToHex(await sha256(hexToBytes(rawDataHex))).slice(2);
 
-      if (freshRawData === rawData) {
-        return transaction;
-      }
-
-      return this.#rebuildTransactionWithRawData(
-        tronWeb,
-        transaction,
-        freshRawData,
-      );
-    } catch {
-      throw new Error(TRANSACTION_METADATA_REFRESH_ERROR);
-    }
+    return {
+      txID,
+      raw_data: rawData,
+      raw_data_hex: rawDataHex,
+    };
   }
 
   /**

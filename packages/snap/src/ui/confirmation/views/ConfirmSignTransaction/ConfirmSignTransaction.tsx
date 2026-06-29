@@ -16,6 +16,7 @@ import {
 import { ConfirmSignTransactionFormNames } from './events';
 import type { ConfirmSignTransactionContext } from './types';
 import { Networks } from '../../../../constants';
+import { isTransactionDeadlinePassedError } from '../../../../services/transaction-scan/isTransactionDeadlinePassedError';
 import { SimulationStatus } from '../../../../services/transaction-scan/types';
 import { TRX_IMAGE_SVG } from '../../../../static/tron-logo';
 import { FetchStatus } from '../../../../types/snap';
@@ -45,12 +46,15 @@ export const ConfirmSignTransaction = ({
   } = context;
 
   /**
-   * Only disable confirm button upon first load (FetchStatus.Loading)
-   * as opposed to subsequent loads (FetchStatus.Fetching)
+   * Disable the confirm button on first load (FetchStatus.Loading) and on a
+   * failed simulation — except when the failure is the transaction-deadline /
+   * expired case. The dApp payload is never modified, so an expired transaction
+   * is surfaced as a warning banner while the user keeps the ability to submit.
    */
   const shouldDisableConfirmButton =
     scanFetchStatus === FetchStatus.Loading ||
-    scan?.simulationStatus === SimulationStatus.Failed;
+    (scan?.simulationStatus === SimulationStatus.Failed &&
+      !isTransactionDeadlinePassedError(scan.error));
 
   const addressCaip10 = account ? `${scope}:${account.address}` : null;
 
