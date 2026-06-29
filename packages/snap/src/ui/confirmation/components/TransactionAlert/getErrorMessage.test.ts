@@ -102,4 +102,28 @@ describe('getErrorMessage', () => {
 
     expect(result).toBe('An unknown error occurred');
   });
+
+  it('returns the friendly deadline message when the message carries the marker', () => {
+    const error: TransactionScanError = {
+      type: null,
+      code: null,
+      message: "Reverted: 'TransactionDeadlinePassed'",
+    };
+
+    const result = getErrorMessage(error, mockPreferences);
+
+    expect(result).toBe('Please go back and try again');
+  });
+
+  it('returns the friendly deadline message when the error type is the marker', () => {
+    const error: TransactionScanError = {
+      type: 'TransactionDeadlinePassed',
+      code: null,
+      message: null,
+    };
+
+    const result = getErrorMessage(error, mockPreferences);
+
+    expect(result).toBe('Please go back and try again');
+  });
 });
