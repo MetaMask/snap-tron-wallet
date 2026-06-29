@@ -159,16 +159,17 @@ describe('transaction metadata', () => {
     expect(tronWeb.utils.transaction.txJsonToPb).not.toHaveBeenCalled();
   });
 
-  it('returns a transaction from serialized raw data with fresh metadata', async () => {
+  it('deserializes a serialized transaction without modifying the payload', async () => {
     const currentBlock = createBlock({
       number: 200_000,
       timestamp: now,
       hashSegment: '0011223344556677',
     });
     const tronWeb = createTronWeb({ currentBlock });
+    // Even a stale transaction must be returned exactly as received.
     const transaction = createTransaction({
       block: currentBlock,
-      expiration: now + 5_000,
+      expiration: now - 1,
     });
     const rawDataHex = '1234567890abcdef';
     tronWeb.utils.deserializeTx.deserializeTransaction.mockReturnValue(
@@ -176,7 +177,7 @@ describe('transaction metadata', () => {
     );
     const { service } = createService(tronWeb);
 
-    const result = await service.ensureFreshSerializedTransaction({
+    const result = await service.deserializeTransaction({
       scope,
       type: 'TransferContract',
       rawDataHex,
@@ -185,41 +186,13 @@ describe('transaction metadata', () => {
     expect(
       tronWeb.utils.deserializeTx.deserializeTransaction,
     ).toHaveBeenCalledWith('TransferContract', rawDataHex);
-    expect(result.raw_data.ref_block_bytes).toBe(getRefBlockBytes(200_000));
-    expect(result.raw_data.ref_block_hash).toBe('0011223344556677');
-    expect(result.raw_data.expiration).toBe(now + 60_000);
-    expect(result.raw_data_hex).toBe('refreshed-raw-data-hex');
-    expect(result.txID).toBe('refreshed-tx-id');
-  });
-
-  it('returns original serialized transaction fields when metadata is already fresh', async () => {
-    const currentBlock = createBlock({
-      number: 200_000,
-      timestamp: now,
-      hashSegment: '0011223344556677',
-    });
-    const tronWeb = createTronWeb({ currentBlock });
-    const transaction = createTransaction({
-      block: currentBlock,
-      expiration: now + 45_000,
-    });
-    const rawDataHex = '1234567890abcdef';
-    tronWeb.utils.deserializeTx.deserializeTransaction.mockReturnValue(
-      transaction.raw_data,
-    );
-    const { service } = createService(tronWeb);
-
-    const result = await service.ensureFreshSerializedTransaction({
-      scope,
-      type: 'TransferContract',
-      rawDataHex,
-    });
-
     expect(result.raw_data).toBe(transaction.raw_data);
     expect(result.raw_data_hex).toBe(rawDataHex);
     expect(result.txID).toBe(
       'b09dc9a32de2d32bc21052a2f185044607d11cc58966ba7d7b299fabb7dcbd12',
     );
+    // Never refreshes: no block lookups, no transaction rebuild.
+    expect(tronWeb.trx.getCurrentBlock).not.toHaveBeenCalled();
     expect(tronWeb.utils.transaction.txJsonToPb).not.toHaveBeenCalled();
     expect(tronWeb.utils.transaction.txPbToRawDataHex).not.toHaveBeenCalled();
     expect(tronWeb.utils.transaction.txPbToTxID).not.toHaveBeenCalled();

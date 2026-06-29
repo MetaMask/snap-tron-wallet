@@ -151,7 +151,6 @@ const walletService = new WalletService({
   logger,
   accountsService,
   tronWebFactory,
-  transactionExpirationRefresherService,
 });
 
 const transactionScanService = new TransactionScanService(
@@ -206,7 +205,6 @@ const keyringHandler = new KeyringHandler({
   transactionsService,
   walletService,
   confirmationHandler,
-  transactionExpirationRefresherService,
 });
 const rpcHandler = new RpcHandler({
   logger,
