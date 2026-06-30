@@ -441,7 +441,7 @@ describe('ConfirmSignTransaction render', () => {
     expect(finalContext.scan?.error?.type).toBe('TransactionTaposExpired');
   });
 
-  it('falls back to an error state when scheduling the refresh fails', async () => {
+  it('keeps the scan result intact when scheduling the refresh fails', async () => {
     mockSnapClient.scheduleBackgroundEvent.mockRejectedValue(
       new Error('schedule failed'),
     );
@@ -467,7 +467,51 @@ describe('ConfirmSignTransaction render', () => {
       contract: [],
     };
 
-    // Should not throw — the outer catch renders an error state instead.
+    // Scheduling is best-effort and isolated from the scan result, so render
+    // still completes and the successful scan stays on screen.
+    expect(await render(request, mockAccount, mockRawData as any)).toBe(true);
+    expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalled();
+
+    const finalUpdateCall = mockSnapClient.updateInterface.mock.calls.at(-1);
+    const finalContext = finalUpdateCall?.[2] as {
+      scan: TransactionScanResult | null;
+      scanFetchStatus: string;
+    };
+
+    expect(finalContext.scan).not.toBeNull();
+    expect(finalContext.scan?.simulationStatus).toBe(
+      SimulationStatus.Completed,
+    );
+    expect(finalContext.scanFetchStatus).toBe(FetchStatus.Fetched);
+  });
+
+  it('falls back to an error state when updating the interface fails', async () => {
+    mockSnapClient.updateInterface.mockImplementationOnce(async () => {
+      throw new Error('update failed');
+    });
+
+    const request: KeyringRequest = {
+      id: '00000000-0000-4000-8000-000000000010',
+      origin: 'https://test.com',
+      account: mockAccount.id,
+      scope: Network.Mainnet,
+      request: {
+        method: TronMultichainMethod.SignTransaction,
+        params: {
+          address: mockAccount.address,
+          transaction: {
+            rawDataHex: toBase64('transaction'),
+            type: 'TransferContract',
+          },
+        },
+      },
+    };
+
+    const mockRawData = {
+      contract: [],
+    };
+
+    // The first updateInterface throws; the catch re-renders an error state.
     expect(await render(request, mockAccount, mockRawData as any)).toBe(true);
 
     const finalUpdateCall = mockSnapClient.updateInterface.mock.calls.at(-1);
