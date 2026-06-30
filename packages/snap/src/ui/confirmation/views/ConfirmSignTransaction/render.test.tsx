@@ -523,4 +523,47 @@ describe('ConfirmSignTransaction render', () => {
     expect(finalContext.scan).toBeNull();
     expect(finalContext.scanFetchStatus).toBe(FetchStatus.Error);
   });
+
+  it('preserves the scan result when the TAPOS check throws', async () => {
+    mockTransactionExpirationRefresherService.isTransactionExpired.mockRejectedValue(
+      new Error('tapos check failed'),
+    );
+
+    const request: KeyringRequest = {
+      id: '00000000-0000-4000-8000-000000000011',
+      origin: 'https://test.com',
+      account: mockAccount.id,
+      scope: Network.Mainnet,
+      request: {
+        method: TronMultichainMethod.SignTransaction,
+        params: {
+          address: mockAccount.address,
+          transaction: {
+            rawDataHex: toBase64('transaction'),
+            type: 'TransferContract',
+          },
+        },
+      },
+    };
+
+    const mockRawData = {
+      contract: [],
+    };
+
+    // The TAPOS check fails safe: it must not wipe the benign security scan or
+    // synthesize a false expired result.
+    expect(await render(request, mockAccount, mockRawData as any)).toBe(true);
+
+    const finalUpdateCall = mockSnapClient.updateInterface.mock.calls.at(-1);
+    const finalContext = finalUpdateCall?.[2] as {
+      scan: TransactionScanResult | null;
+      scanFetchStatus: string;
+    };
+
+    expect(finalContext.scan).not.toBeNull();
+    expect(finalContext.scan?.simulationStatus).toBe(
+      SimulationStatus.Completed,
+    );
+    expect(finalContext.scanFetchStatus).toBe(FetchStatus.Fetched);
+  });
 });

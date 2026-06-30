@@ -4,6 +4,7 @@ import type { ConfirmSignTransactionContext } from './types';
 import { Network } from '../../../../constants';
 import type { TronKeyringAccount } from '../../../../entities/keyring-account';
 import { TronMultichainMethod } from '../../../../handlers/keyring-types';
+import { TRANSACTION_TAPOS_EXPIRED } from '../../../../services/transaction-scan/isTransactionDeadlinePassedError';
 import {
   SimulationStatus,
   type TransactionScanError,
@@ -35,6 +36,30 @@ function findByName(node: any, name: string): any {
     return node;
   }
   return findByName(node.props?.children, name);
+}
+
+/**
+ * Recursively collects all string leaves from a rendered JSX tree.
+ *
+ * @param node - The current JSX node (element, array, or primitive).
+ * @returns All string children found in the tree.
+ */
+function collectTexts(node: any): string[] {
+  if (node === null || node === undefined) {
+    return [];
+  }
+  if (typeof node === 'string') {
+    return [node];
+  }
+  if (Array.isArray(node)) {
+    return node.flatMap((child) => collectTexts(child));
+  }
+  if (typeof node === 'object') {
+    const title =
+      typeof node.props?.title === 'string' ? [node.props.title] : [];
+    return [...title, ...collectTexts(node.props?.children)];
+  }
+  return [];
 }
 
 describe('ConfirmSignTransaction', () => {
@@ -119,6 +144,21 @@ describe('ConfirmSignTransaction', () => {
     message: 'Reverted: insufficient balance',
   };
 
+  const taposExpiredError: TransactionScanError = {
+    type: TRANSACTION_TAPOS_EXPIRED,
+    code: null,
+    message: null,
+  };
+
+  const SIMULATION_ERROR_TITLE =
+    'This transaction was reverted during simulation.';
+  const FRIENDLY_EXPIRED_MESSAGE = 'Please go back and try again';
+
+  const renderTexts = (context: ConfirmSignTransactionContext): string[] => {
+    const tree = ConfirmSignTransaction({ context });
+    return collectTexts(tree);
+  };
+
   it('disables the confirm button during the initial scan load', () => {
     expect(
       isConfirmDisabled(buildContext({ scanFetchStatus: FetchStatus.Loading })),
@@ -163,5 +203,34 @@ describe('ConfirmSignTransaction', () => {
         }),
       ),
     ).toBe(true);
+  });
+
+  it('renders the expiry banner with the friendly message even when security alerts are off', () => {
+    const texts = renderTexts(
+      buildContext({
+        preferences: { ...mockPreferences, useSecurityAlerts: false },
+        scan: buildScanResult({
+          status: 'ERROR',
+          simulationStatus: SimulationStatus.Failed,
+          error: taposExpiredError,
+        }),
+      }),
+    );
+
+    // The banner is gated on `useSecurityAlerts || scan?.error`, so the
+    // locally-detected TAPOS-expired error surfaces it even with security
+    // alerts disabled, using the friendly copy.
+    expect(texts).toContain(SIMULATION_ERROR_TITLE);
+    expect(texts).toContain(FRIENDLY_EXPIRED_MESSAGE);
+  });
+
+  it('renders no simulation banner when security alerts are off and the scan is benign', () => {
+    const texts = renderTexts(
+      buildContext({
+        preferences: { ...mockPreferences, useSecurityAlerts: false },
+      }),
+    );
+
+    expect(texts).not.toContain(SIMULATION_ERROR_TITLE);
   });
 });
