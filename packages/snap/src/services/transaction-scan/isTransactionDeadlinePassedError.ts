@@ -2,20 +2,33 @@ import type { TransactionScanError } from './types';
 
 /**
  * Marker returned by the security scan when a transaction is rejected because a
- * deadline has passed (e.g. an expired swap/router deadline). Surfaced in the
- * raw simulation error message and, when present, the error details type.
+ * dApp/contract deadline has passed (e.g. an expired swap/router deadline).
+ * Surfaced in the raw simulation error message and, when present, the error
+ * details type.
  */
 export const TRANSACTION_DEADLINE_PASSED = 'TransactionDeadlinePassed';
 
 /**
- * Checks whether a transaction scan error is the "deadline passed" case.
+ * Internal marker used when the snap's own read-only TAPOS check determines a
+ * transaction is no longer broadcastable (expiration passed, or the referenced
+ * block has aged out of the 65,536-block TAPOS window, or the ref-block hash no
+ * longer matches). The security-API simulation does not validate these
+ * protocol-level fields, so the snap surfaces this cause locally.
+ */
+export const TRANSACTION_TAPOS_EXPIRED = 'TransactionTaposExpired';
+
+/**
+ * Checks whether a transaction scan error is an "expired" case — either the
+ * dApp/contract deadline passed (reported by the security scan) or the Tron
+ * TAPOS validity window expired (detected locally by the snap).
  *
  * Used to keep the confirmation dialog's submit button enabled (warn, don't
  * block) specifically for expired/deadline failures, while other failed
- * simulations continue to block submission.
+ * simulations continue to block submission, and to surface the friendly
+ * banner copy.
  *
  * @param error - The transaction scan error, if any.
- * @returns Whether the error is the deadline-passed failure.
+ * @returns Whether the error is an expired/deadline failure.
  */
 export function isTransactionDeadlinePassedError(
   error: TransactionScanError | null,
@@ -26,6 +39,7 @@ export function isTransactionDeadlinePassedError(
 
   return (
     error.type === TRANSACTION_DEADLINE_PASSED ||
+    error.type === TRANSACTION_TAPOS_EXPIRED ||
     Boolean(error.message?.includes(TRANSACTION_DEADLINE_PASSED))
   );
 }

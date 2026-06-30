@@ -26,6 +26,16 @@ describe('isTransactionDeadlinePassedError', () => {
     expect(isTransactionDeadlinePassedError(error)).toBe(true);
   });
 
+  it('returns true when the error type is the TAPOS-expired marker', () => {
+    const error: TransactionScanError = {
+      type: 'TransactionTaposExpired',
+      code: null,
+      message: null,
+    };
+
+    expect(isTransactionDeadlinePassedError(error)).toBe(true);
+  });
+
   it('returns false for an unrelated failure', () => {
     const error: TransactionScanError = {
       type: 'Revert',

@@ -393,7 +393,7 @@ function buildCronHandler({
   mockTransactionScanService: MockTransactionScanService;
   transactionExpirationRefresherService: Pick<
     TransactionExpirationRefresherService,
-    'ensureFreshRawData' | 'deserializeTransaction'
+    'ensureFreshRawData' | 'deserializeTransaction' | 'isTransactionExpired'
   >;
 }): CronHandler {
   return new CronHandler({
@@ -432,6 +432,7 @@ type WithCronHandlerOptions = {
   currentBlockError?: Error;
   referencedBlock?: ReturnType<typeof createBlock>;
   refreshRawData?: boolean;
+  transactionExpired?: boolean;
 };
 
 /**
@@ -459,6 +460,7 @@ async function withCronHandler(
     currentBlockError,
     referencedBlock,
     refreshRawData = false,
+    transactionExpired = false,
   } = options;
 
   const mockSnapClient = buildMockSnapClient(interfaceContext);
@@ -480,6 +482,7 @@ async function withCronHandler(
       transactionExpirationRefresherService.deserializeTransaction.bind(
         transactionExpirationRefresherService,
       ),
+    isTransactionExpired: jest.fn(async () => transactionExpired),
   };
 
   const cronHandler = buildCronHandler({
@@ -757,6 +760,74 @@ describe('CronHandler', () => {
             method: BackgroundEventMethod.RefreshSignTransaction,
             duration: 'PT20S',
           });
+        },
+      );
+    });
+
+    it('surfaces an expired scan result when the TAPOS check detects expiry', async () => {
+      await withCronHandler(
+        {
+          interfaceContext: buildMockSignTransactionInterfaceContext(),
+          mapInterfaceNameToId: {
+            [CONFIRM_SIGN_TRANSACTION_INTERFACE_NAME]: 'interface-id-456',
+          },
+          transactionExpired: true,
+        },
+        async ({ cronHandler, mockSnapClient, mockTransactionScanService }) => {
+          await cronHandler.refreshSignTransaction();
+
+          const finalUpdateCall = mockSnapClient.updateInterface.mock.calls[1];
+          const finalContext =
+            finalUpdateCall?.[2] as ConfirmSignTransactionContext;
+
+          // A benign security scan is overridden by the local TAPOS-expiry
+          // detection: an expired transaction won't broadcast regardless of the
+          // contract simulation result.
+          expect(mockTransactionScanService.scanTransaction).toHaveBeenCalled();
+          expect(finalContext.scan?.simulationStatus).toBe(
+            SimulationStatus.Failed,
+          );
+          expect(finalContext.scan?.error?.type).toBe(
+            'TransactionTaposExpired',
+          );
+          expect(finalContext.scanFetchStatus).toBe(FetchStatus.Fetched);
+        },
+      );
+    });
+
+    it('runs the TAPOS expiry check even when security scan is disabled', async () => {
+      const interfaceContext = buildMockSignTransactionInterfaceContext();
+      interfaceContext.preferences = {
+        ...interfaceContext.preferences,
+        useSecurityAlerts: false,
+        simulateOnChainActions: false,
+      };
+
+      await withCronHandler(
+        {
+          interfaceContext,
+          mapInterfaceNameToId: {
+            [CONFIRM_SIGN_TRANSACTION_INTERFACE_NAME]: 'interface-id-456',
+          },
+          transactionExpired: true,
+        },
+        async ({ cronHandler, mockSnapClient, mockTransactionScanService }) => {
+          await cronHandler.refreshSignTransaction();
+
+          // The security scan is skipped...
+          expect(
+            mockTransactionScanService.scanTransaction,
+          ).not.toHaveBeenCalled();
+
+          // ...but the local TAPOS-expiry check still surfaces the expired banner.
+          const finalUpdateCall = mockSnapClient.updateInterface.mock.calls[1];
+          const finalContext =
+            finalUpdateCall?.[2] as ConfirmSignTransactionContext;
+
+          expect(finalContext.scan?.error?.type).toBe(
+            'TransactionTaposExpired',
+          );
+          expect(finalContext.scanFetchStatus).toBe(FetchStatus.Fetched);
         },
       );
     });
