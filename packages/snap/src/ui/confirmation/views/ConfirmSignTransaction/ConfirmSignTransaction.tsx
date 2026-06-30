@@ -92,8 +92,11 @@ export const ConfirmSignTransaction = ({
   return (
     <Container>
       <Box>
-        {/* Security Alert */}
-        {preferences.useSecurityAlerts ? (
+        {/* Security Alert / expiry banner.
+            Rendered when security alerts are enabled, or whenever a scan error
+            (e.g. the locally-detected TAPOS-expired case) is present, so the
+            expiry warning surfaces even with security alerts turned off. */}
+        {preferences.useSecurityAlerts || scan?.error ? (
           <TransactionAlert
             scanFetchStatus={scanFetchStatus}
             validation={scan?.validation ?? null}

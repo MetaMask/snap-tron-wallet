@@ -86,6 +86,69 @@ export class TransactionExpirationRefresherService {
   }
 
   /**
+   * Read-only check of whether a transaction is still broadcastable, based on
+   * its Tron TAPOS metadata (expiration, ref block, timestamp) relative to the
+   * current chain head. Unlike {@link ensureFreshMetadata}, it never mutates
+   * the payload.
+   *
+   * Fails safe: on any network/parse error it returns `false` so the snap does
+   * not synthesize a false "expired" result.
+   *
+   * @param params - Expiration check inputs.
+   * @param params.scope - Network scope used to create a TronWeb client.
+   * @param params.rawData - Transaction raw data to inspect.
+   * @returns Whether the transaction is expired/stale and should be warned about.
+   */
+  async isTransactionExpired({
+    scope,
+    rawData,
+  }: {
+    scope: Network;
+    rawData: TransactionRawData;
+  }): Promise<boolean> {
+    try {
+      const tronWeb = this.#tronWebFactory.createClient(scope);
+      const now = Date.now();
+      const currentBlock = await tronWeb.trx.getCurrentBlock();
+
+      if (!hasFreshExpirationMetadata({ currentBlock, now, rawData })) {
+        return true;
+      }
+
+      const referenceBlockNumber = getReferenceBlockNumber({
+        currentBlockNumber: currentBlock.block_header.raw_data.number,
+        refBlockBytes: (rawData as TransactionRawDataWithExpirationMetadata)
+          .ref_block_bytes,
+      });
+
+      if (
+        !hasValidReferenceBlockNumber({ currentBlock, referenceBlockNumber })
+      ) {
+        return true;
+      }
+
+      const referencedBlock = await this.#getReferenceBlock({
+        tronWeb,
+        currentBlock,
+        referenceBlockNumber,
+      });
+
+      if (
+        !referencedBlockMatchesRawData({
+          rawData: rawData as TransactionRawDataWithExpirationMetadata,
+          referencedBlock,
+        })
+      ) {
+        return true;
+      }
+
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Ensures TRON transaction TAPOS and expiration metadata is usable
    * immediately before signing and broadcasting.
    *

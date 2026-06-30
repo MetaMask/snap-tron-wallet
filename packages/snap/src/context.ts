@@ -234,6 +234,7 @@ export type SnapExecutionContext = {
   tronWebFactory: TronWebFactory;
   confirmationHandler: ConfirmationHandler;
   transactionScanService: TransactionScanService;
+  transactionExpirationRefresherService: TransactionExpirationRefresherService;
   /**
    * Handlers
    */
@@ -265,6 +266,7 @@ const snapContext: SnapExecutionContext = {
   tronWebFactory,
   confirmationHandler,
   transactionScanService,
+  transactionExpirationRefresherService,
   /**
    * Handlers
    */
