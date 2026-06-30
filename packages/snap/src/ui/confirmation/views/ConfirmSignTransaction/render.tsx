@@ -242,13 +242,6 @@ export async function render(
       <ConfirmSignTransaction context={context} />,
       context,
     );
-
-    // Re-scan periodically so the expiry banner appears live as the transaction
-    // ages past its TAPOS validity window, regardless of security preferences.
-    await snapClient.scheduleBackgroundEvent({
-      method: BackgroundEventMethod.RefreshSignTransaction,
-      duration: 'PT20S',
-    });
   } catch {
     context.scan = null;
     context.scanFetchStatus = FetchStatus.Error;
@@ -260,6 +253,21 @@ export async function render(
       <ConfirmSignTransaction context={context} />,
       context,
     );
+  }
+
+  // Re-scan periodically so the expiry banner appears live as the transaction
+  // ages past its TAPOS validity window, regardless of security preferences.
+  // Scheduling is best-effort and isolated from the scan result: a failure here
+  // must not wipe out a valid scan or flip the UI into a scan error state — the
+  // user can still act on the current result, only live refreshes are skipped.
+  try {
+    await snapClient.scheduleBackgroundEvent({
+      method: BackgroundEventMethod.RefreshSignTransaction,
+      duration: 'PT20S',
+    });
+  } catch {
+    // Best-effort: live expiry refreshes won't run, but the rendered result
+    // stays intact.
   }
 
   return dialogPromise;
