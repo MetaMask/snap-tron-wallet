@@ -22,10 +22,11 @@ export const TRANSACTION_TAPOS_EXPIRED = 'TransactionTaposExpired';
  * dApp/contract deadline passed (reported by the security scan) or the Tron
  * TAPOS validity window expired (detected locally by the snap).
  *
- * Used to keep the confirmation dialog's submit button enabled (warn, don't
- * block) specifically for expired/deadline failures, while other failed
- * simulations continue to block submission, and to surface the friendly
- * banner copy.
+ * Used only to select the friendly banner copy in the confirmation dialog's
+ * `TransactionAlert` (via `getErrorMessage`). It does NOT control the submit
+ * button: the button is disabled for every failed simulation, including the
+ * expired/TAPOS-expired case, so the user is blocked from confirming a
+ * transaction that won't broadcast.
  *
  * @param error - The transaction scan error, if any.
  * @returns Whether the error is an expired/deadline failure.
