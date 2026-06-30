@@ -11,7 +11,7 @@ import {
   SimulationStatus,
   type TransactionScanResult,
 } from '../../../../services/transaction-scan/types';
-import type { Preferences } from '../../../../types/snap';
+import { FetchStatus, type Preferences } from '../../../../types/snap';
 
 // Mock the context module
 jest.mock('../../../../context', () => ({
@@ -19,6 +19,7 @@ jest.mock('../../../../context', () => ({
   default: {
     snapClient: null,
     transactionScanService: null,
+    transactionExpirationRefresherService: null,
     state: null,
   },
 }));
@@ -87,6 +88,9 @@ describe('ConfirmSignTransaction render', () => {
 
   let mockSnapClient: jest.Mocked<SnapClient>;
   let mockTransactionScanService: jest.Mocked<TransactionScanService>;
+  let mockTransactionExpirationRefresherService: {
+    isTransactionExpired: jest.Mock;
+  };
 
   beforeEach(() => {
     mockSnapClient = {
@@ -101,6 +105,10 @@ describe('ConfirmSignTransaction render', () => {
       scanTransaction: jest.fn().mockResolvedValue(mockScanResult),
       getSecurityAlertDescription: jest.fn().mockReturnValue('description'),
     } as any;
+
+    mockTransactionExpirationRefresherService = {
+      isTransactionExpired: jest.fn().mockResolvedValue(false),
+    };
 
     const mockState = {
       setKey: jest.fn().mockResolvedValue(undefined),
@@ -134,6 +142,8 @@ describe('ConfirmSignTransaction render', () => {
     const snapContext = require('../../../../context').default;
     snapContext.snapClient = mockSnapClient;
     snapContext.transactionScanService = mockTransactionScanService;
+    snapContext.transactionExpirationRefresherService =
+      mockTransactionExpirationRefresherService;
     snapContext.state = mockState;
     snapContext.assetsService = mockAssetsService;
     snapContext.feeCalculatorService = mockFeeCalculatorService;
@@ -391,5 +401,82 @@ describe('ConfirmSignTransaction render', () => {
     const result = await render(request, mockAccount, mockRawData as any);
 
     expect(result).toBe(expectedResult);
+  });
+
+  it('surfaces an expired scan result when the TAPOS check detects expiry', async () => {
+    mockTransactionExpirationRefresherService.isTransactionExpired.mockResolvedValue(
+      true,
+    );
+
+    const request: KeyringRequest = {
+      id: '00000000-0000-4000-8000-000000000008',
+      origin: 'https://test.com',
+      account: mockAccount.id,
+      scope: Network.Mainnet,
+      request: {
+        method: TronMultichainMethod.SignTransaction,
+        params: {
+          address: mockAccount.address,
+          transaction: {
+            rawDataHex: toBase64('transaction'),
+            type: 'TransferContract',
+          },
+        },
+      },
+    };
+
+    const mockRawData = {
+      contract: [],
+    };
+
+    await render(request, mockAccount, mockRawData as any);
+
+    // The benign security scan is overridden by the locally-detected expiry.
+    const finalUpdateCall = mockSnapClient.updateInterface.mock.calls.at(-1);
+    const finalContext = finalUpdateCall?.[2] as {
+      scan: TransactionScanResult | null;
+    };
+
+    expect(finalContext.scan?.simulationStatus).toBe(SimulationStatus.Failed);
+    expect(finalContext.scan?.error?.type).toBe('TransactionTaposExpired');
+  });
+
+  it('falls back to an error state when scheduling the refresh fails', async () => {
+    mockSnapClient.scheduleBackgroundEvent.mockRejectedValue(
+      new Error('schedule failed'),
+    );
+
+    const request: KeyringRequest = {
+      id: '00000000-0000-4000-8000-000000000009',
+      origin: 'https://test.com',
+      account: mockAccount.id,
+      scope: Network.Mainnet,
+      request: {
+        method: TronMultichainMethod.SignTransaction,
+        params: {
+          address: mockAccount.address,
+          transaction: {
+            rawDataHex: toBase64('transaction'),
+            type: 'TransferContract',
+          },
+        },
+      },
+    };
+
+    const mockRawData = {
+      contract: [],
+    };
+
+    // Should not throw — the outer catch renders an error state instead.
+    expect(await render(request, mockAccount, mockRawData as any)).toBe(true);
+
+    const finalUpdateCall = mockSnapClient.updateInterface.mock.calls.at(-1);
+    const finalContext = finalUpdateCall?.[2] as {
+      scan: TransactionScanResult | null;
+      scanFetchStatus: string;
+    };
+
+    expect(finalContext.scan).toBeNull();
+    expect(finalContext.scanFetchStatus).toBe(FetchStatus.Error);
   });
 });

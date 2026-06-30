@@ -125,11 +125,19 @@ describe('ConfirmSignTransaction', () => {
     ).toBe(true);
   });
 
+  it('keeps the confirm button enabled during a scan refresh (Fetching)', () => {
+    expect(
+      isConfirmDisabled(
+        buildContext({ scanFetchStatus: FetchStatus.Fetching }),
+      ),
+    ).toBe(false);
+  });
+
   it('enables the confirm button for a successful scan', () => {
     expect(isConfirmDisabled(buildContext())).toBe(false);
   });
 
-  it('keeps the confirm button enabled when the scan fails on a deadline', () => {
+  it('disables the confirm button when the scan fails on a deadline (expired)', () => {
     expect(
       isConfirmDisabled(
         buildContext({
@@ -140,7 +148,7 @@ describe('ConfirmSignTransaction', () => {
           }),
         }),
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('disables the confirm button for other failed simulations', () => {

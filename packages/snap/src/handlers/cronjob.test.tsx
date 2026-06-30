@@ -819,7 +819,19 @@ describe('CronHandler', () => {
             mockTransactionScanService.scanTransaction,
           ).not.toHaveBeenCalled();
 
-          // ...but the local TAPOS-expiry check still surfaces the expired banner.
+          // ...and the refresh does not enter the Fetching state when the
+          // security scan is disabled (matching main-branch behaviour), so the
+          // confirm button stays enabled while the TAPOS check is in flight.
+          const fetchingUpdateCall =
+            mockSnapClient.updateInterface.mock.calls[0];
+          const fetchingContext =
+            fetchingUpdateCall?.[2] as ConfirmSignTransactionContext;
+          expect(fetchingContext.scanFetchStatus).not.toBe(
+            FetchStatus.Fetching,
+          );
+
+          // The local TAPOS-expiry check still surfaces the expired result,
+          // which disables the confirm button once resolved (Failed simulation).
           const finalUpdateCall = mockSnapClient.updateInterface.mock.calls[1];
           const finalContext =
             finalUpdateCall?.[2] as ConfirmSignTransactionContext;
