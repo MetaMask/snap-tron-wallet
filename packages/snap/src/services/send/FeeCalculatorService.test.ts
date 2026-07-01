@@ -3,7 +3,10 @@ import { FeeType } from '@metamask/keyring-api';
 import { BigNumber } from 'bignumber.js';
 
 import { FeeCalculatorService } from './FeeCalculatorService';
-import { TrongridAccountNotFoundError } from '../../clients/trongrid/errors';
+import {
+  TrongridAccountNotFoundError,
+  TrongridRateLimitError,
+} from '../../clients/trongrid/errors';
 import { Network, ZERO } from '../../constants';
 import { mockLogger } from '../../utils/mockLogger';
 import nativeTransferMock from '../transactions/mocks/trongrid/account-transactions/native-transfer.json';
@@ -17,6 +20,7 @@ const mockTronWebFactory = {
 const mockTrongridApiClient = {
   getChainParameters: jest.fn(),
   getAccountInfoByAddress: jest.fn(),
+  peekCachedChainParameters: jest.fn(),
 } as any;
 
 const mockTronHttpClient = {
@@ -109,6 +113,11 @@ describe('FeeCalculatorService', () => {
     // Default: deployer energy fetch fails
     mockTronHttpClient.getAccountResources.mockRejectedValue(
       new Error('Account not found'),
+    );
+
+    // Default: no cached chain parameters available for fee floor
+    mockTrongridApiClient.peekCachedChainParameters.mockResolvedValue(
+      undefined,
     );
 
     feeCalculatorService = new FeeCalculatorService({
@@ -2123,6 +2132,169 @@ describe('FeeCalculatorService', () => {
             fungible: true,
           },
         });
+      });
+    });
+
+    describe('Fail-safe fee floor (TronGrid failure)', () => {
+      // Native transfer with insufficient bandwidth so a TRX fee is owed and
+      // the chain-params conversion path is exercised.
+      const buildNativeTxWithBandwidthOverage = () => ({
+        transaction: getTransactionExample('native'),
+        availableEnergy: ZERO,
+        availableBandwidth: BigNumber(100), // < 266 bytes needed
+      });
+
+      it('returns a non-zero fee when getChainParameters throws', async () => {
+        mockTrongridApiClient.getChainParameters.mockRejectedValue(
+          new TrongridRateLimitError(),
+        );
+        mockTrongridApiClient.peekCachedChainParameters.mockResolvedValue(
+          undefined,
+        );
+
+        const { transaction, availableEnergy, availableBandwidth } =
+          buildNativeTxWithBandwidthOverage();
+
+        const result = await feeCalculatorService.computeFee({
+          scope: Network.Mainnet,
+          transaction,
+          availableEnergy,
+          availableBandwidth,
+        });
+
+        // Static floor: 266 bytes * 1000 SUN / 1e6 = 0.266 TRX (NOT $0)
+        expect(result[0]?.asset.amount).toBe('0.266');
+        expect(mockSnapClient.trackError).toHaveBeenCalledTimes(1);
+      });
+
+      it('uses last-known cached chain parameters when live fetch fails', async () => {
+        mockTrongridApiClient.getChainParameters.mockRejectedValue(
+          new Error('HTTP error! status: 503'),
+        );
+        // Cached params carry a higher getTransactionFee than the static floor
+        // so we can assert the cached value (not the static 1000) was used.
+        mockTrongridApiClient.peekCachedChainParameters.mockResolvedValue([
+          { key: 'getTransactionFee', value: 2000 },
+          { key: 'getEnergyFee', value: 100 },
+        ]);
+
+        const { transaction, availableEnergy, availableBandwidth } =
+          buildNativeTxWithBandwidthOverage();
+
+        const result = await feeCalculatorService.computeFee({
+          scope: Network.Mainnet,
+          transaction,
+          availableEnergy,
+          availableBandwidth,
+        });
+
+        // Cached floor: 266 bytes * 2000 SUN / 1e6 = 0.532 TRX
+        expect(result[0]?.asset.amount).toBe('0.532');
+        expect(
+          mockTrongridApiClient.peekCachedChainParameters,
+        ).toHaveBeenCalledWith(Network.Mainnet);
+        expect(mockSnapClient.trackError).toHaveBeenCalledTimes(1);
+      });
+
+      it('uses static fee floor when both live fetch and cache fail', async () => {
+        mockTrongridApiClient.getChainParameters.mockRejectedValue(
+          new Error('HTTP error! status: 500'),
+        );
+        mockTrongridApiClient.peekCachedChainParameters.mockResolvedValue(
+          undefined,
+        );
+
+        const { transaction, availableEnergy, availableBandwidth } =
+          buildNativeTxWithBandwidthOverage();
+
+        const result = await feeCalculatorService.computeFee({
+          scope: Network.Mainnet,
+          transaction,
+          availableEnergy,
+          availableBandwidth,
+        });
+
+        // Static floor: 266 * 1000 SUN / 1e6 = 0.266 TRX
+        expect(result[0]?.asset.amount).toBe('0.266');
+        expect(mockSnapClient.trackError).toHaveBeenCalledTimes(1);
+      });
+
+      it('uses static fee floor when cached chain parameters are empty', async () => {
+        mockTrongridApiClient.getChainParameters.mockRejectedValue(
+          new Error('HTTP error! status: 500'),
+        );
+        mockTrongridApiClient.peekCachedChainParameters.mockResolvedValue([]);
+
+        const { transaction, availableEnergy, availableBandwidth } =
+          buildNativeTxWithBandwidthOverage();
+
+        const result = await feeCalculatorService.computeFee({
+          scope: Network.Mainnet,
+          transaction,
+          availableEnergy,
+          availableBandwidth,
+        });
+
+        expect(result[0]?.asset.amount).toBe('0.266');
+      });
+
+      it('preserves 429 status in trackError when TronGrid returns 429', async () => {
+        const rateLimitError = new TrongridRateLimitError();
+        mockTrongridApiClient.getChainParameters.mockRejectedValue(
+          rateLimitError,
+        );
+        mockTrongridApiClient.peekCachedChainParameters.mockResolvedValue(
+          undefined,
+        );
+
+        const { transaction, availableEnergy, availableBandwidth } =
+          buildNativeTxWithBandwidthOverage();
+
+        await feeCalculatorService.computeFee({
+          scope: Network.Mainnet,
+          transaction,
+          availableEnergy,
+          availableBandwidth,
+        });
+
+        expect(mockSnapClient.trackError).toHaveBeenCalledWith(
+          expect.objectContaining({
+            name: 'TrongridRateLimitError',
+            status: 429,
+          }),
+        );
+      });
+
+      it('does not throw when fallback energy calculation also hits a TronGrid failure', async () => {
+        // SC energy simulation fails AND chain-params fetch fails AND no cache.
+        // computeFee must still resolve using the feeLimit-derived fallback.
+        mockTronHttpClient.triggerConstantContract.mockRejectedValue(
+          new Error('Simulation failed'),
+        );
+        mockTrongridApiClient.getChainParameters.mockRejectedValue(
+          new Error('HTTP error! status: 429'),
+        );
+        mockTrongridApiClient.peekCachedChainParameters.mockResolvedValue(
+          undefined,
+        );
+
+        const transaction = getTransactionExample('trc20');
+        const availableEnergy = BigNumber(0);
+        const availableBandwidth = BigNumber(2000000); // enough bandwidth
+        // feeLimit 4,200,000 SUN / 420 SUN fallback price = 10,000 max energy
+        const feeLimit = 4_200_000;
+
+        const result = await feeCalculatorService.computeFee({
+          scope: Network.Mainnet,
+          transaction,
+          availableEnergy,
+          availableBandwidth,
+          feeLimit,
+        });
+
+        // Fallback energy 10,000 paid at static energy fee 100 SUN = 1 TRX
+        expect(result[0]?.asset.amount).toBe('1');
+        expect(mockSnapClient.trackError).toHaveBeenCalled();
       });
     });
   });
