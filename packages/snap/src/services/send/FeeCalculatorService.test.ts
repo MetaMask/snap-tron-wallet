@@ -2146,7 +2146,7 @@ describe('FeeCalculatorService', () => {
 
       it('returns a non-zero fee when getChainParameters throws', async () => {
         mockTrongridApiClient.getChainParameters.mockRejectedValue(
-          new TrongridRateLimitError(30),
+          new TrongridRateLimitError(),
         );
         mockTrongridApiClient.peekCachedChainParameters.mockResolvedValue(
           undefined,
@@ -2239,7 +2239,7 @@ describe('FeeCalculatorService', () => {
       });
 
       it('preserves 429 status in trackError when TronGrid returns 429', async () => {
-        const rateLimitError = new TrongridRateLimitError(30);
+        const rateLimitError = new TrongridRateLimitError();
         mockTrongridApiClient.getChainParameters.mockRejectedValue(
           rateLimitError,
         );
@@ -2261,7 +2261,6 @@ describe('FeeCalculatorService', () => {
           expect.objectContaining({
             name: 'TrongridRateLimitError',
             status: 429,
-            retryAfter: 30,
           }),
         );
       });

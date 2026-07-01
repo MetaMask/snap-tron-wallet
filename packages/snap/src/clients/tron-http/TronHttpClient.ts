@@ -25,7 +25,6 @@ import type { Network } from '../../constants';
 import type { ConfigProvider } from '../../services/config';
 import { buildUrl } from '../../utils/buildUrl';
 import { hexToString } from '../../utils/hex';
-import { createTrongridHttpError } from '../trongrid/errors';
 
 /**
  * Client for Tron JSON-RPC HTTP endpoints (not the REST API)
@@ -88,7 +87,7 @@ export class TronHttpClient {
     });
 
     if (!response.ok) {
-      throw createTrongridHttpError(response);
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const tokenData: TRC10TokenInfo = await response.json();
@@ -156,7 +155,7 @@ export class TronHttpClient {
     });
 
     if (!response.ok) {
-      throw createTrongridHttpError(response);
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const accountResources: AccountResources = await response.json();
@@ -204,7 +203,7 @@ export class TronHttpClient {
       if (response.status === 404) {
         return null; // Transaction not found
       }
-      throw createTrongridHttpError(response);
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const txInfo: FullNodeTransactionInfo = await response.json();
@@ -247,7 +246,7 @@ export class TronHttpClient {
     });
 
     if (!response.ok) {
-      throw createTrongridHttpError(response);
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
@@ -280,7 +279,7 @@ export class TronHttpClient {
     const response = await fetch(url, { headers });
 
     if (!response.ok) {
-      throw createTrongridHttpError(response);
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const rawData = await response.json();
@@ -337,7 +336,7 @@ export class TronHttpClient {
     });
 
     if (!response.ok) {
-      throw createTrongridHttpError(response);
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const result: TriggerConstantContractResponse = await response.json();
@@ -383,7 +382,7 @@ export class TronHttpClient {
     });
 
     if (!response.ok) {
-      throw createTrongridHttpError(response);
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const contractInfo: ContractInfo = await response.json();
@@ -432,7 +431,7 @@ export class TronHttpClient {
     });
 
     if (!response.ok) {
-      throw createTrongridHttpError(response);
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const rewardResponse: GetRewardResponse = await response.json();
