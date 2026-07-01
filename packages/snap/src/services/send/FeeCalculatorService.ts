@@ -6,12 +6,18 @@ import type { Transaction } from 'tronweb/lib/esm/types';
 import type { ComputeFeeResult } from './types';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
-import type { ContractInfo } from '../../clients/tron-http/types';
+import type {
+  ChainParameter,
+  ContractInfo,
+} from '../../clients/tron-http/types';
 import { TrongridAccountNotFoundError } from '../../clients/trongrid/errors';
 import { type TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
 import type { Network } from '../../constants';
 import {
   ACCOUNT_ACTIVATION_FEE_TRX,
+  FALLBACK_ENERGY_PRICE_SUN,
+  FALLBACK_GET_ENERGY_FEE_SUN,
+  FALLBACK_GET_TRANSACTION_FEE_SUN,
   MEMO_FEE_TRX,
   Networks,
   SUN_IN_TRX,
@@ -285,6 +291,45 @@ export class FeeCalculatorService {
   }
 
   /**
+   * Fetch chain parameters for `scope`, degrading to a conservative fee floor
+   * instead of throwing when TronGrid is unavailable (429 / timeout / 5xx /
+   * network error). A wrong-but-nonzero fee is far safer than a hidden $0 fee.
+   *
+   * @param scope - The network scope to fetch chain parameters for.
+   * @returns Chain parameters (live, cached, or empty for the static floor).
+   */
+  async #getChainParameters(scope: Network): Promise<ChainParameter[]> {
+    try {
+      return await this.#trongridApiClient.getChainParameters(scope);
+    } catch (error) {
+      await this.#snapClient.trackError(error as Error);
+      this.#logger.warn(
+        { error },
+        'Failed to fetch chain parameters, degrading to fee floor',
+      );
+
+      try {
+        const cached =
+          await this.#trongridApiClient.peekCachedChainParameters(scope);
+        if (cached && cached.length > 0) {
+          this.#logger.log(
+            'Using last-known cached chain parameters as fee floor',
+          );
+          return cached;
+        }
+      } catch (cacheError) {
+        this.#logger.warn(
+          { error: cacheError },
+          'Failed to read cached chain parameters for fee floor',
+        );
+      }
+
+      this.#logger.log('Using static fallback chain parameters as fee floor');
+      return [];
+    }
+  }
+
+  /**
    * Calculate fallback energy from fee limit.
    * Uses fee limit and energy price to derive maximum energy that could be consumed.
    *
@@ -296,11 +341,10 @@ export class FeeCalculatorService {
     scope: Network,
     feeLimit: number,
   ): Promise<number> {
-    const chainParameters =
-      await this.#trongridApiClient.getChainParameters(scope);
+    const chainParameters = await this.#getChainParameters(scope);
     const energyPrice =
       chainParameters.find((param) => param.key === 'getEnergyFee')?.value ??
-      420; // Fallback to 420 SUN per energy unit
+      FALLBACK_ENERGY_PRICE_SUN;
 
     const maxEnergyFromFeeLimit = Math.floor(feeLimit / energyPrice);
 
@@ -721,15 +765,14 @@ export class FeeCalculatorService {
       bandwidthToPayInTRX.isGreaterThan(0) ||
       energyToPayInTRX.isGreaterThan(0)
     ) {
-      const chainParameters =
-        await this.#trongridApiClient.getChainParameters(scope);
+      const chainParameters = await this.#getChainParameters(scope);
 
       const bandwidthCost =
         chainParameters.find((param) => param.key === 'getTransactionFee')
-          ?.value ?? 1000; // Fallback to 1000 SUN per bandwidth
+          ?.value ?? FALLBACK_GET_TRANSACTION_FEE_SUN;
       const energyCost =
         chainParameters.find((param) => param.key === 'getEnergyFee')?.value ??
-        100; // Fallback to 100 SUN per energy
+        FALLBACK_GET_ENERGY_FEE_SUN;
 
       // Calculate TRX cost for bandwidth and energy that needs to be paid
       const bandwidthCostTRX = bandwidthToPayInTRX
