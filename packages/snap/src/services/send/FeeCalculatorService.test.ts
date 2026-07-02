@@ -560,7 +560,7 @@ describe('FeeCalculatorService', () => {
         ]);
       });
 
-      it('uses fallback values when chain parameters are missing', async () => {
+      it('throws FeeUnavailableError when chain parameters return an empty array', async () => {
         mockTrongridApiClient.getChainParameters.mockResolvedValue([]);
 
         const transaction = getTransactionExample('trc20');
@@ -573,49 +573,16 @@ describe('FeeCalculatorService', () => {
         });
 
         const availableEnergy = BigNumber(100000);
-        const availableBandwidth = BigNumber(2000000); // Ensure enough bandwidth
+        const availableBandwidth = BigNumber(2000000);
 
-        const result = await feeCalculatorService.computeFee({
-          scope: Network.Mainnet,
-          transaction,
-          availableEnergy,
-          availableBandwidth,
-        });
-
-        // Should use fallback values: energyFee=100, bandwidthFee=1000
-        // Energy: 130000 (hardcoded), available: 100000
-        // Energy consumed: 100000, overage: 30000
-        // TRX cost: 30000 * 100 SUN = 3,000,000 SUN = 3 TRX
-        // Bandwidth: 345 bytes consumed
-        expect(result).toStrictEqual([
-          {
-            type: FeeType.Base,
-            asset: {
-              unit: 'TRX',
-              type: 'tron:728126428/slip44:195',
-              amount: '3',
-              fungible: true,
-            },
-          },
-          {
-            type: FeeType.Base,
-            asset: {
-              unit: 'ENERGY',
-              type: 'tron:728126428/slip44:energy',
-              amount: '100000',
-              fungible: true,
-            },
-          },
-          {
-            type: FeeType.Base,
-            asset: {
-              unit: 'BANDWIDTH',
-              type: 'tron:728126428/slip44:bandwidth',
-              amount: '345',
-              fungible: true,
-            },
-          },
-        ]);
+        await expect(
+          feeCalculatorService.computeFee({
+            scope: Network.Mainnet,
+            transaction,
+            availableEnergy,
+            availableBandwidth,
+          }),
+        ).rejects.toThrow(FeeUnavailableError);
       });
 
       it('handles very large transactions', async () => {
@@ -1216,13 +1183,12 @@ describe('FeeCalculatorService', () => {
         ]);
       });
 
-      it('uses fallback energy price (420 SUN) when chain parameters are missing', async () => {
-        // Simulate triggerConstantContract failing
+      it('throws FeeUnavailableError when getEnergyFee is absent from chain parameters', async () => {
+        // Simulation fails, triggering the fallback energy path which requires getEnergyFee
         mockTronHttpClient.triggerConstantContract.mockRejectedValue(
           new Error('Simulation failed'),
         );
 
-        // Chain parameters missing getEnergyFee
         mockTrongridApiClient.getChainParameters.mockResolvedValue([
           { key: 'getTransactionFee', value: 1000 },
           // No getEnergyFee
@@ -1231,44 +1197,17 @@ describe('FeeCalculatorService', () => {
         const transaction = getTransactionExample('trc20');
         const availableEnergy = BigNumber(0);
         const availableBandwidth = BigNumber(2000000);
-
-        // feeLimit of 4,200,000 SUN with fallback energy price 420 SUN = 10,000 max energy
         const feeLimit = 4_200_000;
 
-        const result = await feeCalculatorService.computeFee({
-          scope: Network.Mainnet,
-          transaction,
-          availableEnergy,
-          availableBandwidth,
-          feeLimit,
-        });
-
-        // Energy from feeLimit: 4,200,000 / 420 = 10,000 energy
-        // Available energy: 0
-        // Energy consumed: 0, overage: 10,000
-        // TRX cost: 10,000 * 420 SUN / 1,000,000 = 4.2 TRX
-        // But getEnergyFee is missing from chain params, so it uses fallback 100 SUN
-        // TRX cost: 10,000 * 100 SUN / 1,000,000 = 1 TRX
-        expect(result).toStrictEqual([
-          {
-            type: FeeType.Base,
-            asset: {
-              unit: 'TRX',
-              type: 'tron:728126428/slip44:195',
-              amount: '1',
-              fungible: true,
-            },
-          },
-          {
-            type: FeeType.Base,
-            asset: {
-              unit: 'BANDWIDTH',
-              type: 'tron:728126428/slip44:bandwidth',
-              amount: '345',
-              fungible: true,
-            },
-          },
-        ]);
+        await expect(
+          feeCalculatorService.computeFee({
+            scope: Network.Mainnet,
+            transaction,
+            availableEnergy,
+            availableBandwidth,
+            feeLimit,
+          }),
+        ).rejects.toThrow(FeeUnavailableError);
       });
     });
 
@@ -2237,6 +2176,47 @@ describe('FeeCalculatorService', () => {
         ).rejects.toThrow(FeeUnavailableError);
       });
 
+      it('throws FeeUnavailableError when getTransactionFee is absent from chain parameters', async () => {
+        mockTrongridApiClient.getChainParameters.mockResolvedValue([
+          // No getTransactionFee
+          { key: 'getEnergyFee', value: 100 },
+        ]);
+
+        const { transaction, availableEnergy, availableBandwidth } =
+          buildNativeTxWithBandwidthOverage();
+
+        await expect(
+          feeCalculatorService.computeFee({
+            scope: Network.Mainnet,
+            transaction,
+            availableEnergy,
+            availableBandwidth,
+          }),
+        ).rejects.toThrow(FeeUnavailableError);
+      });
+
+      it('throws FeeUnavailableError when getEnergyFee is absent from chain parameters in the main fee path', async () => {
+        mockTrongridApiClient.getChainParameters.mockResolvedValue([
+          { key: 'getTransactionFee', value: 1000 },
+          // No getEnergyFee
+        ]);
+
+        // TRC20 with enough energy so simulation is not needed,
+        // but energy overage triggers the main fee path
+        const transaction = getTransactionExample('trc20');
+        const availableEnergy = BigNumber(0);
+        const availableBandwidth = BigNumber(2000000);
+
+        await expect(
+          feeCalculatorService.computeFee({
+            scope: Network.Mainnet,
+            transaction,
+            availableEnergy,
+            availableBandwidth,
+          }),
+        ).rejects.toThrow(FeeUnavailableError);
+      });
+
       it('preserves 429 status in trackError and throws FeeUnavailableError when TronGrid returns 429', async () => {
         const rateLimitError = new TrongridRateLimitError();
         mockTrongridApiClient.getChainParameters.mockRejectedValue(
@@ -2282,7 +2262,6 @@ describe('FeeCalculatorService', () => {
         const transaction = getTransactionExample('trc20');
         const availableEnergy = BigNumber(0);
         const availableBandwidth = BigNumber(2000000); // enough bandwidth
-        // feeLimit 4,200,000 SUN / 420 SUN fallback price = 10,000 max energy
         const feeLimit = 4_200_000;
 
         await expect(

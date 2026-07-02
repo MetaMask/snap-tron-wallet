@@ -16,9 +16,6 @@ import { type TrongridApiClient } from '../../clients/trongrid/TrongridApiClient
 import type { Network } from '../../constants';
 import {
   ACCOUNT_ACTIVATION_FEE_TRX,
-  FALLBACK_ENERGY_PRICE_SUN,
-  FALLBACK_GET_ENERGY_FEE_SUN,
-  FALLBACK_GET_TRANSACTION_FEE_SUN,
   MEMO_FEE_TRX,
   Networks,
   SUN_IN_TRX,
@@ -350,9 +347,13 @@ export class FeeCalculatorService {
     feeLimit: number,
   ): Promise<number> {
     const chainParameters = await this.#getChainParameters(scope);
-    const energyPrice =
-      chainParameters.find((param) => param.key === 'getEnergyFee')?.value ??
-      FALLBACK_ENERGY_PRICE_SUN;
+    const energyPrice = chainParameters.find(
+      (param) => param.key === 'getEnergyFee',
+    )?.value;
+
+    if (energyPrice === undefined) {
+      throw new FeeUnavailableError();
+    }
 
     const maxEnergyFromFeeLimit = Math.floor(feeLimit / energyPrice);
 
@@ -775,12 +776,16 @@ export class FeeCalculatorService {
     ) {
       const chainParameters = await this.#getChainParameters(scope);
 
-      const bandwidthCost =
-        chainParameters.find((param) => param.key === 'getTransactionFee')
-          ?.value ?? FALLBACK_GET_TRANSACTION_FEE_SUN;
-      const energyCost =
-        chainParameters.find((param) => param.key === 'getEnergyFee')?.value ??
-        FALLBACK_GET_ENERGY_FEE_SUN;
+      const bandwidthCost = chainParameters.find(
+        (param) => param.key === 'getTransactionFee',
+      )?.value;
+      const energyCost = chainParameters.find(
+        (param) => param.key === 'getEnergyFee',
+      )?.value;
+
+      if (bandwidthCost === undefined || energyCost === undefined) {
+        throw new FeeUnavailableError();
+      }
 
       // Calculate TRX cost for bandwidth and energy that needs to be paid
       const bandwidthCostTRX = bandwidthToPayInTRX
