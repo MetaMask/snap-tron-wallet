@@ -3,6 +3,7 @@ import { FeeType } from '@metamask/keyring-api';
 import { BigNumber } from 'bignumber.js';
 import type { Transaction } from 'tronweb/lib/esm/types';
 
+import { FeeUnavailableError } from './errors';
 import type { ComputeFeeResult } from './types';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
@@ -291,12 +292,19 @@ export class FeeCalculatorService {
   }
 
   /**
-   * Fetch chain parameters for `scope`, degrading to a conservative fee floor
-   * instead of throwing when TronGrid is unavailable (429 / timeout / 5xx /
-   * network error). A wrong-but-nonzero fee is far safer than a hidden $0 fee.
+   * Fetch chain parameters for `scope`, degrading gracefully when TronGrid is
+   * unavailable.
+   *
+   * Resolution order: (1) live TronGrid fetch; (2) last-known cached chain
+   * parameters via `peekCachedChainParameters`; (3) if neither is available,
+   * throw {@link FeeUnavailableError}.
+   *
+   * The live-fetch failure is reported via `trackError` (Sentry) so the
+   * degraded path is observable.
    *
    * @param scope - The network scope to fetch chain parameters for.
-   * @returns Chain parameters (live, cached, or empty for the static floor).
+   * @returns Chain parameters (live, or last-known cached).
+   * @throws {@link FeeUnavailableError} when no live and no cached data exists.
    */
   async #getChainParameters(scope: Network): Promise<ChainParameter[]> {
     try {
@@ -305,7 +313,7 @@ export class FeeCalculatorService {
       await this.#snapClient.trackError(error as Error);
       this.#logger.warn(
         { error },
-        'Failed to fetch chain parameters, degrading to fee floor',
+        'Failed to fetch chain parameters, attempting cached fallback',
       );
 
       try {
@@ -324,8 +332,8 @@ export class FeeCalculatorService {
         );
       }
 
-      this.#logger.log('Using static fallback chain parameters as fee floor');
-      return [];
+      this.#logger.log('No cached chain parameters available');
+      throw new FeeUnavailableError();
     }
   }
 

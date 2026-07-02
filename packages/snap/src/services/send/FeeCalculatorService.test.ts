@@ -2,6 +2,7 @@
 import { FeeType } from '@metamask/keyring-api';
 import { BigNumber } from 'bignumber.js';
 
+import { FeeUnavailableError } from './errors';
 import { FeeCalculatorService } from './FeeCalculatorService';
 import {
   TrongridAccountNotFoundError,
@@ -2135,7 +2136,7 @@ describe('FeeCalculatorService', () => {
       });
     });
 
-    describe('Fail-safe fee floor (TronGrid failure)', () => {
+    describe('Graceful failure when TronGrid is unavailable', () => {
       // Native transfer with insufficient bandwidth so a TRX fee is owed and
       // the chain-params conversion path is exercised.
       const buildNativeTxWithBandwidthOverage = () => ({
@@ -2144,7 +2145,7 @@ describe('FeeCalculatorService', () => {
         availableBandwidth: BigNumber(100), // < 266 bytes needed
       });
 
-      it('returns a non-zero fee when getChainParameters throws', async () => {
+      it('throws FeeUnavailableError when getChainParameters throws and no cache exists', async () => {
         mockTrongridApiClient.getChainParameters.mockRejectedValue(
           new TrongridRateLimitError(),
         );
@@ -2155,15 +2156,14 @@ describe('FeeCalculatorService', () => {
         const { transaction, availableEnergy, availableBandwidth } =
           buildNativeTxWithBandwidthOverage();
 
-        const result = await feeCalculatorService.computeFee({
-          scope: Network.Mainnet,
-          transaction,
-          availableEnergy,
-          availableBandwidth,
-        });
-
-        // Static floor: 266 bytes * 1000 SUN / 1e6 = 0.266 TRX (NOT $0)
-        expect(result[0]?.asset.amount).toBe('0.266');
+        await expect(
+          feeCalculatorService.computeFee({
+            scope: Network.Mainnet,
+            transaction,
+            availableEnergy,
+            availableBandwidth,
+          }),
+        ).rejects.toThrow(FeeUnavailableError);
         expect(mockSnapClient.trackError).toHaveBeenCalledTimes(1);
       });
 
@@ -2196,7 +2196,7 @@ describe('FeeCalculatorService', () => {
         expect(mockSnapClient.trackError).toHaveBeenCalledTimes(1);
       });
 
-      it('uses static fee floor when both live fetch and cache fail', async () => {
+      it('throws FeeUnavailableError when both live fetch and cache fail', async () => {
         mockTrongridApiClient.getChainParameters.mockRejectedValue(
           new Error('HTTP error! status: 500'),
         );
@@ -2207,19 +2207,18 @@ describe('FeeCalculatorService', () => {
         const { transaction, availableEnergy, availableBandwidth } =
           buildNativeTxWithBandwidthOverage();
 
-        const result = await feeCalculatorService.computeFee({
-          scope: Network.Mainnet,
-          transaction,
-          availableEnergy,
-          availableBandwidth,
-        });
-
-        // Static floor: 266 * 1000 SUN / 1e6 = 0.266 TRX
-        expect(result[0]?.asset.amount).toBe('0.266');
+        await expect(
+          feeCalculatorService.computeFee({
+            scope: Network.Mainnet,
+            transaction,
+            availableEnergy,
+            availableBandwidth,
+          }),
+        ).rejects.toThrow(FeeUnavailableError);
         expect(mockSnapClient.trackError).toHaveBeenCalledTimes(1);
       });
 
-      it('uses static fee floor when cached chain parameters are empty', async () => {
+      it('throws FeeUnavailableError when cached chain parameters are empty', async () => {
         mockTrongridApiClient.getChainParameters.mockRejectedValue(
           new Error('HTTP error! status: 500'),
         );
@@ -2228,17 +2227,17 @@ describe('FeeCalculatorService', () => {
         const { transaction, availableEnergy, availableBandwidth } =
           buildNativeTxWithBandwidthOverage();
 
-        const result = await feeCalculatorService.computeFee({
-          scope: Network.Mainnet,
-          transaction,
-          availableEnergy,
-          availableBandwidth,
-        });
-
-        expect(result[0]?.asset.amount).toBe('0.266');
+        await expect(
+          feeCalculatorService.computeFee({
+            scope: Network.Mainnet,
+            transaction,
+            availableEnergy,
+            availableBandwidth,
+          }),
+        ).rejects.toThrow(FeeUnavailableError);
       });
 
-      it('preserves 429 status in trackError when TronGrid returns 429', async () => {
+      it('preserves 429 status in trackError and throws FeeUnavailableError when TronGrid returns 429', async () => {
         const rateLimitError = new TrongridRateLimitError();
         mockTrongridApiClient.getChainParameters.mockRejectedValue(
           rateLimitError,
@@ -2250,12 +2249,14 @@ describe('FeeCalculatorService', () => {
         const { transaction, availableEnergy, availableBandwidth } =
           buildNativeTxWithBandwidthOverage();
 
-        await feeCalculatorService.computeFee({
-          scope: Network.Mainnet,
-          transaction,
-          availableEnergy,
-          availableBandwidth,
-        });
+        await expect(
+          feeCalculatorService.computeFee({
+            scope: Network.Mainnet,
+            transaction,
+            availableEnergy,
+            availableBandwidth,
+          }),
+        ).rejects.toThrow(FeeUnavailableError);
 
         expect(mockSnapClient.trackError).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -2265,9 +2266,9 @@ describe('FeeCalculatorService', () => {
         );
       });
 
-      it('does not throw when fallback energy calculation also hits a TronGrid failure', async () => {
+      it('throws FeeUnavailableError when fallback energy calculation also hits a TronGrid failure', async () => {
         // SC energy simulation fails AND chain-params fetch fails AND no cache.
-        // computeFee must still resolve using the feeLimit-derived fallback.
+        // computeFee must fail gracefully instead of returning a feeLimit-derived fee.
         mockTronHttpClient.triggerConstantContract.mockRejectedValue(
           new Error('Simulation failed'),
         );
@@ -2284,16 +2285,15 @@ describe('FeeCalculatorService', () => {
         // feeLimit 4,200,000 SUN / 420 SUN fallback price = 10,000 max energy
         const feeLimit = 4_200_000;
 
-        const result = await feeCalculatorService.computeFee({
-          scope: Network.Mainnet,
-          transaction,
-          availableEnergy,
-          availableBandwidth,
-          feeLimit,
-        });
-
-        // Fallback energy 10,000 paid at static energy fee 100 SUN = 1 TRX
-        expect(result[0]?.asset.amount).toBe('1');
+        await expect(
+          feeCalculatorService.computeFee({
+            scope: Network.Mainnet,
+            transaction,
+            availableEnergy,
+            availableBandwidth,
+            feeLimit,
+          }),
+        ).rejects.toThrow(FeeUnavailableError);
         expect(mockSnapClient.trackError).toHaveBeenCalled();
       });
     });
