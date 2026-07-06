@@ -16,6 +16,7 @@ import { EXPIRED_TRANSACTION_SCAN } from '../../../../services/transaction-scan/
 import type { TransactionScanResult } from '../../../../services/transaction-scan/types';
 import { TRX_IMAGE_SVG } from '../../../../static/tron-logo';
 import { FetchStatus } from '../../../../types/snap';
+import logger from '../../../../utils/logger';
 import { SignTransactionRequestStruct } from '../../../../validation/structs';
 import { getIconUrlForKnownAsset } from '../../utils/getIconUrlForKnownAsset';
 
@@ -222,8 +223,9 @@ export async function render(
       if (expired) {
         scan = EXPIRED_TRANSACTION_SCAN;
       }
-    } catch {
-      // Fail safe: ignore — never synthesize a false expired result.
+    } catch (error) {
+      logger.error('Error checking transaction expiration:', error);
+      await snapClient.trackError(error as Error);
     }
 
     context.scan = scan;
@@ -266,6 +268,7 @@ export async function render(
       duration: 'PT20S',
     });
   } catch (error) {
+    logger.error('Error scheduling background refresh event:', error);
     await snapClient.trackError(error as Error);
     // Best-effort: live expiry refreshes won't run, but the rendered result
     // stays intact.

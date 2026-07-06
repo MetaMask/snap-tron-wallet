@@ -561,6 +561,9 @@ describe('ConfirmSignTransaction render', () => {
       scanFetchStatus: string;
     };
 
+    expect(mockSnapClient.trackError).toHaveBeenCalledWith(
+      new Error('tapos check failed'),
+    );
     expect(finalContext.scan).not.toBeNull();
     expect(finalContext.scan?.simulationStatus).toBe(
       SimulationStatus.Completed,
