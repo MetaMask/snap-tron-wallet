@@ -265,7 +265,8 @@ export async function render(
       method: BackgroundEventMethod.RefreshSignTransaction,
       duration: 'PT20S',
     });
-  } catch {
+  } catch (error) {
+    await snapClient.trackError(error as Error);
     // Best-effort: live expiry refreshes won't run, but the rendered result
     // stays intact.
   }

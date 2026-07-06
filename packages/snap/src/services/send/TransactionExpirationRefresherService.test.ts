@@ -104,6 +104,7 @@ describe('transaction metadata', () => {
     return {
       service: new TransactionExpirationRefresherService({
         tronWebFactory: tronWebFactory as never,
+        snapClient: { trackError: jest.fn() } as never,
       }),
       tronWebFactory,
     };

@@ -10,6 +10,7 @@ import type {
   TransactionRawDataWithExpirationMetadata,
   TransactionWithMetadata,
 } from './types';
+import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
 import type { Network } from '../../constants';
 
@@ -44,8 +45,17 @@ const MAX_EXPIRATION_MS = 24 * 60 * 60 * 1000;
 export class TransactionExpirationRefresherService {
   readonly #tronWebFactory: TronWebFactory;
 
-  constructor({ tronWebFactory }: { tronWebFactory: TronWebFactory }) {
+  readonly #snapClient: SnapClient;
+
+  constructor({
+    tronWebFactory,
+    snapClient,
+  }: {
+    tronWebFactory: TronWebFactory;
+    snapClient: SnapClient;
+  }) {
     this.#tronWebFactory = tronWebFactory;
+    this.#snapClient = snapClient;
   }
 
   /**
@@ -143,7 +153,8 @@ export class TransactionExpirationRefresherService {
       }
 
       return false;
-    } catch {
+    } catch (error) {
+      await this.#snapClient.trackError(error as Error);
       return false;
     }
   }

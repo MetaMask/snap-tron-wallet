@@ -399,6 +399,7 @@ describe('ClientRequestHandler', () => {
           transactionExpirationRefresherService:
             new TransactionExpirationRefresherService({
               tronWebFactory: mockTronWebFactory,
+              snapClient: mockSnapClient,
             }),
         });
 

@@ -128,6 +128,7 @@ const feeCalculatorService = new FeeCalculatorService({
 const transactionExpirationRefresherService =
   new TransactionExpirationRefresherService({
     tronWebFactory,
+    snapClient,
   });
 
 const sendService = new SendService({

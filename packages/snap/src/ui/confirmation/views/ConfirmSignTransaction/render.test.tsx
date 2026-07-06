@@ -99,6 +99,7 @@ describe('ConfirmSignTransaction render', () => {
       updateInterface: jest.fn().mockResolvedValue(undefined),
       getPreferences: jest.fn().mockResolvedValue(mockPreferences),
       scheduleBackgroundEvent: jest.fn().mockResolvedValue(undefined),
+      trackError: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     mockTransactionScanService = {
