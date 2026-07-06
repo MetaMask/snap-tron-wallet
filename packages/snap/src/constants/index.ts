@@ -6,9 +6,14 @@ export const ACCOUNT_ACTIVATION_FEE_TRX = BigNumber(1);
 export const MEMO_FEE_TRX = BigNumber(1);
 export const SUN_IN_TRX = 1_000_000;
 /**
- * 100 TRX
+ * 101 TRX
  */
-export const FEE_LIMIT = 100_000_000;
+export const FEE_LIMIT = 101_000_000;
+/**
+ * 37 TRX.
+ * Used only for the computeFee during the fee computation to show them in the UI
+ */
+export const FALLBACK_FEE = 37_000_000;
 
 export const NULL_ADDRESS = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 export const CONSENSYS_SR_NODE_ADDRESS = 'TVMwGfdDz58VvM7yTzGMWWSHsmofSxa9jH';
