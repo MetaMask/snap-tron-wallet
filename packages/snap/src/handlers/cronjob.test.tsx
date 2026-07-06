@@ -34,6 +34,7 @@ type MockSnapClient = jest.Mocked<
     | 'getInterfaceContext'
     | 'scheduleBackgroundEvent'
     | 'getPreferences'
+    | 'trackError'
   >
 >;
 
@@ -272,6 +273,7 @@ function buildMockSnapClient(
     getInterfaceContext: jest.fn().mockResolvedValue(interfaceContext),
     scheduleBackgroundEvent: jest.fn().mockResolvedValue(undefined),
     getPreferences: jest.fn().mockResolvedValue({}),
+    trackError: jest.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -848,6 +850,39 @@ describe('CronHandler', () => {
           expect(finalContext.scanFetchStatus).toBe(FetchStatus.Fetched);
         },
       );
+    });
+
+    it('tracks error and skips scan when deserialization fails', async () => {
+      const interfaceContext = buildMockSignTransactionInterfaceContext();
+      const mockSnapClient = buildMockSnapClient(interfaceContext);
+      const mockState = buildMockState({
+        [CONFIRM_SIGN_TRANSACTION_INTERFACE_NAME]: 'interface-id-456',
+      });
+      const mockTransactionScanService = buildMockTransactionScanService(
+        buildMockScanResult(),
+      );
+      const cronHandler = buildCronHandler({
+        mockSnapClient,
+        mockState,
+        mockTransactionScanService,
+        transactionExpirationRefresherService: {
+          ensureFreshRawData: jest.fn(async ({ rawData }) => rawData),
+          deserializeTransaction: jest
+            .fn()
+            .mockRejectedValue(new Error('deserialize failed')),
+          isTransactionExpired: jest.fn().mockResolvedValue(false),
+        },
+      });
+
+      await cronHandler.refreshSignTransaction();
+
+      expect(mockTransactionScanService.scanTransaction).not.toHaveBeenCalled();
+      expect(mockSnapClient.trackError).toHaveBeenCalledTimes(1);
+      expect(mockSnapClient.updateInterface).toHaveBeenCalledTimes(2);
+      expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith({
+        method: BackgroundEventMethod.RefreshSignTransaction,
+        duration: 'PT20S',
+      });
     });
 
     it('preserves the scan result when the TAPOS check throws', async () => {

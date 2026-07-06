@@ -516,6 +516,7 @@ export class CronHandler {
           'Error deserializing transaction for signTransaction refresh:',
           error,
         );
+        await this.#snapClient.trackError(error as Error);
       }
 
       if (shouldRefreshScan && rawData) {
@@ -566,6 +567,7 @@ export class CronHandler {
           }
         } catch (error) {
           this.#logger.error('Error checking transaction expiration:', error);
+          await this.#snapClient.trackError(error as Error);
         }
       }
 
