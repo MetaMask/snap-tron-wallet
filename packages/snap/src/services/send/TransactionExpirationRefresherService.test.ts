@@ -104,7 +104,6 @@ describe('transaction metadata', () => {
     return {
       service: new TransactionExpirationRefresherService({
         tronWebFactory: tronWebFactory as never,
-        snapClient: { trackError: jest.fn() } as never,
       }),
       tronWebFactory,
     };
@@ -448,6 +447,20 @@ describe('transaction metadata', () => {
     expect(tronWeb.utils.transaction.txJsonToPb).not.toHaveBeenCalled();
   });
 
+  it('throws a clear error when ensureFreshRawData cannot fetch the current block', async () => {
+    const transaction = createTransaction({
+      block: createBlock({ number: 199_990, timestamp: now - 30_000 }),
+      expiration: now - 1,
+    });
+    const tronWeb = createTronWeb();
+    tronWeb.trx.getCurrentBlock.mockRejectedValue(new Error('node offline'));
+    const { service } = createService(tronWeb);
+
+    await expect(
+      service.ensureFreshRawData({ scope, rawData: transaction.raw_data }),
+    ).rejects.toThrow(TRANSACTION_METADATA_REFRESH_ERROR);
+  });
+
   describe('isTransactionExpired', () => {
     it('returns false for a fresh, broadcastable transaction', async () => {
       const referencedBlock = createBlock({
@@ -540,7 +553,7 @@ describe('transaction metadata', () => {
       expect(tronWeb.trx.getBlockByNumber).not.toHaveBeenCalled();
     });
 
-    it('fails safe (returns false) when the current block cannot be fetched', async () => {
+    it('throws when the current block cannot be fetched', async () => {
       const tronWeb = createTronWeb();
       tronWeb.trx.getCurrentBlock.mockRejectedValue(new Error('node offline'));
       const transaction = createTransaction({
@@ -549,12 +562,12 @@ describe('transaction metadata', () => {
       });
       const { service } = createService(tronWeb);
 
-      const expired = await service.isTransactionExpired({
-        scope,
-        rawData: transaction.raw_data,
-      });
-
-      expect(expired).toBe(false);
+      await expect(
+        service.isTransactionExpired({
+          scope,
+          rawData: transaction.raw_data,
+        }),
+      ).rejects.toThrow('node offline');
     });
   });
 });

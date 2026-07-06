@@ -10,7 +10,6 @@ import type {
   TransactionRawDataWithExpirationMetadata,
   TransactionWithMetadata,
 } from './types';
-import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
 import type { Network } from '../../constants';
 
@@ -45,17 +44,8 @@ const MAX_EXPIRATION_MS = 24 * 60 * 60 * 1000;
 export class TransactionExpirationRefresherService {
   readonly #tronWebFactory: TronWebFactory;
 
-  readonly #snapClient: SnapClient;
-
-  constructor({
-    tronWebFactory,
-    snapClient,
-  }: {
-    tronWebFactory: TronWebFactory;
-    snapClient: SnapClient;
-  }) {
+  constructor({ tronWebFactory }: { tronWebFactory: TronWebFactory }) {
     this.#tronWebFactory = tronWebFactory;
-    this.#snapClient = snapClient;
   }
 
   /**
@@ -101,9 +91,6 @@ export class TransactionExpirationRefresherService {
    * current chain head. Unlike {@link ensureFreshMetadata}, it never mutates
    * the payload.
    *
-   * Fails safe: on any network/parse error it returns `false` so the snap does
-   * not synthesize a false "expired" result.
-   *
    * @param params - Expiration check inputs.
    * @param params.scope - Network scope used to create a TronWeb client.
    * @param params.rawData - Transaction raw data to inspect.
@@ -116,47 +103,40 @@ export class TransactionExpirationRefresherService {
     scope: Network;
     rawData: TransactionRawData;
   }): Promise<boolean> {
-    try {
-      const tronWeb = this.#tronWebFactory.createClient(scope);
-      const now = Date.now();
-      const currentBlock = await tronWeb.trx.getCurrentBlock();
+    const tronWeb = this.#tronWebFactory.createClient(scope);
+    const now = Date.now();
+    const currentBlock = await tronWeb.trx.getCurrentBlock();
 
-      if (!hasFreshExpirationMetadata({ currentBlock, now, rawData })) {
-        return true;
-      }
-
-      const referenceBlockNumber = getReferenceBlockNumber({
-        currentBlockNumber: currentBlock.block_header.raw_data.number,
-        refBlockBytes: (rawData as TransactionRawDataWithExpirationMetadata)
-          .ref_block_bytes,
-      });
-
-      if (
-        !hasValidReferenceBlockNumber({ currentBlock, referenceBlockNumber })
-      ) {
-        return true;
-      }
-
-      const referencedBlock = await this.#getReferenceBlock({
-        tronWeb,
-        currentBlock,
-        referenceBlockNumber,
-      });
-
-      if (
-        !referencedBlockMatchesRawData({
-          rawData: rawData as TransactionRawDataWithExpirationMetadata,
-          referencedBlock,
-        })
-      ) {
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      await this.#snapClient.trackError(error as Error);
-      return false;
+    if (!hasFreshExpirationMetadata({ currentBlock, now, rawData })) {
+      return true;
     }
+
+    const referenceBlockNumber = getReferenceBlockNumber({
+      currentBlockNumber: currentBlock.block_header.raw_data.number,
+      refBlockBytes: (rawData as TransactionRawDataWithExpirationMetadata)
+        .ref_block_bytes,
+    });
+
+    if (!hasValidReferenceBlockNumber({ currentBlock, referenceBlockNumber })) {
+      return true;
+    }
+
+    const referencedBlock = await this.#getReferenceBlock({
+      tronWeb,
+      currentBlock,
+      referenceBlockNumber,
+    });
+
+    if (
+      !referencedBlockMatchesRawData({
+        rawData: rawData as TransactionRawDataWithExpirationMetadata,
+        referencedBlock,
+      })
+    ) {
+      return true;
+    }
+
+    return false;
   }
 
   /**

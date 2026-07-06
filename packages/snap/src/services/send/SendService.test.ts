@@ -1149,7 +1149,6 @@ describe('SendService', () => {
           transactionExpirationRefresherService:
             new TransactionExpirationRefresherService({
               tronWebFactory: mockTronWebFactory,
-              snapClient: mockSnapClient,
             }),
         });
         const currentTimestamp = Date.now();
@@ -1245,7 +1244,6 @@ describe('SendService', () => {
           transactionExpirationRefresherService:
             new TransactionExpirationRefresherService({
               tronWebFactory: mockTronWebFactory,
-              snapClient: mockSnapClient,
             }),
         });
         const currentTimestamp = Date.now();

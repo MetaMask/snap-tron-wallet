@@ -479,7 +479,6 @@ async function withCronHandler(
   const transactionExpirationRefresherService =
     new TransactionExpirationRefresherService({
       tronWebFactory: mockTronWebFactory as unknown as TronWebFactory,
-      snapClient: mockSnapClient as unknown as SnapClient,
     });
   const passThroughTransactionExpirationRefresherService = {
     ensureFreshRawData: jest.fn(async ({ rawData }) => rawData),
