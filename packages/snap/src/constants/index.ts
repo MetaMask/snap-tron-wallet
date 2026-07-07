@@ -14,7 +14,6 @@ export const FALLBACK_ENERGY_PRICE_SUN = 420;
 export const FEE_LIMIT = 101_000_000;
 /**
  * 37 TRX.
- * Used only for the computeFee during the fee computation to show them in the UI
  */
 export const FALLBACK_FEE = 37_000_000;
 
