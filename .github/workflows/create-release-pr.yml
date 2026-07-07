@@ -30,6 +30,7 @@ jobs:
           ref: ${{ github.event.inputs.base-branch }}
       - uses: MetaMask/action-create-release-pr@v5
         env:
+          HUSKY: '0'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ENVIRONMENT: production
           RPC_URL_LIST_MAINNET: ${{ secrets.RPC_URL_LIST_MAINNET }}
