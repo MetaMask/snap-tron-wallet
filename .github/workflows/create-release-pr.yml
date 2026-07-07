@@ -28,7 +28,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
           ref: ${{ github.event.inputs.base-branch }}
-      - uses: MetaMask/action-create-release-pr@v3
+      - uses: MetaMask/action-create-release-pr@v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ENVIRONMENT: production
