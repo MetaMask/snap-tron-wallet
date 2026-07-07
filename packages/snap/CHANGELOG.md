@@ -9,15 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.29.0]
 
-### Added
-
-- feat: resolve token metadata for log-reconstructed TRC20 transfers [2/3] ([#338](https://github.com/MetaMask/snap-tron-wallet/pull/338))
-- feat: add TRC20 transfer event log parser [1/3] ([#337](https://github.com/MetaMask/snap-tron-wallet/pull/337))
-
 ### Changed
 
 - Make computeFee fail-safe on TronGrid failure ([#343](https://github.com/MetaMask/snap-tron-wallet/pull/343))
-- Removed dApp transaction payload modification related to refresh ([#342](https://github.com/MetaMask/snap-tron-wallet/pull/342))
+- Remove dApp transaction payload modification related to refresh ([#342](https://github.com/MetaMask/snap-tron-wallet/pull/342))
+- Resolve token metadata for log-reconstructed TRC20 transfers [2/3] ([#338](https://github.com/MetaMask/snap-tron-wallet/pull/338))
+- Add TRC20 transfer event log parser [1/3] ([#337](https://github.com/MetaMask/snap-tron-wallet/pull/337))
 
 ## [1.28.0]
 
