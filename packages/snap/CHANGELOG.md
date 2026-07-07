@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Make computeFee fail-safe on TronGrid failure ([#343](https://github.com/MetaMask/snap-tron-wallet/pull/343))
+- Removed dApp transaction payload modification related to refresh ([#342](https://github.com/MetaMask/snap-tron-wallet/pull/342))
 - Use a `37 TRX` fallback fee when the network fee cannot be estimated for a transaction ([#344](https://github.com/MetaMask/snap-tron-wallet/pull/344))
 
 ## [1.28.0]
