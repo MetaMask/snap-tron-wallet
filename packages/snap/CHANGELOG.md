@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Make computeFee fail-safe on TronGrid failure ([#343](https://github.com/MetaMask/snap-tron-wallet/pull/343))
+- Added `FALLBACK_FEE` value used in the `computeFee` step to show a more realistic network fee to the user for a swap operation ([#344](https://github.com/MetaMask/snap-tron-wallet/pull/344))
+  - Updated `FEE_LIMIT` to `101 TRX` to better filter MetaMask transactions
 
 ## [1.28.0]
 
