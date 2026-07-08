@@ -101,10 +101,6 @@ export class PriceApiClient {
     vsCurrency: VsCurrencyParam | string = 'usd',
   ): Promise<SpotPrices> {
     try {
-      if (tokenCaipAssetTypes.length === 0) {
-        return {};
-      }
-
       const uniqueTokenCaipAssetTypes = [...new Set(tokenCaipAssetTypes)];
 
       // Split uniqueTokenCaipAssetTypes into chunks
