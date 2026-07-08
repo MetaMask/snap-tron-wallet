@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Fix: price API validation issues and enhance test coverage ([#353](https://github.com/MetaMask/snap-tron-wallet/pull/353))
+- Loosen price API validation ([#353](https://github.com/MetaMask/snap-tron-wallet/pull/353))
+  - The API response validation refused new fields when Price API service upgrades.
 
 ## [1.29.0]
 
