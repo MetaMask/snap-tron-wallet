@@ -4,6 +4,7 @@ import { BigNumber } from 'bignumber.js';
 import type { Transaction } from 'tronweb/lib/esm/types';
 
 import { FeeUnavailableError } from './errors';
+import { getSwapReferenceOwner } from './swapReferenceOwner';
 import type { ComputeFeeResult } from './types';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
@@ -544,21 +545,23 @@ export class FeeCalculatorService {
         `Estimating energy`,
       );
 
+      const simulationRequest = {
+        /**
+         * These addresses are in hex format. If they weren't we would need to
+         * pass `visible: true` to the request.
+         */
+        owner_address: ownerAddress,
+        contract_address: contractAddress,
+        data,
+        call_value: callValue,
+        token_id: tokenId,
+        call_token_id: callTokenId,
+        call_token_value: callTokenValue,
+      };
+
       // Fetch contract info and energy estimation in parallel
-      const [result, contractInfo] = await Promise.all([
-        this.#tronHttpClient.triggerConstantContract(scope, {
-          /**
-           * These addresses are in hex format. If they weren't we would need to
-           * pass `visible: true` to the request.
-           */
-          owner_address: ownerAddress,
-          contract_address: contractAddress,
-          data,
-          call_value: callValue,
-          token_id: tokenId,
-          call_token_id: callTokenId,
-          call_token_value: callTokenValue,
-        }),
+      const [initialResult, contractInfo] = await Promise.all([
+        this.#tronHttpClient.triggerConstantContract(scope, simulationRequest),
         // Graceful fallback: if getContract fails, contractInfo will be null
         this.#tronHttpClient
           .getContract(scope, contractAddress)
@@ -571,11 +574,40 @@ export class FeeCalculatorService {
           }),
       ]);
 
-      /**
-       * If the transaction simulation failed, we use the fallback energy estimate.
-       */
+      let result = initialResult;
+
       if (result.transaction.ret[0]?.ret === 'FAILED') {
-        throw new Error('Simulation yields failed result');
+        /**
+         * Pre-approve swaps revert when simulated from the user's address
+         * (no allowance yet). Energy depends on the code path, not the
+         * caller, so for known swap routes we retry the simulation from the
+         * pre-provisioned reference account. See swapReferenceOwner.ts.
+         */
+        const referenceOwner = getSwapReferenceOwner(
+          scope,
+          contractAddress,
+          data,
+        );
+
+        if (!referenceOwner) {
+          throw new Error('Simulation yields failed result');
+        }
+
+        this.#logger.log(
+          { contractAddress, selector: data.slice(0, 8), referenceOwner },
+          'Simulation failed for a known swap route, retrying with reference owner',
+        );
+
+        result = await this.#tronHttpClient.triggerConstantContract(scope, {
+          ...simulationRequest,
+          owner_address: referenceOwner,
+        });
+
+        if (result.transaction.ret[0]?.ret === 'FAILED') {
+          throw new Error(
+            'Simulation yields failed result (including with reference owner)',
+          );
+        }
       }
 
       if ('energy_used' in result) {

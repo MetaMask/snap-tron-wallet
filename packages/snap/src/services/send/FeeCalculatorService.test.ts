@@ -1304,6 +1304,150 @@ describe('FeeCalculatorService', () => {
       });
     });
 
+    describe('Swap reference account retry (WPN-1527)', () => {
+      const UNIVERSAL_ROUTER_HEX = '41a31d689a84244bc01be56e07aeafb7686f56bb89';
+      const SWAP_REFERENCE_OWNER_HEX =
+        '4197b779963e3778985b4429d30169aa88e7c7d91f';
+      const EXECUTE_DATA = `3593564c${'0'.repeat(192)}`;
+
+      const createUniversalRouterSwapTransaction = (): any => {
+        const baseTransaction = getTransactionExample('trc20');
+        return {
+          ...baseTransaction,
+          raw_data: {
+            ...baseTransaction.raw_data,
+            contract: [
+              {
+                ...baseTransaction.raw_data.contract[0],
+                parameter: {
+                  ...baseTransaction.raw_data.contract[0].parameter,
+                  value: {
+                    ...baseTransaction.raw_data.contract[0].parameter.value,
+                    contract_address: UNIVERSAL_ROUTER_HEX,
+                    data: EXECUTE_DATA,
+                  },
+                },
+              },
+            ],
+          },
+        };
+      };
+
+      const failedSimulation = {
+        result: { result: false },
+        constant_result: [],
+        transaction: { ret: [{ ret: 'FAILED' }] },
+      };
+
+      it('retries a failed swap simulation with the reference owner and uses its energy', async () => {
+        mockTronHttpClient.triggerConstantContract
+          .mockResolvedValueOnce(failedSimulation)
+          .mockResolvedValueOnce({
+            energy_used: 105127,
+            result: { result: true },
+            constant_result: [],
+            transaction: { ret: [{ ret: 'SUCCESS' }] },
+          });
+
+        const result = await feeCalculatorService.computeFee({
+          scope: Network.Mainnet,
+          transaction: createUniversalRouterSwapTransaction(),
+          availableEnergy: BigNumber(0),
+          availableBandwidth: BigNumber(2000000),
+        });
+
+        expect(
+          mockTronHttpClient.triggerConstantContract,
+        ).toHaveBeenCalledTimes(2);
+        expect(
+          mockTronHttpClient.triggerConstantContract,
+        ).toHaveBeenNthCalledWith(
+          2,
+          Network.Mainnet,
+          expect.objectContaining({
+            owner_address: SWAP_REFERENCE_OWNER_HEX,
+            contract_address: UNIVERSAL_ROUTER_HEX,
+            data: EXECUTE_DATA,
+          }),
+        );
+
+        // 105,127 energy * 100 SUN = 10,512,700 SUN = 10.5127 TRX
+        expect(result[0]).toStrictEqual({
+          type: FeeType.Base,
+          asset: {
+            unit: 'TRX',
+            type: 'tron:728126428/slip44:195',
+            amount: '10.5127',
+            fungible: true,
+          },
+        });
+        expect(mockSnapClient.trackError).not.toHaveBeenCalled();
+      });
+
+      it('falls back when the reference-owner simulation also fails', async () => {
+        mockTronHttpClient.triggerConstantContract.mockResolvedValue(
+          failedSimulation,
+        );
+
+        const result = await feeCalculatorService.computeFee({
+          scope: Network.Mainnet,
+          transaction: createUniversalRouterSwapTransaction(),
+          availableEnergy: BigNumber(0),
+          availableBandwidth: BigNumber(2000000),
+        });
+
+        expect(
+          mockTronHttpClient.triggerConstantContract,
+        ).toHaveBeenCalledTimes(2);
+
+        // Fallback 130,000 energy * 100 SUN = 13 TRX
+        expect(result[0]).toStrictEqual({
+          type: FeeType.Base,
+          asset: {
+            unit: 'TRX',
+            type: 'tron:728126428/slip44:195',
+            amount: '13',
+            fungible: true,
+          },
+        });
+        expect(mockSnapClient.trackError).toHaveBeenCalledTimes(1);
+      });
+
+      it('does not retry failed simulations of non-swap transactions', async () => {
+        mockTronHttpClient.triggerConstantContract.mockResolvedValue(
+          failedSimulation,
+        );
+
+        await feeCalculatorService.computeFee({
+          scope: Network.Mainnet,
+          transaction: getTransactionExample('trc20'),
+          availableEnergy: BigNumber(0),
+          availableBandwidth: BigNumber(2000000),
+        });
+
+        expect(
+          mockTronHttpClient.triggerConstantContract,
+        ).toHaveBeenCalledTimes(1);
+      });
+
+      it('does not retry outside mainnet', async () => {
+        mockTronHttpClient.triggerConstantContract.mockResolvedValue(
+          failedSimulation,
+        );
+
+        await feeCalculatorService.computeFee({
+          scope: Network.Nile,
+          transaction: createUniversalRouterSwapTransaction(),
+          availableEnergy: BigNumber(0),
+          availableBandwidth: BigNumber(2000000),
+        });
+
+        expect(
+          mockTronHttpClient.triggerConstantContract,
+        ).toHaveBeenCalledTimes(1);
+      });
+    });
+
     describe('Energy sharing mechanism', () => {
       beforeEach(() => {
         // Mock chain parameters response

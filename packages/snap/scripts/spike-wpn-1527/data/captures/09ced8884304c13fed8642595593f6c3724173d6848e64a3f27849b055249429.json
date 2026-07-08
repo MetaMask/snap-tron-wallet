@@ -1,0 +1,65 @@
+{
+  "capturedAt": "2026-07-08T17:14:13.582Z",
+  "network": "mainnet",
+  "txId": "09ced8884304c13fed8642595593f6c3724173d6848e64a3f27849b055249429",
+  "transaction": {
+    "ret": [
+      {
+        "contractRet": "SUCCESS"
+      }
+    ],
+    "signature": [
+      "80dcbae3c32e790319ff91269427ed912d1d258a110212a6067ae4e8aacd3eee28e75a45409aef4de7331d87335786ad2bbc66440cfc833177eb0719b71dcb371b"
+    ],
+    "txID": "09ced8884304c13fed8642595593f6c3724173d6848e64a3f27849b055249429",
+    "raw_data": {
+      "contract": [
+        {
+          "parameter": {
+            "value": {
+              "data": "a9059cbb0000000000000000000000007242180c887f41b83ce7ec5ffbb71cf25d69fc2400000000000000000000000000000000000000000000000000000000001e8480",
+              "owner_address": "4197b779963e3778985b4429d30169aa88e7c7d91f",
+              "contract_address": "41a614f803b6fd780986a42c78ec9c7f77e6ded13c"
+            },
+            "type_url": "type.googleapis.com/protocol.TriggerSmartContract"
+          },
+          "type": "TriggerSmartContract"
+        }
+      ],
+      "ref_block_bytes": "1dd6",
+      "ref_block_hash": "994b2be7ad6ed753",
+      "expiration": 1783530798000,
+      "fee_limit": 100000000,
+      "timestamp": 1783530738000
+    },
+    "raw_data_hex": "0a021dd62208994b2be7ad6ed75340b0f7e095f4335aae01081f12a9010a31747970652e676f6f676c65617069732e636f6d2f70726f746f636f6c2e54726967676572536d617274436f6e747261637412740a154197b779963e3778985b4429d30169aa88e7c7d91f121541a614f803b6fd780986a42c78ec9c7f77e6ded13c2244a9059cbb0000000000000000000000007242180c887f41b83ce7ec5ffbb71cf25d69fc2400000000000000000000000000000000000000000000000000000000001e848070d0a2dd95f433900180c2d72f"
+  },
+  "info": {
+    "id": "09ced8884304c13fed8642595593f6c3724173d6848e64a3f27849b055249429",
+    "fee": 13028500,
+    "blockNumber": 84286946,
+    "blockTimeStamp": 1783530774000,
+    "contractResult": [
+      "0000000000000000000000000000000000000000000000000000000000000000"
+    ],
+    "contract_address": "41a614f803b6fd780986a42c78ec9c7f77e6ded13c",
+    "receipt": {
+      "energy_fee": 13028500,
+      "energy_usage_total": 130285,
+      "net_usage": 345,
+      "result": "SUCCESS",
+      "energy_penalty_total": 100635
+    },
+    "log": [
+      {
+        "address": "a614f803b6fd780986a42c78ec9c7f77e6ded13c",
+        "topics": [
+          "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "00000000000000000000000097b779963e3778985b4429d30169aa88e7c7d91f",
+          "0000000000000000000000007242180c887f41b83ce7ec5ffbb71cf25d69fc24"
+        ],
+        "data": "00000000000000000000000000000000000000000000000000000000001e8480"
+      }
+    ]
+  }
+}

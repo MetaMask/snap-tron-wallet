@@ -1,0 +1,84 @@
+{
+  "contracts": {
+    "41a614f803b6fd780986a42c78ec9c7f77e6ded13c": {
+      "base58": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+      "name": "TetherToken",
+      "network": "mainnet",
+      "count": 5,
+      "firstSeen": "2026-07-08T15:40:47.853Z",
+      "lastSeen": "2026-07-08T17:14:57.744Z",
+      "selectors": {
+        "a9059cbb": {
+          "name": "transfer(address,uint256)",
+          "count": 5,
+          "firstSeen": "2026-07-08T15:40:47.853Z",
+          "lastSeen": "2026-07-08T17:14:57.744Z"
+        }
+      },
+      "sources": [
+        "985e1025996d272399ee5dab76dcbb1ff19ea14112b747c3c2fc0510b6018d2e",
+        "09ced8884304c13fed8642595593f6c3724173d6848e64a3f27849b055249429"
+      ]
+    },
+    "418747979e9965c33e07d497008b08570e51ffccd0": {
+      "base58": "TNJVzGqKBWkJxJB5XYSqGAwUTV15U24pPq",
+      "name": "UniswapV2Router02",
+      "network": "mainnet",
+      "count": 6,
+      "firstSeen": "2026-07-08T15:51:17.297Z",
+      "lastSeen": "2026-07-08T17:07:35.463Z",
+      "selectors": {
+        "18cbafe5": {
+          "name": "swapExactTokensForETH(uint256,uint256,address[],address,uint256)",
+          "count": 6,
+          "firstSeen": "2026-07-08T15:51:17.297Z",
+          "lastSeen": "2026-07-08T17:07:35.463Z"
+        }
+      },
+      "sources": [
+        "44cccdf10900129254cf530b84fc769a36e21598d119b023abc7a4072e705105"
+      ]
+    },
+    "41a31d689a84244bc01be56e07aeafb7686f56bb89": {
+      "base58": "TQqgNg13s2DjvXhW1ky4v6TsR8wZGvb7Y4",
+      "name": "UniversalRouter",
+      "network": "mainnet",
+      "count": 6,
+      "firstSeen": "2026-07-08T17:37:23.497Z",
+      "lastSeen": "2026-07-08T17:43:02.034Z",
+      "selectors": {
+        "3593564c": {
+          "name": "execute(bytes,bytes[],uint256)",
+          "count": 6,
+          "firstSeen": "2026-07-08T17:37:23.497Z",
+          "lastSeen": "2026-07-08T17:43:02.034Z"
+        }
+      },
+      "sources": [
+        "c9628c039de74951fd8f71305b517aefa5e2c9f1c4b201c0497007ae8a9a9d61",
+        "e41f064b2a06b08d4b27c1bc03f2e38bf9e417a768dfdb4afa8b568c5ddd97fc"
+      ]
+    }
+  },
+  "owners": {
+    "419b5802392519f6eaff010f5c7142cf0bbd2d7ab9": {
+      "base58": "TQ8bAk4kyqL3L9pKzQCvbTqzLz4ZiWjV57",
+      "count": 3,
+      "firstSeen": "2026-07-08T15:40:47.853Z",
+      "lastSeen": "2026-07-08T15:41:46.786Z"
+    },
+    "4193cf57fe7f5522e0a97a274e8f91679962c23536": {
+      "base58": "TPSkikceC7fSQia9t11Dx6bXj1fsGVL4KD",
+      "count": 6,
+      "firstSeen": "2026-07-08T15:51:17.297Z",
+      "lastSeen": "2026-07-08T17:07:35.463Z"
+    },
+    "4197b779963e3778985b4429d30169aa88e7c7d91f": {
+      "base58": "TPoQq65NQYpYTBcxCUozQPUDKSHHdXuTLi",
+      "count": 8,
+      "firstSeen": "2026-07-08T17:14:13.582Z",
+      "lastSeen": "2026-07-08T17:43:02.034Z"
+    }
+  },
+  "updatedAt": "2026-07-08T17:43:02.034Z"
+}
