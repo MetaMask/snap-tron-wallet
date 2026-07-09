@@ -545,6 +545,16 @@ export class FeeCalculatorService {
         `Estimating energy`,
       );
 
+      this.#logger.log(
+        '[WPN1527-DIAG] estimateTriggerSmartContractEnergy input',
+        {
+          contractAddress,
+          ownerAddress,
+          selector: data.replace(/^0x/u, '').slice(0, 8),
+          feeLimit,
+        },
+      );
+
       const simulationRequest = {
         /**
          * These addresses are in hex format. If they weren't we would need to
@@ -576,6 +586,12 @@ export class FeeCalculatorService {
 
       let result = initialResult;
 
+      this.#logger.log('[WPN1527-DIAG] initial simulation result', {
+        ret: initialResult.transaction.ret[0]?.ret,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        energyUsed: (initialResult as any).energy_used,
+      });
+
       if (result.transaction.ret[0]?.ret === 'FAILED') {
         /**
          * Pre-approve swaps revert when simulated from the user's address
@@ -590,6 +606,10 @@ export class FeeCalculatorService {
         );
 
         if (!referenceOwner) {
+          this.#logger.log(
+            '[WPN1527-DIAG] simulation FAILED, route not in allowlist, no retry',
+            { contractAddress, selector: data.replace(/^0x/u, '').slice(0, 8) },
+          );
           throw new Error('Simulation yields failed result');
         }
 
@@ -601,6 +621,13 @@ export class FeeCalculatorService {
         result = await this.#tronHttpClient.triggerConstantContract(scope, {
           ...simulationRequest,
           owner_address: referenceOwner,
+        });
+
+        this.#logger.log('[WPN1527-DIAG] reference-owner simulation result', {
+          referenceOwner,
+          ret: result.transaction.ret[0]?.ret,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          energyUsed: (result as any).energy_used,
         });
 
         if (result.transaction.ret[0]?.ret === 'FAILED') {
@@ -635,7 +662,7 @@ export class FeeCalculatorService {
             hasEnergySharing: contractInfo !== null,
             deployerAvailableEnergy,
           },
-          `Energy estimate for ${data.slice(0, 8)}: user pays ${userEnergy} of ${totalEnergy} units`,
+          `[WPN1527-DIAG] Energy estimate for ${data.slice(0, 8)}: user pays ${userEnergy} of ${totalEnergy} units`,
         );
 
         return userEnergy;
@@ -649,7 +676,13 @@ export class FeeCalculatorService {
         { error },
         'Failed to estimate smart contract energy, using fallback',
       );
-      return this.#getFallbackEnergy(scope, feeLimit);
+      const fallbackEnergy = await this.#getFallbackEnergy(scope, feeLimit);
+      this.#logger.log('[WPN1527-DIAG] falling back to fee_limit estimate', {
+        error: (error as Error).message,
+        feeLimit,
+        fallbackEnergy,
+      });
+      return fallbackEnergy;
     }
   }
 
@@ -769,6 +802,13 @@ export class FeeCalculatorService {
       'Calculating fee for transaction ',
       JSON.stringify(transaction),
     );
+
+    this.#logger.log('[WPN1527-DIAG] computeFee called', {
+      scope,
+      feeLimit,
+      availableEnergy: availableEnergy.toString(),
+      availableBandwidth: availableBandwidth.toString(),
+    });
 
     const bandwidthNeeded = this.#calculateBandwidth(transaction);
     const energyNeeded = await this.#calculateEnergy(
@@ -890,6 +930,11 @@ export class FeeCalculatorService {
         },
       });
     }
+
+    this.#logger.log(
+      '[WPN1527-DIAG] computeFee result',
+      JSON.stringify(result),
+    );
 
     return result;
   }
