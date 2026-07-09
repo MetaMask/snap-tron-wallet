@@ -546,7 +546,7 @@ export class FeeCalculatorService {
       );
 
       this.#logger.log(
-        '[WPN1527-DIAG] estimateTriggerSmartContractEnergy input',
+        '[WPN1527-DIAG-FIX] estimateTriggerSmartContractEnergy input',
         {
           contractAddress,
           ownerAddress,
@@ -586,7 +586,7 @@ export class FeeCalculatorService {
 
       let result = initialResult;
 
-      this.#logger.log('[WPN1527-DIAG] initial simulation result', {
+      this.#logger.log('[WPN1527-DIAG-FIX] initial simulation result', {
         ret: initialResult.transaction.ret[0]?.ret,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         energyUsed: (initialResult as any).energy_used,
@@ -607,7 +607,7 @@ export class FeeCalculatorService {
 
         if (!referenceOwner) {
           this.#logger.log(
-            '[WPN1527-DIAG] simulation FAILED, route not in allowlist, no retry',
+            '[WPN1527-DIAG-FIX] simulation FAILED, route not in allowlist, no retry',
             { contractAddress, selector: data.replace(/^0x/u, '').slice(0, 8) },
           );
           throw new Error('Simulation yields failed result');
@@ -623,12 +623,15 @@ export class FeeCalculatorService {
           owner_address: referenceOwner,
         });
 
-        this.#logger.log('[WPN1527-DIAG] reference-owner simulation result', {
-          referenceOwner,
-          ret: result.transaction.ret[0]?.ret,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          energyUsed: (result as any).energy_used,
-        });
+        this.#logger.log(
+          '[WPN1527-DIAG-FIX] reference-owner simulation result',
+          {
+            referenceOwner,
+            ret: result.transaction.ret[0]?.ret,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            energyUsed: (result as any).energy_used,
+          },
+        );
 
         if (result.transaction.ret[0]?.ret === 'FAILED') {
           throw new Error(
@@ -662,7 +665,7 @@ export class FeeCalculatorService {
             hasEnergySharing: contractInfo !== null,
             deployerAvailableEnergy,
           },
-          `[WPN1527-DIAG] Energy estimate for ${data.slice(0, 8)}: user pays ${userEnergy} of ${totalEnergy} units`,
+          `[WPN1527-DIAG-FIX] Energy estimate for ${data.slice(0, 8)}: user pays ${userEnergy} of ${totalEnergy} units`,
         );
 
         return userEnergy;
@@ -677,11 +680,14 @@ export class FeeCalculatorService {
         'Failed to estimate smart contract energy, using fallback',
       );
       const fallbackEnergy = await this.#getFallbackEnergy(scope, feeLimit);
-      this.#logger.log('[WPN1527-DIAG] falling back to fee_limit estimate', {
-        error: (error as Error).message,
-        feeLimit,
-        fallbackEnergy,
-      });
+      this.#logger.log(
+        '[WPN1527-DIAG-FIX] falling back to fee_limit estimate',
+        {
+          error: (error as Error).message,
+          feeLimit,
+          fallbackEnergy,
+        },
+      );
       return fallbackEnergy;
     }
   }
@@ -803,7 +809,7 @@ export class FeeCalculatorService {
       JSON.stringify(transaction),
     );
 
-    this.#logger.log('[WPN1527-DIAG] computeFee called', {
+    this.#logger.log('[WPN1527-DIAG-FIX] computeFee called', {
       scope,
       feeLimit,
       availableEnergy: availableEnergy.toString(),
@@ -932,7 +938,7 @@ export class FeeCalculatorService {
     }
 
     this.#logger.log(
-      '[WPN1527-DIAG] computeFee result',
+      '[WPN1527-DIAG-FIX] computeFee result',
       JSON.stringify(result),
     );
 

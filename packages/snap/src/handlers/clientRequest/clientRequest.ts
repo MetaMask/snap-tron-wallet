@@ -663,22 +663,25 @@ export class ClientRequestHandler {
       raw_data_hex: rawDataHex,
     };
 
-    this.#logger.log('[WPN1527-DIAG] handleComputeFee decoded transaction', {
-      scope,
-      feeLimitParam: feeLimit,
-      resolvedFeeLimit: rawData.fee_limit,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      contracts: (rawData.contract as any[])?.map((contract) => {
-        const value = contract.parameter?.value ?? {};
-        const data = typeof value.data === 'string' ? value.data : undefined;
-        return {
-          type: contract.type,
-          contractAddress: value.contract_address,
-          ownerAddress: value.owner_address,
-          selector: data?.replace(/^0x/u, '').slice(0, 8),
-        };
-      }),
-    });
+    this.#logger.log(
+      '[WPN1527-DIAG-FIX] handleComputeFee decoded transaction',
+      {
+        scope,
+        feeLimitParam: feeLimit,
+        resolvedFeeLimit: rawData.fee_limit,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        contracts: (rawData.contract as any[])?.map((contract) => {
+          const value = contract.parameter?.value ?? {};
+          const data = typeof value.data === 'string' ? value.data : undefined;
+          return {
+            type: contract.type,
+            contractAddress: value.contract_address,
+            ownerAddress: value.owner_address,
+            selector: data?.replace(/^0x/u, '').slice(0, 8),
+          };
+        }),
+      },
+    );
 
     /**
      * Get available Energy and Bandwidth from account assets.
@@ -709,7 +712,7 @@ export class ClientRequestHandler {
     });
 
     this.#logger.log(
-      '[WPN1527-DIAG] handleComputeFee result',
+      '[WPN1527-DIAG-FIX] handleComputeFee result',
       JSON.stringify(result),
     );
 
