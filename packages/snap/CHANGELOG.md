@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Increase cronjob interval for account syncing from 30s to 60s ([#356](https://github.com/MetaMask/snap-tron-wallet/pull/356))
+
 ### Fixed
 
 - Improved Tron dApp transaction confirmations to show estimated energy and bandwidth usage ([#355](https://github.com/MetaMask/snap-tron-wallet/pull/355))
