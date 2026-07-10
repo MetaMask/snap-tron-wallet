@@ -7,7 +7,7 @@
     "url": "https://github.com/MetaMask/snap-tron-wallet.git"
   },
   "source": {
-    "shasum": "OwssyIeEGUIQqBIZ7ycXXIpz2SWLtaBsquMqPFW90wU=",
+    "shasum": "uWY9fI2ajJK3VZzMEU0smNYa1fANeRC2Ww2Smtpl7SE=",
     "location": {
       "npm": {
         "filePath": "dist/bundle.js",
@@ -39,7 +39,7 @@
     "endowment:cronjob": {
       "jobs": [
         {
-          "duration": "PT30S",
+          "duration": "PT60S",
           "request": {
             "method": "onSynchronizeSelectedAccountsCronjob"
           }
