@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Increase cronjob interval for account syncing from 30s to 60s ([#356](https://github.com/MetaMask/snap-tron-wallet/pull/356))
 - Use a `37 TRX` fallback fee when the network fee cannot be estimated for a transaction ([#344](https://github.com/MetaMask/snap-tron-wallet/pull/344))
 
 ## [1.29.1]
