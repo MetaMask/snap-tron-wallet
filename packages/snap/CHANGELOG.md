@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Improved Tron dApp transaction confirmations to show estimated energy and bandwidth usage ([#355](https://github.com/MetaMask/snap-tron-wallet/pull/355))
+  - Prevent confirmation when the account does not have enough `TRX` to cover the transaction value plus required fees.
+
+## [1.29.1]
+
+### Fixed
+
+- Loosen price API validation ([#353](https://github.com/MetaMask/snap-tron-wallet/pull/353))
+  - The API response validation refused new fields when Price API service upgrades.
+
 ## [1.29.0]
 
 ### Changed
@@ -561,7 +573,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release of Tron wallet snap
 - Support for TRX and token assets balances ([#12](https://github.com/MetaMask/snap-tron-wallet/pull/12))
 
-[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.29.0...HEAD
+[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.29.1...HEAD
+[1.29.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.29.0...v1.29.1
 [1.29.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.28.0...v1.29.0
 [1.28.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.27.0...v1.28.0
 [1.27.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.26.0...v1.27.0
