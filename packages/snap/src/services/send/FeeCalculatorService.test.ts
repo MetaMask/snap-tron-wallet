@@ -130,6 +130,25 @@ describe('FeeCalculatorService', () => {
   });
 
   describe('computeFee', () => {
+    const expectedMainnetBandwidthFee = {
+      type: FeeType.Base,
+      asset: {
+        unit: 'BANDWIDTH',
+        type: 'tron:728126428/slip44:bandwidth',
+        amount: '266',
+        fungible: true,
+      },
+    };
+    const expectedMainnetContractBandwidthFee = {
+      type: FeeType.Base,
+      asset: {
+        unit: 'BANDWIDTH',
+        type: 'tron:728126428/slip44:bandwidth',
+        amount: '345',
+        fungible: true,
+      },
+    };
+
     beforeEach(() => {
       // Mock chain parameters response
       mockTrongridApiClient.getChainParameters.mockResolvedValue([
@@ -201,6 +220,7 @@ describe('FeeCalculatorService', () => {
               fungible: true,
             },
           },
+          expectedMainnetBandwidthFee,
         ]);
       });
     });
@@ -301,6 +321,7 @@ describe('FeeCalculatorService', () => {
               fungible: true,
             },
           },
+          expectedMainnetBandwidthFee,
         ]);
       });
     });
@@ -348,7 +369,7 @@ describe('FeeCalculatorService', () => {
             asset: {
               unit: 'ENERGY',
               type: 'tron:728126428/slip44:energy',
-              amount: '100000',
+              amount: '130000',
               fungible: true,
             },
           },
@@ -396,7 +417,7 @@ describe('FeeCalculatorService', () => {
             asset: {
               unit: 'ENERGY',
               type: 'tron:728126428/slip44:energy',
-              amount: '30000',
+              amount: '130000',
               fungible: true,
             },
           },
@@ -449,10 +470,11 @@ describe('FeeCalculatorService', () => {
             asset: {
               unit: 'ENERGY',
               type: 'tron:728126428/slip44:energy',
-              amount: '100000',
+              amount: '130000',
               fungible: true,
             },
           },
+          expectedMainnetContractBandwidthFee,
         ]);
       });
 
@@ -490,10 +512,11 @@ describe('FeeCalculatorService', () => {
             asset: {
               unit: 'ENERGY',
               type: 'tron:728126428/slip44:energy',
-              amount: '30000',
+              amount: '130000',
               fungible: true,
             },
           },
+          expectedMainnetContractBandwidthFee,
         ]);
       });
     });
@@ -523,6 +546,7 @@ describe('FeeCalculatorService', () => {
               fungible: true,
             },
           },
+          expectedMainnetBandwidthFee,
         ]);
       });
 
@@ -602,7 +626,7 @@ describe('FeeCalculatorService', () => {
             asset: {
               unit: 'ENERGY',
               type: 'tron:728126428/slip44:energy',
-              amount: '100000',
+              amount: '130000',
               fungible: true,
             },
           },
@@ -664,10 +688,11 @@ describe('FeeCalculatorService', () => {
             asset: {
               unit: 'ENERGY',
               type: 'tron:728126428/slip44:energy',
-              amount: '100000',
+              amount: '130000',
               fungible: true,
             },
           },
+          expectedMainnetContractBandwidthFee,
         ]);
       });
 
@@ -805,6 +830,7 @@ describe('FeeCalculatorService', () => {
               fungible: true,
             },
           },
+          expectedMainnetBandwidthFee,
         ]);
       });
 
@@ -948,7 +974,7 @@ describe('FeeCalculatorService', () => {
             asset: {
               unit: 'ENERGY',
               type: 'tron:728126428/slip44:energy',
-              amount: '50000',
+              amount: '100000',
               fungible: true,
             },
           },
@@ -1001,7 +1027,7 @@ describe('FeeCalculatorService', () => {
             asset: {
               unit: 'ENERGY',
               type: 'tron:728126428/slip44:energy',
-              amount: '30000',
+              amount: '130000',
               fungible: true,
             },
           },
@@ -1129,7 +1155,7 @@ describe('FeeCalculatorService', () => {
             asset: {
               unit: 'ENERGY',
               type: 'tron:728126428/slip44:energy',
-              amount: '50000',
+              amount: '65000',
               fungible: true,
             },
           },
@@ -1232,7 +1258,7 @@ describe('FeeCalculatorService', () => {
             asset: {
               unit: 'ENERGY',
               type: 'tron:728126428/slip44:energy',
-              amount: '20000',
+              amount: '50000',
               fungible: true,
             },
           },
@@ -1288,6 +1314,15 @@ describe('FeeCalculatorService', () => {
               unit: 'TRX',
               type: 'tron:728126428/slip44:195',
               amount: '1',
+              fungible: true,
+            },
+          },
+          {
+            type: FeeType.Base,
+            asset: {
+              unit: 'ENERGY',
+              type: 'tron:728126428/slip44:energy',
+              amount: '10000',
               fungible: true,
             },
           },
@@ -1674,7 +1709,7 @@ describe('FeeCalculatorService', () => {
           asset: {
             unit: 'ENERGY',
             type: 'tron:728126428/slip44:energy',
-            amount: '30000',
+            amount: '50000',
             fungible: true,
           },
         });
@@ -2052,6 +2087,7 @@ describe('FeeCalculatorService', () => {
               fungible: true,
             },
           },
+          expectedMainnetBandwidthFee,
         ]);
       });
 
