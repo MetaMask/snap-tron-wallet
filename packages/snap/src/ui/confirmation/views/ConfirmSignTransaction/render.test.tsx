@@ -1,11 +1,13 @@
 import type { KeyringRequest } from '@metamask/keyring-api';
-import { bytesToBase64, stringToBytes } from '@metamask/utils';
+import { bytesToBase64, bytesToHex, stringToBytes } from '@metamask/utils';
 
 import { render } from './render';
 import type { SnapClient } from '../../../../clients/snap/SnapClient';
 import { Network } from '../../../../constants';
+import type { AssetEntity } from '../../../../entities/assets';
 import type { TronKeyringAccount } from '../../../../entities/keyring-account';
 import { TronMultichainMethod } from '../../../../handlers/keyring-types';
+import type { AssetsService } from '../../../../services/assets/AssetsService';
 import type { TransactionScanService } from '../../../../services/transaction-scan/TransactionScanService';
 import {
   SimulationStatus,
@@ -32,6 +34,16 @@ jest.mock('../../../../context', () => ({
  */
 function toBase64(str: string): string {
   return bytesToBase64(stringToBytes(str));
+}
+
+/**
+ * Helper function to convert a string to hexadecimal.
+ *
+ * @param str - The string to convert.
+ * @returns Hexadecimal encoded string.
+ */
+function toHex(str: string): string {
+  return bytesToHex(stringToBytes(str));
 }
 
 describe('ConfirmSignTransaction render', () => {
@@ -91,6 +103,7 @@ describe('ConfirmSignTransaction render', () => {
   let mockTransactionExpirationRefresherService: {
     isTransactionExpired: jest.Mock;
   };
+  let mockAssetsService: jest.Mocked<AssetsService>;
 
   beforeEach(() => {
     mockSnapClient = {
@@ -117,7 +130,7 @@ describe('ConfirmSignTransaction render', () => {
       getKey: jest.fn().mockResolvedValue({}),
     } as any;
 
-    const mockAssetsService = {
+    mockAssetsService = {
       getAssetsByAccountId: jest.fn().mockResolvedValue([
         { rawAmount: '1000000' }, // bandwidth
         { rawAmount: '50000' }, // energy
@@ -569,5 +582,72 @@ describe('ConfirmSignTransaction render', () => {
       SimulationStatus.Completed,
     );
     expect(finalContext.scanFetchStatus).toBe(FetchStatus.Fetched);
+  });
+
+  it('sets isInsufficientBalance when the TRX balance cannot cover the transaction and fee', async () => {
+    mockAssetsService.getAssetsByAccountId.mockResolvedValue([
+      { rawAmount: '50000', uiAmount: '0.05' } as AssetEntity, // TRX
+      { rawAmount: '1000000', uiAmount: '1000000' } as AssetEntity, // bandwidth
+      { rawAmount: '50000', uiAmount: '50000' } as AssetEntity, // energy
+    ]);
+
+    // eslint-disable-next-line no-restricted-globals, @typescript-eslint/no-require-imports
+    const snapContext = require('../../../../context').default;
+    snapContext.feeCalculatorService.computeFee.mockResolvedValue([
+      {
+        type: 'base',
+        asset: {
+          unit: 'TRX',
+          type: 'tron:728126428/slip44:195',
+          amount: '0.02',
+          fungible: true,
+        },
+      },
+    ]);
+    snapContext.priceApiClient = {
+      getMultipleSpotPrices: jest.fn().mockResolvedValue({}),
+    };
+
+    const request: KeyringRequest = {
+      id: '00000000-0000-4000-8000-000000000012',
+      origin: 'https://example.com',
+      account: mockAccount.id,
+      scope: Network.Mainnet,
+      request: {
+        method: TronMultichainMethod.SignTransaction,
+        params: {
+          address: mockAccount.address,
+          transaction: {
+            rawDataHex: toHex('transaction'),
+            type: 'TriggerSmartContract',
+          },
+        },
+      },
+    };
+
+    const mockRawData = {
+      contract: [
+        {
+          type: 'TriggerSmartContract',
+          parameter: {
+            value: {
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              owner_address: '41A2155E688B2BAEBDFDACD073BA79F5B22946AACF',
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              contract_address: '4132F9C0C487F21716B7A8F12906B752889902655',
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              call_value: 100000,
+            },
+          },
+        },
+      ],
+    };
+
+    await render(request, mockAccount, mockRawData as any);
+
+    expect(mockSnapClient.createInterface).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ isInsufficientBalance: true }),
+    );
   });
 });
