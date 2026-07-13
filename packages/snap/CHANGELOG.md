@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved Tron dApp transaction confirmations to show estimated energy and bandwidth usage ([#355](https://github.com/MetaMask/snap-tron-wallet/pull/355))
   - Prevent confirmation when the account does not have enough `TRX` to cover the transaction value plus required fees.
 
+## [1.31.0]
+
+### Changed
+
+- Use a `37 TRX` fallback fee when the network fee cannot be estimated for a transaction ([#344](https://github.com/MetaMask/snap-tron-wallet/pull/344))
+
 ## [1.30.0]
 
 ### Changed
