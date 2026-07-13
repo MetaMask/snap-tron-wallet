@@ -7,14 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- Increase cronjob interval for account syncing from 30s to 60s ([#356](https://github.com/MetaMask/snap-tron-wallet/pull/356))
-
 ### Fixed
 
 - Improved Tron dApp transaction confirmations to show estimated energy and bandwidth usage ([#355](https://github.com/MetaMask/snap-tron-wallet/pull/355))
   - Prevent confirmation when the account does not have enough `TRX` to cover the transaction value plus required fees.
+
+## [1.30.0]
+
+### Changed
+
+- Increase cronjob interval for account syncing from 30s to 60s ([#356](https://github.com/MetaMask/snap-tron-wallet/pull/356))
 
 ## [1.29.1]
 
@@ -577,7 +579,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release of Tron wallet snap
 - Support for TRX and token assets balances ([#12](https://github.com/MetaMask/snap-tron-wallet/pull/12))
 
-[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.29.1...HEAD
+[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.30.0...HEAD
+[1.30.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.29.1...v1.30.0
 [1.29.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.29.0...v1.29.1
 [1.29.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.28.0...v1.29.0
 [1.28.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.27.0...v1.28.0
