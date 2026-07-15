@@ -7,6 +7,7 @@ import { TokenApiClient } from './clients/token-api/TokenApiClient';
 import { TronHttpClient } from './clients/tron-http/TronHttpClient';
 import { TrongridApiClient } from './clients/trongrid/TrongridApiClient';
 import { TronWebFactory } from './clients/tronweb/TronWebFactory';
+import { WalletMessengerClient } from './clients/wallet/WalletMessengerClient';
 import { AssetsHandler } from './handlers/assets';
 import { ClientRequestHandler } from './handlers/clientRequest/clientRequest';
 import { CronHandler } from './handlers/cronjob';
@@ -19,6 +20,8 @@ import { AssetsRepository } from './services/assets/AssetsRepository';
 import { AssetsService } from './services/assets/AssetsService';
 import { ConfigProvider } from './services/config';
 import { ConfirmationHandler } from './services/confirmation/ConfirmationHandler';
+import { createStageResolver } from './services/migration/stage';
+import { TronAssetsControllerAdapter } from './services/migration/TronAssetsControllerAdapter';
 import { FeeCalculatorService } from './services/send/FeeCalculatorService';
 import { SendService } from './services/send/SendService';
 import { StakingService } from './services/staking/StakingService';
@@ -29,6 +32,7 @@ import { TransactionScanService } from './services/transaction-scan/TransactionS
 import { TransactionsRepository } from './services/transactions/TransactionsRepository';
 import { TransactionsService } from './services/transactions/TransactionsService';
 import { WalletService } from './services/wallet/WalletService';
+import type { WalletMessenger } from './types/wallet-messenger';
 import logger, { noOpLogger } from './utils/logger';
 
 /**
@@ -54,6 +58,15 @@ const state = new State({
 });
 
 const snapClient = new SnapClient({ logger });
+const walletMessengerClient = new WalletMessengerClient(
+  (globalThis as unknown as { messenger?: WalletMessenger }).messenger,
+);
+const resolveMigrationStage = createStageResolver(walletMessengerClient);
+export const tronAssetsControllerAdapter = new TronAssetsControllerAdapter(
+  walletMessengerClient,
+  resolveMigrationStage,
+);
+export { resolveMigrationStage };
 
 // Repositories - depend on State
 const accountsRepository = new AccountsRepository(state);
