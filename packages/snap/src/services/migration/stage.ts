@@ -9,6 +9,19 @@ export enum MigrationStage {
   ReadAssetsControllerOnly = 3,
 }
 
+/**
+ * Returns whether Snap asset snapshots should be pushed to AssetsController.
+ *
+ * Writes begin with the first controller migration stage so they can shadow
+ * the existing Snap store while reads still use their configured behavior.
+ *
+ * @param stage - The current assets migration stage.
+ * @returns Whether controller writes are enabled.
+ */
+export function shouldPushSnapAssets(stage: MigrationStage): boolean {
+  return stage >= MigrationStage.ReadAssetsControllerWithFallback;
+}
+
 export const SNAPS_ASSETS_MIGRATION_FLAG = 'snapsAssetsMigration';
 
 const STAGE_ENV_VAR = 'TRON_ASSETS_MIGRATION_STAGE';

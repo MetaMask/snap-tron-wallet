@@ -30,6 +30,8 @@ import { mockLogger } from '../../utils/mockLogger';
 import type { AssetsService } from '../assets/AssetsService';
 import type { ConfigProvider } from '../config';
 import type { Config } from '../config/ConfigProvider';
+import { MigrationStage } from '../migration/stage';
+import type { TronAssetsControllerAdapter } from '../migration/TronAssetsControllerAdapter';
 import type { TransactionsService } from '../transactions/TransactionsService';
 
 jest.mock('@metamask/keyring-snap-sdk', () => ({
@@ -120,13 +122,21 @@ type WithAccountsServiceCallback = (payload: {
   mockConfigProvider: jest.Mocked<Pick<ConfigProvider, 'get'>>;
   mockLogger: ILogger;
   mockAssetsService: jest.Mocked<
-    Pick<AssetsService, 'fetchAssetsAndBalancesForAccount' | 'saveMany'>
+    Pick<
+      AssetsService,
+      | 'fetchAssetsAndBalancesForAccount'
+      | 'saveMany'
+      | 'buildControllerSnapshot'
+    >
   >;
   mockSnapClient: jest.Mocked<
     Pick<SnapClient, 'getBip32Entropy' | 'listEntropySources'>
   >;
   mockTransactionsService: jest.Mocked<
     Pick<TransactionsService, 'fetchNewTransactionsForAccount' | 'saveMany'>
+  >;
+  mockTronAssetsControllerAdapter: jest.Mocked<
+    Pick<TronAssetsControllerAdapter, 'getMigrationStage' | 'pushAssetSnapshot'>
   >;
 }) => void | Promise<void>;
 
@@ -265,10 +275,16 @@ async function withAccountsService(
   };
 
   const mockAssetsService: jest.Mocked<
-    Pick<AssetsService, 'fetchAssetsAndBalancesForAccount' | 'saveMany'>
+    Pick<
+      AssetsService,
+      | 'fetchAssetsAndBalancesForAccount'
+      | 'saveMany'
+      | 'buildControllerSnapshot'
+    >
   > = {
     fetchAssetsAndBalancesForAccount: jest.fn().mockResolvedValue([]),
     saveMany: jest.fn().mockResolvedValue(undefined),
+    buildControllerSnapshot: jest.fn().mockReturnValue([]),
   };
 
   const mockTransactionsService: jest.Mocked<
@@ -278,6 +294,13 @@ async function withAccountsService(
     saveMany: jest.fn().mockResolvedValue(undefined),
   };
 
+  const mockTronAssetsControllerAdapter: jest.Mocked<
+    Pick<TronAssetsControllerAdapter, 'getMigrationStage' | 'pushAssetSnapshot'>
+  > = {
+    getMigrationStage: jest.fn().mockResolvedValue(MigrationStage.Off),
+    pushAssetSnapshot: jest.fn().mockResolvedValue(undefined),
+  };
+
   const accountsService = new AccountsService({
     accountsRepository: mockAccountsRepository,
     configProvider: mockConfigProvider,
@@ -285,6 +308,7 @@ async function withAccountsService(
     assetsService: mockAssetsService,
     snapClient: mockSnapClient,
     transactionsService: mockTransactionsService,
+    tronAssetsControllerAdapter: mockTronAssetsControllerAdapter,
   } as unknown as ConstructorParameters<typeof AccountsService>[0]);
 
   await testFn({
@@ -295,6 +319,7 @@ async function withAccountsService(
     mockAssetsService,
     mockSnapClient,
     mockTransactionsService,
+    mockTronAssetsControllerAdapter,
   });
 }
 
@@ -1144,6 +1169,153 @@ describe('AccountsService', () => {
             mockAssetsService.fetchAssetsAndBalancesForAccount,
           ).not.toHaveBeenCalled();
           expect(mockAssetsService.saveMany).toHaveBeenCalledWith([]);
+        },
+      );
+    });
+
+    it('does not write controller snapshots at stage Off', async () => {
+      const account: TronKeyringAccount = {
+        id: 'off-id',
+        address: 'TOff123456789012345678901',
+        type: TrxAccountType.Eoa,
+        options: {},
+        methods: [],
+        scopes: [],
+        entropySource: 'e1',
+        derivationPath: "m/44'/195'/0'/0/0",
+        index: 0,
+      };
+      await withAccountsService(
+        async ({
+          accountsService,
+          mockConfigProvider,
+          mockAssetsService,
+          mockTronAssetsControllerAdapter,
+        }) => {
+          mockConfigProvider.get.mockReturnValue({
+            ...MOCK_CONFIG,
+            activeNetworks: [Network.Mainnet],
+          });
+          mockAssetsService.fetchAssetsAndBalancesForAccount.mockResolvedValue(
+            [],
+          );
+
+          await accountsService.synchronizeAssets([account]);
+
+          expect(
+            mockTronAssetsControllerAdapter.pushAssetSnapshot,
+          ).not.toHaveBeenCalled();
+        },
+      );
+    });
+
+    it('writes snapshots at stage 1 and continues when a write fails', async () => {
+      const account: TronKeyringAccount = {
+        id: 'write-id',
+        address: 'TWrite12345678901234567890',
+        type: TrxAccountType.Eoa,
+        options: {},
+        methods: [],
+        scopes: [],
+        entropySource: 'e1',
+        derivationPath: "m/44'/195'/0'/0/0",
+        index: 0,
+      };
+      const snapshot = [
+        [
+          {
+            assetId: 'asset',
+            amount: '1',
+            metadata: { symbol: 'A', name: 'Asset', decimals: 0 },
+          },
+        ],
+      ];
+
+      await withAccountsService(
+        async ({
+          accountsService,
+          mockConfigProvider,
+          mockAssetsService,
+          mockTronAssetsControllerAdapter,
+        }) => {
+          mockConfigProvider.get.mockReturnValue({
+            ...MOCK_CONFIG,
+            activeNetworks: [Network.Mainnet],
+          });
+          mockTronAssetsControllerAdapter.getMigrationStage.mockResolvedValue(
+            MigrationStage.ReadAssetsControllerWithFallback,
+          );
+          mockAssetsService.buildControllerSnapshot.mockReturnValue(snapshot);
+          mockTronAssetsControllerAdapter.pushAssetSnapshot.mockRejectedValue(
+            new Error('controller unavailable'),
+          );
+
+          expect(
+            await accountsService.synchronizeAssets([account]),
+          ).toBeUndefined();
+
+          expect(
+            mockTronAssetsControllerAdapter.pushAssetSnapshot,
+          ).toHaveBeenCalledWith(account.id, Network.Mainnet, snapshot[0]);
+        },
+      );
+    });
+
+    it('does not persist controller-only assets and resumes after rollback', async () => {
+      const account: TronKeyringAccount = {
+        id: 'controller-only-id',
+        address: 'TControllerOnly1234567890',
+        type: TrxAccountType.Eoa,
+        options: {},
+        methods: [],
+        scopes: [],
+        entropySource: 'e1',
+        derivationPath: "m/44'/195'/0'/0/0",
+        index: 0,
+      };
+
+      await withAccountsService(
+        async ({
+          accountsService,
+          mockConfigProvider,
+          mockAssetsService,
+          mockTronAssetsControllerAdapter,
+        }) => {
+          const assets: NativeAsset[] = [
+            {
+              assetType: `${Network.Mainnet}/slip44:195`,
+              keyringAccountId: account.id,
+              network: Network.Mainnet,
+              symbol: 'TRX',
+              decimals: 6,
+              rawAmount: '1000000',
+              uiAmount: '1',
+              iconUrl: '',
+            },
+          ];
+          mockConfigProvider.get.mockReturnValue({
+            ...MOCK_CONFIG,
+            activeNetworks: [Network.Mainnet],
+          });
+          mockAssetsService.fetchAssetsAndBalancesForAccount.mockResolvedValue(
+            assets,
+          );
+          mockTronAssetsControllerAdapter.getMigrationStage.mockResolvedValueOnce(
+            MigrationStage.ReadAssetsControllerOnly,
+          );
+
+          await accountsService.synchronizeAssets([account]);
+
+          expect(mockAssetsService.saveMany).not.toHaveBeenCalled();
+
+          mockAssetsService.saveMany.mockClear();
+          mockTronAssetsControllerAdapter.getMigrationStage.mockResolvedValueOnce(
+            MigrationStage.Off,
+          );
+
+          await accountsService.synchronizeAssets([account]);
+
+          expect(mockAssetsService.saveMany).toHaveBeenCalledWith(assets);
         },
       );
     });

@@ -35,7 +35,7 @@ import { createPrefixedLogger, type ILogger } from '../../utils/logger';
 import { DerivationPathStruct } from '../../validation/structs';
 import type { AssetsService } from '../assets/AssetsService';
 import type { ConfigProvider } from '../config';
-import { MigrationStage } from '../migration/stage';
+import { MigrationStage, shouldPushSnapAssets } from '../migration/stage';
 import type { TronAssetsControllerAdapter } from '../migration/TronAssetsControllerAdapter';
 import type { TransactionsService } from '../transactions/TransactionsService';
 
@@ -560,6 +560,54 @@ export class AccountsService {
 
     if (hasPersistableScope || combinations.length === 0) {
       await this.#assetsService.saveMany(assets);
+    }
+
+    const writes = synchronizedAssets.flatMap(
+      ({ assets: scopeAssets, combination }) => {
+        if (!combination || !shouldPushSnapAssets(combination.stage)) {
+          return [];
+        }
+
+        return this.#assetsService
+          .buildControllerSnapshot(
+            combination.account,
+            combination.scope,
+            scopeAssets,
+          )
+          .map((group) => ({ ...combination, group }));
+      },
+    );
+
+    if (writes.length > 0) {
+      const startedAt = Date.now();
+      this.#logger.info('Assets controller snapshot write attempted', {
+        attemptCount: writes.length,
+      });
+      const results = await Promise.allSettled(
+        writes.map(async ({ account, scope, group }) =>
+          this.#tronAssetsControllerAdapter.pushAssetSnapshot(
+            account.id,
+            scope,
+            group,
+          ),
+        ),
+      );
+      const failureCount = results.filter(
+        (result) => result.status === 'rejected',
+      ).length;
+
+      this.#logger.info('Assets controller snapshot write completed', {
+        attemptCount: writes.length,
+        failureCount,
+        latencyMs: Date.now() - startedAt,
+      });
+      results.forEach((result) => {
+        if (result.status === 'rejected') {
+          this.#logger.error('Assets controller snapshot write failed', {
+            error: result.reason,
+          });
+        }
+      });
     }
   }
 
