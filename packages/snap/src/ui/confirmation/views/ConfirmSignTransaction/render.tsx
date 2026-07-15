@@ -9,7 +9,7 @@ import { ConfirmSignTransaction } from './ConfirmSignTransaction';
 import { CONFIRM_SIGN_TRANSACTION_INTERFACE_NAME } from './types';
 import type { ConfirmSignTransactionContext } from './types';
 import { Network, Networks, ZERO } from '../../../../constants';
-import snapContext from '../../../../context';
+import snapContext, { tronAssetsControllerAdapter } from '../../../../context';
 import type { TronKeyringAccount } from '../../../../entities/keyring-account';
 import { BackgroundEventMethod } from '../../../../handlers/cronjob';
 import { EXPIRED_TRANSACTION_SCAN } from '../../../../services/transaction-scan/buildExpiredScanResult';
@@ -90,13 +90,17 @@ export async function render(
 
   const { assetsService, feeCalculatorService, priceApiClient } = snapContext;
 
+  const networkScope = scope as Network;
+  const stage =
+    await tronAssetsControllerAdapter.getMigrationStage(networkScope);
+
   // Parallelize: Get preferences + Fetch account assets
   const [preferences, accountAssets] = await Promise.all([
     snapClient.getPreferences().catch(() => DEFAULT_CONTEXT.preferences),
-    assetsService.getAssetsByAccountId(account.id, [
-      Networks[scope as Network].nativeToken.id,
-      Networks[scope as Network].bandwidth.id,
-      Networks[scope as Network].energy.id,
+    assetsService.getAssetsForStage(stage, account.id, [
+      Networks[networkScope].nativeToken.id,
+      Networks[networkScope].bandwidth.id,
+      Networks[networkScope].energy.id,
     ]),
   ]);
 

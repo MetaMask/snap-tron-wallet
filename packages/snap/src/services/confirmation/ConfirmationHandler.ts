@@ -30,6 +30,7 @@ import {
 } from '../../validation/structs';
 import { assertTransactionStructure } from '../../validation/transaction';
 import type { AssetsService } from '../assets/AssetsService';
+import type { TronAssetsControllerAdapter } from '../migration/TronAssetsControllerAdapter';
 import type { FeeCalculatorService } from '../send/FeeCalculatorService';
 import type { ComputeFeeResult } from '../send/types';
 import type { State, UnencryptedStateValue } from '../state/State';
@@ -47,18 +48,22 @@ export class ConfirmationHandler {
 
   readonly #feeCalculatorService: FeeCalculatorService;
 
+  readonly #tronAssetsControllerAdapter: TronAssetsControllerAdapter;
+
   constructor({
     snapClient,
     state,
     tronWebFactory,
     assetsService,
     feeCalculatorService,
+    tronAssetsControllerAdapter,
   }: {
     snapClient: SnapClient;
     state: State<UnencryptedStateValue>;
     tronWebFactory: TronWebFactory;
     assetsService: AssetsService;
     feeCalculatorService: FeeCalculatorService;
+    tronAssetsControllerAdapter: TronAssetsControllerAdapter;
   }) {
     this.#logger = createPrefixedLogger(logger, '[🔑 ConfirmationHandler]');
     this.#snapClient = snapClient;
@@ -66,6 +71,7 @@ export class ConfirmationHandler {
     this.#tronWebFactory = tronWebFactory;
     this.#assetsService = assetsService;
     this.#feeCalculatorService = feeCalculatorService;
+    this.#tronAssetsControllerAdapter = tronAssetsControllerAdapter;
   }
 
   async #clearInterfaceId(interfaceName: string): Promise<void> {
@@ -237,8 +243,11 @@ export class ConfirmationHandler {
       account.address,
     );
 
+    const stage =
+      await this.#tronAssetsControllerAdapter.getMigrationStage(scope);
+
     const [bandwidthAsset, energyAsset] =
-      await this.#assetsService.getAssetsByAccountId(account.id, [
+      await this.#assetsService.getAssetsForStage(stage, account.id, [
         Networks[scope].bandwidth.id,
         Networks[scope].energy.id,
       ]);

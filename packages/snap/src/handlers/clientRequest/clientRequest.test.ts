@@ -16,6 +16,8 @@ import type { TronKeyringAccount } from '../../entities/keyring-account';
 import type { AccountsService } from '../../services/accounts/AccountsService';
 import type { AssetsService } from '../../services/assets/AssetsService';
 import type { ConfirmationHandler } from '../../services/confirmation/ConfirmationHandler';
+import { MigrationStage } from '../../services/migration/stage';
+import type { TronAssetsControllerAdapter } from '../../services/migration/TronAssetsControllerAdapter';
 import type { FeeCalculatorService } from '../../services/send/FeeCalculatorService';
 import type { SendService } from '../../services/send/SendService';
 import type { ComputeFeeResult } from '../../services/send/types';
@@ -37,10 +39,25 @@ const createPassThroughTransactionExpirationRefresherService = () =>
     ensureFreshRawData: jest.fn(async ({ rawData }) => rawData),
   }) as unknown as TransactionExpirationRefresherService;
 
+const getMigrationStageMock = jest
+  .fn<Promise<MigrationStage>, []>()
+  .mockResolvedValue(MigrationStage.ReadAssetsControllerWithFallback);
+const mockTronAssetsControllerAdapter = {
+  getMigrationStage: getMigrationStageMock,
+} as unknown as TronAssetsControllerAdapter;
+
+const restoreMigrationStageMock = () => {
+  getMigrationStageMock.mockResolvedValue(
+    MigrationStage.ReadAssetsControllerWithFallback,
+  );
+};
+
 type WithClientRequestHandlerCallback<ReturnValue> = (payload: {
   handler: ClientRequestHandler;
   mockAccountsService: jest.Mocked<Pick<AccountsService, 'findById'>>;
-  mockAssetsService: jest.Mocked<Pick<AssetsService, 'getAssetsByAccountId'>>;
+  mockAssetsService: jest.Mocked<
+    Pick<AssetsService, 'getAssetsForStage' | 'getAssetForStage'>
+  >;
   mockSendService: jest.Mocked<Pick<SendService, 'buildTransaction'>>;
   mockFeeCalculatorService: jest.Mocked<
     Pick<FeeCalculatorService, 'computeFee'>
@@ -57,14 +74,17 @@ type WithClientRequestHandlerCallback<ReturnValue> = (payload: {
 async function withClientRequestHandler<ReturnValue>(
   testFunction: WithClientRequestHandlerCallback<ReturnValue>,
 ): Promise<ReturnValue> {
+  restoreMigrationStageMock();
+
   const mockAccountsService: jest.Mocked<Pick<AccountsService, 'findById'>> = {
     findById: jest.fn(),
   };
 
   const mockAssetsService: jest.Mocked<
-    Pick<AssetsService, 'getAssetsByAccountId'>
+    Pick<AssetsService, 'getAssetsForStage' | 'getAssetForStage'>
   > = {
-    getAssetsByAccountId: jest.fn(),
+    getAssetsForStage: jest.fn(),
+    getAssetForStage: jest.fn(),
   };
 
   const mockSendService: jest.Mocked<Pick<SendService, 'buildTransaction'>> = {
@@ -95,6 +115,7 @@ async function withClientRequestHandler<ReturnValue>(
     transactionsService: {} as TransactionsService,
     transactionExpirationRefresherService:
       createPassThroughTransactionExpirationRefresherService(),
+    tronAssetsControllerAdapter: mockTronAssetsControllerAdapter,
   });
 
   return await testFunction({
@@ -152,13 +173,15 @@ describe('ClientRequestHandler', () => {
       number.toString(16).slice(-4).padStart(4, '0');
 
     beforeEach(() => {
+      restoreMigrationStageMock();
+
       mockAccountsService = {
         findByIdOrThrow: jest.fn(),
         deriveTronKeypair: jest.fn(),
       } as unknown as jest.Mocked<AccountsService>;
 
       mockAssetsService = {
-        getAssetsByAccountId: jest.fn(),
+        getAssetsForStage: jest.fn(),
       } as unknown as jest.Mocked<AssetsService>;
 
       mockSendService = {} as unknown as jest.Mocked<SendService>;
@@ -226,6 +249,7 @@ describe('ClientRequestHandler', () => {
         transactionsService: mockTransactionsService,
         transactionExpirationRefresherService:
           mockTransactionExpirationRefresherService as unknown as TransactionExpirationRefresherService,
+        tronAssetsControllerAdapter: mockTronAssetsControllerAdapter,
       });
     });
 
@@ -400,6 +424,7 @@ describe('ClientRequestHandler', () => {
             new TransactionExpirationRefresherService({
               tronWebFactory: mockTronWebFactory,
             }),
+          tronAssetsControllerAdapter: mockTronAssetsControllerAdapter,
         });
 
         await clientRequestHandler.handle(request as JsonRpcRequest);
@@ -588,7 +613,7 @@ describe('ClientRequestHandler', () => {
         mockTronWeb.trx.sign.mockResolvedValue(signedTransaction);
 
         // Mock available resources
-        mockAssetsService.getAssetsByAccountId.mockResolvedValue([
+        mockAssetsService.getAssetsForStage.mockResolvedValue([
           { rawAmount: '5000' }, // Bandwidth
           { rawAmount: '100000' }, // Energy
         ] as any);
@@ -633,7 +658,8 @@ describe('ClientRequestHandler', () => {
         ).toHaveBeenCalledWith('TriggerSmartContract', expect.any(String));
         // trx.sign is NOT called - fee computation uses unsigned transactions
         expect(mockTronWeb.trx.sign).not.toHaveBeenCalled();
-        expect(mockAssetsService.getAssetsByAccountId).toHaveBeenCalledWith(
+        expect(mockAssetsService.getAssetsForStage).toHaveBeenCalledWith(
+          MigrationStage.ReadAssetsControllerWithFallback,
           TEST_ACCOUNT_ID,
           [Networks[scope].bandwidth.id, Networks[scope].energy.id],
         );
@@ -728,7 +754,7 @@ describe('ClientRequestHandler', () => {
         };
         mockTronWeb.trx.sign.mockResolvedValue(signedTransaction);
 
-        mockAssetsService.getAssetsByAccountId.mockResolvedValue([
+        mockAssetsService.getAssetsForStage.mockResolvedValue([
           { rawAmount: '1000' }, // Bandwidth
           { rawAmount: '0' }, // Energy (not needed for native transfer)
         ] as any);
@@ -823,7 +849,7 @@ describe('ClientRequestHandler', () => {
         });
 
         // No resources available
-        mockAssetsService.getAssetsByAccountId.mockResolvedValue([
+        mockAssetsService.getAssetsForStage.mockResolvedValue([
           undefined, // No bandwidth asset
           undefined, // No energy asset
         ] as any);
@@ -995,6 +1021,7 @@ describe('ClientRequestHandler', () => {
         transactionsService: mockTransactionsService,
         transactionExpirationRefresherService:
           createPassThroughTransactionExpirationRefresherService(),
+        tronAssetsControllerAdapter: mockTronAssetsControllerAdapter,
       });
     });
 
@@ -1220,6 +1247,7 @@ describe('ClientRequestHandler', () => {
         transactionsService: {} as unknown as jest.Mocked<TransactionsService>,
         transactionExpirationRefresherService:
           createPassThroughTransactionExpirationRefresherService(),
+        tronAssetsControllerAdapter: mockTronAssetsControllerAdapter,
       });
     });
 
@@ -1345,13 +1373,15 @@ describe('ClientRequestHandler - signAndSendTransaction', () => {
   const transactionId = 'mock-tx-id';
 
   beforeEach(() => {
+    restoreMigrationStageMock();
+
     mockAccountsService = {
       findByIdOrThrow: jest.fn(),
       deriveTronKeypair: jest.fn(),
     } as unknown as jest.Mocked<AccountsService>;
 
     mockAssetsService = {
-      getAssetsByAccountId: jest.fn(),
+      getAssetsForStage: jest.fn(),
     } as unknown as jest.Mocked<AssetsService>;
 
     mockSendService = {} as unknown as jest.Mocked<SendService>;
@@ -1408,6 +1438,7 @@ describe('ClientRequestHandler - signAndSendTransaction', () => {
       transactionsService: mockTransactionsService,
       transactionExpirationRefresherService:
         createPassThroughTransactionExpirationRefresherService(),
+      tronAssetsControllerAdapter: mockTronAssetsControllerAdapter,
     });
   });
 
@@ -1631,7 +1662,7 @@ describe('ClientRequestHandler - onAmountInput', () => {
         ];
 
         mockAccountsService.findById.mockResolvedValue(mockAccount);
-        mockAssetsService.getAssetsByAccountId.mockResolvedValue(mockAssets);
+        mockAssetsService.getAssetsForStage.mockResolvedValue(mockAssets);
 
         const result = await handler.handle(request);
 
@@ -1689,7 +1720,7 @@ describe('ClientRequestHandler - onAmountInput', () => {
         ];
 
         mockAccountsService.findById.mockResolvedValue(mockAccount);
-        mockAssetsService.getAssetsByAccountId.mockResolvedValue(mockAssets);
+        mockAssetsService.getAssetsForStage.mockResolvedValue(mockAssets);
         mockSendService.buildTransaction.mockResolvedValue(builtTransaction);
         mockFeeCalculatorService.computeFee.mockResolvedValue(mockFees);
 
@@ -1761,7 +1792,7 @@ describe('ClientRequestHandler - onAmountInput', () => {
         ];
 
         mockAccountsService.findById.mockResolvedValue(mockAccount);
-        mockAssetsService.getAssetsByAccountId.mockResolvedValue(mockAssets);
+        mockAssetsService.getAssetsForStage.mockResolvedValue(mockAssets);
         mockSendService.buildTransaction.mockResolvedValue(builtTransaction);
         mockFeeCalculatorService.computeFee.mockResolvedValue(mockFees);
 
@@ -1812,7 +1843,7 @@ describe('ClientRequestHandler - onAmountInput', () => {
         ];
 
         mockAccountsService.findById.mockResolvedValue(mockAccount);
-        mockAssetsService.getAssetsByAccountId.mockResolvedValue(mockAssets);
+        mockAssetsService.getAssetsForStage.mockResolvedValue(mockAssets);
 
         const result = await handler.handle(request);
 
@@ -1873,7 +1904,7 @@ describe('ClientRequestHandler - onAmountInput', () => {
         ];
 
         mockAccountsService.findById.mockResolvedValue(mockAccount);
-        mockAssetsService.getAssetsByAccountId.mockResolvedValue(mockAssets);
+        mockAssetsService.getAssetsForStage.mockResolvedValue(mockAssets);
         mockSendService.buildTransaction.mockResolvedValue(builtTransaction);
         mockFeeCalculatorService.computeFee.mockResolvedValue(mockFees);
 
@@ -1927,14 +1958,16 @@ describe('ClientRequestHandler - computeStakeFee', () => {
   const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
 
   beforeEach(() => {
+    restoreMigrationStageMock();
+
     mockAccountsService = {
       findByIdOrThrow: jest.fn(),
       deriveTronKeypair: jest.fn(),
     } as unknown as jest.Mocked<AccountsService>;
 
     mockAssetsService = {
-      getAssetByAccountId: jest.fn(),
-      getAssetsByAccountId: jest.fn(),
+      getAssetForStage: jest.fn(),
+      getAssetsForStage: jest.fn(),
     } as unknown as jest.Mocked<AssetsService>;
 
     mockSendService = {} as unknown as jest.Mocked<SendService>;
@@ -1975,6 +2008,7 @@ describe('ClientRequestHandler - computeStakeFee', () => {
       transactionsService: mockTransactionsService,
       transactionExpirationRefresherService:
         createPassThroughTransactionExpirationRefresherService(),
+      tronAssetsControllerAdapter: mockTronAssetsControllerAdapter,
     });
   });
 
@@ -2031,10 +2065,10 @@ describe('ClientRequestHandler - computeStakeFee', () => {
     const nativeAssetId = Networks[scope].nativeToken.id;
 
     // Mock native balance and resources
-    (mockAssetsService.getAssetByAccountId as jest.Mock).mockResolvedValue({
+    (mockAssetsService.getAssetForStage as jest.Mock).mockResolvedValue({
       uiAmount: '100',
     });
-    mockAssetsService.getAssetsByAccountId.mockResolvedValue([
+    mockAssetsService.getAssetsForStage.mockResolvedValue([
       { rawAmount: '5000' }, // Bandwidth
       { rawAmount: '100000' }, // Energy
     ] as any);
@@ -2065,11 +2099,13 @@ describe('ClientRequestHandler - computeStakeFee', () => {
       'ENERGY',
       'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx',
     );
-    expect(mockAssetsService.getAssetByAccountId).toHaveBeenCalledWith(
+    expect(mockAssetsService.getAssetForStage).toHaveBeenCalledWith(
+      MigrationStage.ReadAssetsControllerWithFallback,
       TEST_ACCOUNT_ID,
       nativeAssetId,
     );
-    expect(mockAssetsService.getAssetsByAccountId).toHaveBeenCalledWith(
+    expect(mockAssetsService.getAssetsForStage).toHaveBeenCalledWith(
+      MigrationStage.ReadAssetsControllerWithFallback,
       TEST_ACCOUNT_ID,
       [Networks[scope].bandwidth.id, Networks[scope].energy.id],
     );
@@ -2105,7 +2141,7 @@ describe('ClientRequestHandler - computeStakeFee', () => {
     } as any);
 
     // Account has only 5 TRX
-    (mockAssetsService.getAssetByAccountId as jest.Mock).mockResolvedValue({
+    (mockAssetsService.getAssetForStage as jest.Mock).mockResolvedValue({
       uiAmount: '5',
     });
 
@@ -2148,8 +2184,8 @@ describe('ClientRequestHandler - confirmSend validation', () => {
     } as unknown as jest.Mocked<AccountsService>;
 
     mockAssetsService = {
-      getAssetByAccountId: jest.fn(),
-      getAssetsByAccountId: jest.fn(),
+      getAssetForStage: jest.fn(),
+      getAssetsForStage: jest.fn(),
     } as unknown as jest.Mocked<AssetsService>;
 
     mockSendService = {
@@ -2193,6 +2229,7 @@ describe('ClientRequestHandler - confirmSend validation', () => {
       transactionsService: mockTransactionsService,
       transactionExpirationRefresherService:
         mockTransactionExpirationRefresherService as unknown as TransactionExpirationRefresherService,
+      tronAssetsControllerAdapter: mockTronAssetsControllerAdapter,
     });
   });
 
@@ -2226,7 +2263,7 @@ describe('ClientRequestHandler - confirmSend validation', () => {
       uiAmount: '100',
       rawAmount: '100000000',
     };
-    (mockAssetsService.getAssetByAccountId as jest.Mock).mockResolvedValue(
+    (mockAssetsService.getAssetForStage as jest.Mock).mockResolvedValue(
       mockAsset,
     );
 
@@ -2289,7 +2326,7 @@ describe('ClientRequestHandler - confirmSend validation', () => {
       uiAmount: '100',
       rawAmount: '100000000',
     };
-    (mockAssetsService.getAssetByAccountId as jest.Mock).mockResolvedValue(
+    (mockAssetsService.getAssetForStage as jest.Mock).mockResolvedValue(
       mockAsset,
     );
 
@@ -2343,7 +2380,7 @@ describe('ClientRequestHandler - confirmSend validation', () => {
       uiAmount: '100',
       rawAmount: '100000000',
     };
-    (mockAssetsService.getAssetByAccountId as jest.Mock).mockResolvedValue(
+    (mockAssetsService.getAssetForStage as jest.Mock).mockResolvedValue(
       mockAsset,
     );
 
@@ -2351,7 +2388,7 @@ describe('ClientRequestHandler - confirmSend validation', () => {
     mockSendService.validateSend.mockResolvedValue({ valid: true });
 
     // Mock the rest of the flow.
-    mockAssetsService.getAssetsByAccountId.mockResolvedValue([
+    mockAssetsService.getAssetsForStage.mockResolvedValue([
       { rawAmount: '1000' }, // Bandwidth
       { rawAmount: '50000' }, // Energy
     ] as any);
@@ -2494,9 +2531,7 @@ describe('ClientRequestHandler - confirmSend validation', () => {
     } as any);
 
     // Asset not found
-    (mockAssetsService.getAssetByAccountId as jest.Mock).mockResolvedValue(
-      null,
-    );
+    (mockAssetsService.getAssetForStage as jest.Mock).mockResolvedValue(null);
 
     const result = (await clientRequestHandler.handle(
       request as JsonRpcRequest,
@@ -2568,6 +2603,7 @@ describe('ClientRequestHandler - claimUnstakedTrx', () => {
       transactionsService: mockTransactionsService,
       transactionExpirationRefresherService:
         createPassThroughTransactionExpirationRefresherService(),
+      tronAssetsControllerAdapter: mockTronAssetsControllerAdapter,
     });
   });
 
@@ -2700,6 +2736,7 @@ describe('ClientRequestHandler - claimTrxStakingRewards', () => {
       transactionsService: mockTransactionsService,
       transactionExpirationRefresherService:
         createPassThroughTransactionExpirationRefresherService(),
+      tronAssetsControllerAdapter: mockTronAssetsControllerAdapter,
     });
   });
 

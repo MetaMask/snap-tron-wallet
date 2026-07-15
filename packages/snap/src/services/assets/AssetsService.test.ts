@@ -12,9 +12,16 @@ import type { AccountResources, TronHttpClient } from '../../clients/tron-http';
 import { TrongridAccountNotFoundError } from '../../clients/trongrid/errors';
 import { type TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
 import type { Trc20Balance, TronAccount } from '../../clients/trongrid/types';
-import { KnownCaip19Id, Network } from '../../constants';
+import {
+  KnownCaip19Id,
+  Network,
+  SPECIAL_ASSETS,
+  TokenMetadata,
+} from '../../constants';
 import type { AssetEntity } from '../../entities/assets';
 import { mockLogger } from '../../utils/mockLogger';
+import { MigrationStage } from '../migration/stage';
+import type { TronAssetsControllerAdapter } from '../migration/TronAssetsControllerAdapter';
 
 /**
  * Subset of State methods.
@@ -189,6 +196,9 @@ type WithAssetsServiceCallback<ReturnValue> = (payload: {
   >;
   mockTokenApiClient: jest.Mocked<Pick<TokenApiClient, 'getTokensMetadata'>>;
   mockSnapClient: jest.Mocked<Pick<SnapClient, 'trackError'>>;
+  mockTronAssetsControllerAdapter: jest.Mocked<
+    Pick<TronAssetsControllerAdapter, 'getMigrationStage' | 'getAsset'>
+  >;
 }) => Promise<ReturnValue> | ReturnValue;
 
 /**
@@ -261,6 +271,13 @@ async function withAssetsService<ReturnValue>(
     trackError: jest.fn().mockResolvedValue(undefined),
   };
 
+  const mockTronAssetsControllerAdapter: jest.Mocked<
+    Pick<TronAssetsControllerAdapter, 'getMigrationStage' | 'getAsset'>
+  > = {
+    getMigrationStage: jest.fn().mockResolvedValue(MigrationStage.Off),
+    getAsset: jest.fn().mockResolvedValue(null),
+  };
+
   const assetsService = new AssetsService({
     logger: mockLogger,
     assetsRepository: mockAssetsRepository,
@@ -270,6 +287,8 @@ async function withAssetsService<ReturnValue>(
     priceApiClient: mockPriceApiClient,
     tokenApiClient: mockTokenApiClient,
     snapClient: mockSnapClient,
+    tronAssetsControllerAdapter:
+      mockTronAssetsControllerAdapter as unknown as TronAssetsControllerAdapter,
   });
 
   return await testFunction({
@@ -281,6 +300,7 @@ async function withAssetsService<ReturnValue>(
     mockPriceApiClient,
     mockTokenApiClient,
     mockSnapClient,
+    mockTronAssetsControllerAdapter,
   });
 }
 
@@ -1479,7 +1499,285 @@ describe('AssetsService', () => {
     });
   });
 
+  describe('buildControllerSnapshot', () => {
+    it('includes all special assets with their amounts and metadata', async () => {
+      await withAssetsService(async ({ assetsService }) => {
+        const specialAssetIds = SPECIAL_ASSETS.filter((assetId) =>
+          assetId.startsWith(`${Network.Mainnet}/`),
+        );
+        const assets = specialAssetIds.map((assetId, index) => {
+          const metadata = TokenMetadata[assetId as keyof typeof TokenMetadata];
+
+          return {
+            assetType: assetId,
+            keyringAccountId: mockAccount.id,
+            network: Network.Mainnet,
+            symbol: metadata.symbol,
+            decimals: metadata.decimals,
+            rawAmount: String(index + 1),
+            uiAmount: String(index + 1),
+            iconUrl: metadata.iconUrl,
+          } as AssetEntity;
+        });
+
+        const [snapshot] = assetsService.buildControllerSnapshot(
+          mockAccount,
+          Network.Mainnet,
+          assets,
+        );
+
+        expect(snapshot).toHaveLength(9);
+        expect(snapshot).toStrictEqual(
+          specialAssetIds.map((assetId, index) => {
+            const metadata =
+              TokenMetadata[assetId as keyof typeof TokenMetadata];
+
+            return {
+              assetId,
+              amount: String(index + 1),
+              metadata: {
+                symbol: metadata.symbol,
+                name: metadata.name,
+                decimals: metadata.decimals,
+                image: metadata.iconUrl,
+              },
+            };
+          }),
+        );
+      });
+    });
+  });
+
+  describe('getAssetForStage', () => {
+    const accountId = mockAccount.id;
+    const assetId = KnownCaip19Id.TrxMainnet;
+    const snapAsset: AssetEntity = {
+      assetType: assetId,
+      keyringAccountId: accountId,
+      network: Network.Mainnet,
+      symbol: 'TRX',
+      decimals: 6,
+      rawAmount: '500000',
+      uiAmount: '0.5',
+      iconUrl: '',
+    };
+    const controllerAsset: AssetEntity = {
+      ...snapAsset,
+      rawAmount: '1000000',
+      uiAmount: '1',
+    };
+
+    it('reads from Snap state at stage Off', async () => {
+      await withAssetsService(
+        async ({
+          assetsService,
+          mockAssetsRepository,
+          mockTronAssetsControllerAdapter,
+        }) => {
+          mockAssetsRepository.getByAccountIdAndAssetType.mockResolvedValue(
+            snapAsset,
+          );
+
+          const asset = await assetsService.getAssetForStage(
+            MigrationStage.Off,
+            accountId,
+            assetId,
+          );
+
+          expect(asset).toStrictEqual(snapAsset);
+          expect(
+            mockTronAssetsControllerAdapter.getAsset,
+          ).not.toHaveBeenCalled();
+        },
+      );
+    });
+
+    it('falls back to Snap state at stage ReadAssetsControllerWithFallback', async () => {
+      await withAssetsService(
+        async ({
+          assetsService,
+          mockAssetsRepository,
+          mockTronAssetsControllerAdapter,
+        }) => {
+          mockTronAssetsControllerAdapter.getAsset.mockResolvedValue(null);
+          mockAssetsRepository.getByAccountIdAndAssetType.mockResolvedValue(
+            snapAsset,
+          );
+
+          const asset = await assetsService.getAssetForStage(
+            MigrationStage.ReadAssetsControllerWithFallback,
+            accountId,
+            assetId,
+          );
+
+          expect(mockTronAssetsControllerAdapter.getAsset).toHaveBeenCalledWith(
+            accountId,
+            assetId,
+          );
+          expect(asset).toStrictEqual(snapAsset);
+          expect(mockLogger.info).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.stringContaining('Assets controller asset missing'),
+            expect.anything(),
+          );
+        },
+      );
+    });
+
+    it('prefers controller data at stage ReadAssetsControllerWithFallback', async () => {
+      await withAssetsService(
+        async ({
+          assetsService,
+          mockAssetsRepository,
+          mockTronAssetsControllerAdapter,
+        }) => {
+          mockTronAssetsControllerAdapter.getAsset.mockResolvedValue(
+            controllerAsset,
+          );
+          mockAssetsRepository.getByAccountIdAndAssetType.mockResolvedValue(
+            snapAsset,
+          );
+
+          const asset = await assetsService.getAssetForStage(
+            MigrationStage.ReadAssetsControllerWithFallback,
+            accountId,
+            assetId,
+          );
+
+          expect(asset).toStrictEqual(controllerAsset);
+          expect(
+            mockAssetsRepository.getByAccountIdAndAssetType,
+          ).not.toHaveBeenCalled();
+        },
+      );
+    });
+
+    it('throws when controller asset is missing at stage ReadAssetsControllerWithoutFallback', async () => {
+      await withAssetsService(
+        async ({ assetsService, mockTronAssetsControllerAdapter }) => {
+          mockTronAssetsControllerAdapter.getAsset.mockResolvedValue(null);
+
+          await expect(
+            assetsService.getAssetForStage(
+              MigrationStage.ReadAssetsControllerWithoutFallback,
+              accountId,
+              assetId,
+            ),
+          ).rejects.toThrow(`Asset not found in controller: ${assetId}`);
+          expect(mockLogger.error).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.stringContaining('without fallback'),
+            expect.anything(),
+          );
+        },
+      );
+    });
+
+    it('reads controller data at stage ReadAssetsControllerWithoutFallback', async () => {
+      await withAssetsService(
+        async ({ assetsService, mockTronAssetsControllerAdapter }) => {
+          mockTronAssetsControllerAdapter.getAsset.mockResolvedValue(
+            controllerAsset,
+          );
+
+          expect(
+            await assetsService.getAssetForStage(
+              MigrationStage.ReadAssetsControllerWithoutFallback,
+              accountId,
+              assetId,
+            ),
+          ).toStrictEqual(controllerAsset);
+        },
+      );
+    });
+
+    it('reads controller only at stage ReadAssetsControllerOnly', async () => {
+      await withAssetsService(
+        async ({
+          assetsService,
+          mockAssetsRepository,
+          mockTronAssetsControllerAdapter,
+        }) => {
+          mockTronAssetsControllerAdapter.getAsset.mockResolvedValue(
+            controllerAsset,
+          );
+
+          const asset = await assetsService.getAssetForStage(
+            MigrationStage.ReadAssetsControllerOnly,
+            accountId,
+            assetId,
+          );
+
+          expect(asset).toStrictEqual(controllerAsset);
+          expect(
+            mockAssetsRepository.getByAccountIdAndAssetType,
+          ).not.toHaveBeenCalled();
+        },
+      );
+    });
+
+    it('returns assets in order from getAssetsForStage', async () => {
+      await withAssetsService(
+        async ({ assetsService, mockAssetsRepository }) => {
+          const bandwidthId = KnownCaip19Id.BandwidthMainnet;
+          const energyId = KnownCaip19Id.EnergyMainnet;
+
+          mockAssetsRepository.getByAccountIdAndAssetType
+            .mockResolvedValueOnce(snapAsset)
+            .mockResolvedValueOnce({
+              ...snapAsset,
+              assetType: bandwidthId,
+              symbol: 'BANDWIDTH',
+            })
+            .mockResolvedValueOnce(null);
+
+          const assets = await assetsService.getAssetsForStage(
+            MigrationStage.Off,
+            accountId,
+            [assetId, bandwidthId, energyId],
+          );
+
+          expect(assets).toHaveLength(3);
+          expect(assets[0]?.assetType).toBe(assetId);
+          expect(assets[1]?.assetType).toBe(bandwidthId);
+          expect(assets[2]).toBeNull();
+        },
+      );
+    });
+  });
+
   describe('saveMany', () => {
+    it('does not persist or emit events at controller-only stage', async () => {
+      await withAssetsService(
+        async ({
+          assetsService,
+          mockAssetsRepository,
+          mockTronAssetsControllerAdapter,
+        }) => {
+          mockTronAssetsControllerAdapter.getMigrationStage.mockResolvedValue(
+            MigrationStage.ReadAssetsControllerOnly,
+          );
+          const assets: AssetEntity[] = [
+            {
+              assetType: KnownCaip19Id.TrxMainnet,
+              keyringAccountId: mockAccount.id,
+              network: Network.Mainnet,
+              symbol: 'TRX',
+              decimals: 6,
+              rawAmount: '1000000',
+              uiAmount: '1',
+              iconUrl: '',
+            },
+          ];
+
+          await assetsService.saveMany(assets);
+
+          expect(mockAssetsRepository.saveMany).not.toHaveBeenCalled();
+          expect(emitSnapKeyringEvent).not.toHaveBeenCalled();
+        },
+      );
+    });
+
     it('does not remove energy and bandwidth assets even when they have zero amounts', async () => {
       await withAssetsService(
         async ({ assetsService, mockState, mockAssetsRepository }) => {
