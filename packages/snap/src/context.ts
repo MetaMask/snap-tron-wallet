@@ -130,7 +130,6 @@ const accountsService = new AccountsService({
   configProvider,
   assetsService,
   transactionsService,
-  tronAssetsControllerAdapter,
 });
 
 const feeCalculatorService = new FeeCalculatorService({
