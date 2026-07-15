@@ -111,6 +111,7 @@ const assetsService = new AssetsService({
   priceApiClient,
   tokenApiClient,
   snapClient,
+  tronAssetsControllerAdapter,
 });
 
 const transactionsService = new TransactionsService({
@@ -151,6 +152,7 @@ const sendService = new SendService({
   tronWebFactory,
   feeCalculatorService,
   transactionExpirationRefresherService,
+  tronAssetsControllerAdapter,
 });
 
 const stakingService = new StakingService({
@@ -178,6 +180,7 @@ const confirmationHandler = new ConfirmationHandler({
   tronWebFactory,
   assetsService,
   feeCalculatorService,
+  tronAssetsControllerAdapter,
 });
 
 /**
@@ -199,6 +202,7 @@ const clientRequestHandler = new ClientRequestHandler({
   confirmationHandler,
   transactionsService,
   transactionExpirationRefresherService,
+  tronAssetsControllerAdapter,
 });
 const cronHandler = new CronHandler({
   logger,

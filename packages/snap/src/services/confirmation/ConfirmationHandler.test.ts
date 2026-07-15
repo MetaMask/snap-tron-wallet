@@ -11,6 +11,8 @@ import { getIconUrlForKnownAsset } from '../../ui/confirmation/utils/getIconUrlF
 import { render as renderConfirmSignTransaction } from '../../ui/confirmation/views/ConfirmSignTransaction/render';
 import { render as renderConfirmTransactionRequest } from '../../ui/confirmation/views/ConfirmTransactionRequest/render';
 import type { AssetsService } from '../assets/AssetsService';
+import { MigrationStage } from '../migration/stage';
+import type { TronAssetsControllerAdapter } from '../migration/TronAssetsControllerAdapter';
 import type { FeeCalculatorService } from '../send/FeeCalculatorService';
 import type { ComputeFeeResult } from '../send/types';
 
@@ -106,7 +108,7 @@ type WithConfirmationHandlerCallback<ReturnValue> = (payload: {
       };
     };
   };
-  mockAssetsService: jest.Mocked<Pick<AssetsService, 'getAssetsByAccountId'>>;
+  mockAssetsService: jest.Mocked<Pick<AssetsService, 'getAssetsForStage'>>;
   mockFeeCalculatorService: jest.Mocked<
     Pick<FeeCalculatorService, 'computeFee'>
   >;
@@ -142,10 +144,16 @@ async function withConfirmationHandler<ReturnValue>(
     };
 
   const mockAssetsService: jest.Mocked<
-    Pick<AssetsService, 'getAssetsByAccountId'>
+    Pick<AssetsService, 'getAssetsForStage'>
   > = {
-    getAssetsByAccountId: jest.fn().mockResolvedValue([null, null]),
+    getAssetsForStage: jest.fn().mockResolvedValue([null, null]),
   };
+
+  const mockTronAssetsControllerAdapter = {
+    getMigrationStage: jest
+      .fn()
+      .mockResolvedValue(MigrationStage.ReadAssetsControllerWithFallback),
+  } as unknown as TronAssetsControllerAdapter;
 
   const mockFeeCalculatorService: jest.Mocked<
     Pick<FeeCalculatorService, 'computeFee'>
@@ -197,6 +205,7 @@ async function withConfirmationHandler<ReturnValue>(
     tronWebFactory: mockTronWebFactory,
     assetsService: mockAssetsService,
     feeCalculatorService: mockFeeCalculatorService,
+    tronAssetsControllerAdapter: mockTronAssetsControllerAdapter,
   });
 
   return await testFunction({
@@ -260,7 +269,8 @@ describe('ConfirmationHandler', () => {
           scope: Network.Mainnet,
         });
 
-        expect(mockAssetsService.getAssetsByAccountId).toHaveBeenCalledWith(
+        expect(mockAssetsService.getAssetsForStage).toHaveBeenCalledWith(
+          MigrationStage.ReadAssetsControllerWithFallback,
           TEST_ACCOUNT_ID,
           [
             Networks[Network.Mainnet].bandwidth.id,
@@ -273,10 +283,7 @@ describe('ConfirmationHandler', () => {
     it('uses ZERO when bandwidth and energy assets are null', async () => {
       await withConfirmationHandler(
         async ({ handler, mockAssetsService, mockFeeCalculatorService }) => {
-          mockAssetsService.getAssetsByAccountId.mockResolvedValue([
-            null,
-            null,
-          ]);
+          mockAssetsService.getAssetsForStage.mockResolvedValue([null, null]);
 
           await handler.confirmClaimUnstakedTrx({
             account: mockAccount,
@@ -317,7 +324,7 @@ describe('ConfirmationHandler', () => {
             uiAmount: '3000',
             iconUrl: '',
           };
-          mockAssetsService.getAssetsByAccountId.mockResolvedValue([
+          mockAssetsService.getAssetsForStage.mockResolvedValue([
             bandwidthAsset,
             energyAsset,
           ]);
