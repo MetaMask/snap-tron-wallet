@@ -431,6 +431,28 @@ describe('TrongridApiClient', () => {
   });
 
   describe('getChainParameters', () => {
+    it('returns fresh parameters when persisted cache operations fail', async () => {
+      await withTrongridApiClient(async ({ client, tronHttpClient, cache }) => {
+        const chainParameters = [{ key: 'getTransactionFee', value: 1000 }];
+        jest
+          .spyOn(cache, 'get')
+          .mockRejectedValueOnce(new Error('Cache read failed'));
+        jest
+          .spyOn(cache, 'set')
+          .mockRejectedValueOnce(new Error('Cache write failed'));
+        jest
+          .spyOn(tronHttpClient, 'getChainParameters')
+          .mockResolvedValueOnce(chainParameters);
+        jest
+          .spyOn(tronHttpClient, 'getNextMaintenanceTime')
+          .mockResolvedValueOnce(Date.now() + 3_600_000);
+
+        expect(await client.getChainParameters(Network.Mainnet)).toStrictEqual(
+          chainParameters,
+        );
+      });
+    });
+
     it('reuses the cache across client recreation and isolates networks', async () => {
       await withTrongridApiClient(
         async ({ client, configProvider, tronHttpClient, cache }) => {
