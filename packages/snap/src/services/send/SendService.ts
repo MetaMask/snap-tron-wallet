@@ -441,7 +441,7 @@ export class SendService {
         accountIds: [fromAccountId],
         attempt: 0,
       },
-      duration: 'PT3S',
+      duration: 'PT5S',
     });
 
     return result;

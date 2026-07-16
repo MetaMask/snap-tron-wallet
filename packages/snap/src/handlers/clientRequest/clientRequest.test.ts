@@ -464,7 +464,7 @@ describe('ClientRequestHandler', () => {
             accountIds: [TEST_ACCOUNT_ID],
             attempt: 0,
           },
-          duration: 'PT3S',
+          duration: 'PT5S',
         });
       });
 
