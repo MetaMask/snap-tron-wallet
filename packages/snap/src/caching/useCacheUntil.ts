@@ -81,7 +81,10 @@ export const useCacheUntil = <
 
     // Check if cached and not expired
     const expiresAt = expiryMap.get(cacheKey);
-    if (expiresAt !== undefined && now < expiresAt) {
+    // The cache owns the persisted TTL. When this wrapper is recreated after a
+    // Snap restart, expiryMap is empty, so consult the cache to hydrate a still
+    // valid entry instead of fetching it again.
+    if (expiresAt === undefined || now < expiresAt) {
       try {
         const cached = await cache.get(cacheKey);
         // Check explicitly for undefined, as null or other falsy values might be valid cache results
