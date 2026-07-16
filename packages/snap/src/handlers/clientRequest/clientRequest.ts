@@ -304,7 +304,7 @@ export class ClientRequestHandler {
         accountIds: [accountId],
         attempt: 0,
       },
-      duration: 'PT1S',
+      duration: 'PT3S',
     });
 
     return {

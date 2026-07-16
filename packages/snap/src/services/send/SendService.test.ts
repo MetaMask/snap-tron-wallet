@@ -163,7 +163,7 @@ describe('SendService', () => {
           accountIds: [TEST_ACCOUNT_ID],
           attempt: 0,
         },
-        duration: 'PT1S',
+        duration: 'PT3S',
       });
       expect(result).toStrictEqual({
         result: true,
