@@ -2543,7 +2543,7 @@ describe('ClientRequestHandler - claimUnstakedTrx', () => {
     address: 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx',
     entropySource: 'test-entropy',
     derivationPath: "m/44'/195'/0'/0/0",
-  };
+  } as unknown as TronKeyringAccount;
 
   it('claims unstaked TRX successfully when user confirms', async () => {
     await withClientRequestHandler(
@@ -2553,9 +2553,7 @@ describe('ClientRequestHandler - claimUnstakedTrx', () => {
         mockStakingService,
         mockConfirmationHandler,
       }) => {
-        mockAccountsService.findByIdOrThrow.mockResolvedValue(
-          mockAccount as TronKeyringAccount,
-        );
+        mockAccountsService.findByIdOrThrow.mockResolvedValue(mockAccount);
         mockStakingService.claimUnstakedTrx.mockResolvedValue(undefined);
         mockConfirmationHandler.confirmClaimUnstakedTrx.mockResolvedValue(true);
 
@@ -2597,9 +2595,7 @@ describe('ClientRequestHandler - claimUnstakedTrx', () => {
         mockStakingService,
         mockConfirmationHandler,
       }) => {
-        mockAccountsService.findByIdOrThrow.mockResolvedValue(
-          mockAccount as TronKeyringAccount,
-        );
+        mockAccountsService.findByIdOrThrow.mockResolvedValue(mockAccount);
         mockConfirmationHandler.confirmClaimUnstakedTrx.mockResolvedValue(
           false,
         );
