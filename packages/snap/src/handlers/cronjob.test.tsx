@@ -3,7 +3,11 @@ import type { PriceApiClient } from '../clients/price-api/PriceApiClient';
 import type { SnapClient } from '../clients/snap/SnapClient';
 import type { TronHttpClient } from '../clients/tron-http/TronHttpClient';
 import type { TronWebFactory } from '../clients/tronweb/TronWebFactory';
-import { Network, TRACK_TX_MAX_ATTEMPTS, TRON_BLOCK_TIME } from '../constants';
+import {
+  Network,
+  TRACK_TX_MAX_ATTEMPTS,
+  TRACK_TX_INTERVAL,
+} from '../constants';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { State, UnencryptedStateValue } from '../services/state/State';
 import { TransactionExpirationRefresherService } from '../services/transaction-expiration-refresher/TransactionExpirationRefresherService';
@@ -1017,7 +1021,7 @@ describe('CronHandler', () => {
           accountIds: ACCOUNT_IDS,
           attempt: 1,
         },
-        duration: TRON_BLOCK_TIME,
+        duration: TRACK_TX_INTERVAL,
       });
     });
 

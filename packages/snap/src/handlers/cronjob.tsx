@@ -4,7 +4,7 @@ import type { PriceApiClient } from '../clients/price-api/PriceApiClient';
 import type { SnapClient } from '../clients/snap/SnapClient';
 import type { TronHttpClient } from '../clients/tron-http/TronHttpClient';
 import type { Network } from '../constants';
-import { TRON_BLOCK_TIME, TRACK_TX_MAX_ATTEMPTS } from '../constants';
+import { TRACK_TX_INTERVAL, TRACK_TX_MAX_ATTEMPTS } from '../constants';
 import type { TronKeyringAccount } from '../entities/keyring-account';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { State, UnencryptedStateValue } from '../services/state/State';
@@ -631,7 +631,7 @@ export class CronHandler {
     attempt: number;
   }): Promise<void> {
     const maxAttempts = TRACK_TX_MAX_ATTEMPTS;
-    const pollingInterval = TRON_BLOCK_TIME;
+    const pollingInterval = TRACK_TX_INTERVAL;
 
     this.#logger.info(
       `[Attempt ${attempt + 1} of ${maxAttempts}] Tracking transaction ${txId} on ${scope}...`,

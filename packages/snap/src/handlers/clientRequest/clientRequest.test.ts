@@ -21,7 +21,7 @@ import {
   FEE_LIMIT,
   Network,
   Networks,
-  TRON_BLOCK_TIME,
+  TRACK_TX_INTERVAL,
 } from '../../constants';
 import type {
   AssetEntity,
@@ -470,7 +470,7 @@ describe('ClientRequestHandler', () => {
             accountIds: [TEST_ACCOUNT_ID],
             attempt: 0,
           },
-          duration: TRON_BLOCK_TIME,
+          duration: TRACK_TX_INTERVAL,
         });
       });
 

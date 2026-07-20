@@ -21,10 +21,10 @@ export const NULL_ADDRESS = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 export const CONSENSYS_SR_NODE_ADDRESS = 'TVMwGfdDz58VvM7yTzGMWWSHsmofSxa9jH';
 
 /**
- * Tron block time is approximately 3 seconds.
- * This is used for transaction tracking polling intervals.
+ * ISO 8601 duration for transaction tracking polling interval.
+ * Aligned with Tron's ~3-second block time.
  */
-export const TRON_BLOCK_TIME = 'PT3S';
+export const TRACK_TX_INTERVAL = 'PT3S';
 
 /**
  * Maximum number of attempts to track a transaction confirmation.
