@@ -36,6 +36,8 @@ import type { TransactionsService } from '../../services/transactions/Transactio
 import { trxToSun } from '../../utils/conversion';
 import { mockLogger } from '../../utils/mockLogger';
 
+const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
+
 const createPassThroughTransactionExpirationRefresherService = () =>
   ({
     ensureFreshMetadata: jest.fn(
@@ -47,6 +49,24 @@ const createPassThroughTransactionExpirationRefresherService = () =>
     ),
     ensureFreshRawData: jest.fn(async ({ rawData }) => rawData),
   }) as unknown as TransactionExpirationRefresherService;
+
+/**
+ * Creates a minimal TronKeyringAccount fixture for tests that only need
+ * account identity and derivation metadata.
+ *
+ * @param overrides - Account fields to override on the default fixture.
+ * @returns A Tron keyring account test fixture.
+ */
+const createMockTronKeyringAccount = (
+  overrides: Partial<TronKeyringAccount> = {},
+): TronKeyringAccount =>
+  ({
+    id: TEST_ACCOUNT_ID,
+    address: 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx',
+    entropySource: 'test-entropy',
+    derivationPath: "m/44'/195'/0'/0/0",
+    ...overrides,
+  }) as TronKeyringAccount;
 
 type MockTronWeb = {
   trx: {
@@ -245,7 +265,6 @@ describe('ClientRequestHandler', () => {
       ensureFreshMetadata: jest.Mock;
     };
 
-    const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
     const TEST_TRANSACTION_BASE64 =
       'CgK0FiII40phBu42/OZAkJyY96YzWrADCB8SqwMKMXR5cGUuZ29vZ2xlYXBpcy5jb20vcHJvdG9jb2wuVHJpZ2dlclNtYXJ0Q29udHJhY3QS9QIKFUEU0B62M0bakw7g2jDVhRrBTODEeRIVQZlGn9WqCM/oNjlc6ZPA69Vn4sFPIsQCnd+TuwAAAAAAAAAAAAAAAKYU+AO2/XgJhqQseOycf3fm3tE8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC+vCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAnq6OQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAF1RSWHxzeWtuZjl8MC41fGJyaWRnZXJzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACJUQnNGcUttbVJ5WWNuWUphOFlEeFk1ZDJKQVJhSGVxdUJKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcLzdlPemMw==';
 
@@ -1060,7 +1079,6 @@ describe('ClientRequestHandler', () => {
     let mockTronWeb: any;
     let mockTransactionsService: jest.Mocked<TransactionsService>;
 
-    const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
     const TEST_ADDRESS = 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx';
     const TEST_PRIVATE_KEY = 'test-private-key';
 
@@ -1291,7 +1309,6 @@ describe('ClientRequestHandler', () => {
     let mockTronWebFactory: jest.Mocked<TronWebFactory>;
     let mockTronWeb: any;
 
-    const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
     const TEST_ADDRESS = 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx';
     const TEST_PRIVATE_KEY = 'test-private-key';
     const TEST_NONCE = 'a1b2c3d4e5f6789012345678';
@@ -1456,7 +1473,6 @@ describe('ClientRequestHandler - signAndSendTransaction', () => {
   let mockTransactionsService: jest.Mocked<TransactionsService>;
   let mockTronWeb: any;
 
-  const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
   const TEST_TRANSACTION_BASE64 =
     'CgK0FiII40phBu42/OZAkJyY96YzWrADCB8SqwMKMXR5cGUuZ29vZ2xlYXBpcy5jb20vcHJvdG9jb2wuVHJpZ2dlclNtYXJ0Q29udHJhY3QS9QIKFUEU0B62M0bakw7g2jDVhRrBTODEeRIVQZlGn9WqCM/oNjlc6ZPA69Vn4sFPIsQCnd+TuwAAAAAAAAAAAAAAAKYU+AO2/XgJhqQseOycf3fm3tE8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC+vCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAnq6OQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAF1RSWHxzeWtuZjl8MC41fGJyaWRnZXJzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACJUQnNGcUttbVJ5WWNuWUphOFlEeFk1ZDJKQVJhSGVxdUJKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcLzdlPemMw==';
   const CORRECT_OWNER_ADDRESS_HEX =
@@ -1632,24 +1648,20 @@ describe('ClientRequestHandler - signAndSendTransaction', () => {
 });
 
 describe('ClientRequestHandler - onAmountInput', () => {
-  const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
   const TEST_TO_ADDRESS = 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx';
   const scope = Network.Mainnet;
   const nativeTokenId = Networks[scope].nativeToken.id;
 
   type OnAmountInputRequest = Infer<typeof OnAmountInputRequestStruct>;
 
-  const mockAccount: TronKeyringAccount = {
-    id: TEST_ACCOUNT_ID,
+  const mockAccount = createMockTronKeyringAccount({
     address: 'TExvJsxzPyAZ2NtkrWgNKnbLkpqnFJ73DT',
     type: 'tron:eoa',
     options: {},
     methods: [],
     scopes: [scope],
-    entropySource: 'test-entropy',
-    derivationPath: "m/44'/195'/0'/0/0",
     index: 0,
-  };
+  });
 
   const createNativeAsset = (
     uiAmount: string,
@@ -2033,8 +2045,6 @@ describe('ClientRequestHandler - onAmountInput', () => {
 });
 
 describe('ClientRequestHandler - computeStakeFee', () => {
-  const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
-
   it('computes fee breakdown for TRX staking on mainnet', async () => {
     await withClientRequestHandler(
       async ({
@@ -2188,7 +2198,6 @@ describe('ClientRequestHandler - computeStakeFee', () => {
 });
 
 describe('ClientRequestHandler - confirmSend validation', () => {
-  const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
   const TEST_TO_ADDRESS = 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx';
   const scope = Network.Mainnet;
 
@@ -2541,14 +2550,7 @@ describe('ClientRequestHandler - confirmSend validation', () => {
 });
 
 describe('ClientRequestHandler - claimUnstakedTrx', () => {
-  const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
-
-  const mockAccount = {
-    id: TEST_ACCOUNT_ID,
-    address: 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx',
-    entropySource: 'test-entropy',
-    derivationPath: "m/44'/195'/0'/0/0",
-  } as unknown as TronKeyringAccount;
+  const mockAccount = createMockTronKeyringAccount();
 
   it('claims unstaked TRX successfully when user confirms', async () => {
     await withClientRequestHandler(
@@ -2650,14 +2652,7 @@ describe('ClientRequestHandler - claimUnstakedTrx', () => {
 });
 
 describe('ClientRequestHandler - claimTrxStakingRewards', () => {
-  const TEST_ACCOUNT_ID = '550e8400-e29b-41d4-a716-446655440000';
-
-  const mockAccount = {
-    id: TEST_ACCOUNT_ID,
-    address: 'TGJn1wnUYHJbvN88cynZbsAz2EMeZq73yx',
-    entropySource: 'test-entropy',
-    derivationPath: "m/44'/195'/0'/0/0",
-  } as unknown as TronKeyringAccount;
+  const mockAccount = createMockTronKeyringAccount();
 
   it('claims staking rewards successfully', async () => {
     await withClientRequestHandler(
