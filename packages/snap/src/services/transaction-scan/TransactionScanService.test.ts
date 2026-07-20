@@ -1,25 +1,35 @@
 import { Types } from 'tronweb';
 
 import { TransactionScanService } from './TransactionScanService';
-import type { SecurityAlertsApiClient } from '../../clients/security-alerts-api/SecurityAlertsApiClient';
 import type { SecurityAlertSimulationValidationResponse } from '../../clients/security-alerts-api/structs';
-import type { SnapClient } from '../../clients/snap/SnapClient';
 import { Network } from '../../constants';
 import { mockLogger } from '../../utils/mockLogger';
 
 describe('TransactionScanService', () => {
-  const createMockSecurityAlertsApiClient = (
+  const createService = (
     mockApiResponse: SecurityAlertSimulationValidationResponse,
-  ): jest.Mocked<Pick<SecurityAlertsApiClient, 'scanTransaction'>> => ({
-    scanTransaction: jest.fn().mockResolvedValue(mockApiResponse),
-  });
+  ) => {
+    const scanTransaction = jest.fn().mockResolvedValue(mockApiResponse);
+    const trackSecurityScanCompleted = jest.fn();
+    const trackSecurityAlertDetected = jest.fn();
+    const trackError = jest.fn();
 
-  const createMockSnapClient = (): jest.Mocked<
-    Pick<SnapClient, 'trackSecurityScanCompleted' | 'trackError'>
-  > => ({
-    trackSecurityScanCompleted: jest.fn(),
-    trackError: jest.fn(),
-  });
+    const service = new TransactionScanService({
+      scanTransaction,
+      trackSecurityScanCompleted,
+      trackSecurityAlertDetected,
+      trackError,
+      logger: mockLogger,
+    });
+
+    return {
+      service,
+      scanTransaction,
+      trackSecurityScanCompleted,
+      trackSecurityAlertDetected,
+      trackError,
+    };
+  };
 
   const createWellFormedTransactionRawData =
     (): Types.Transaction['raw_data'] => ({
@@ -89,15 +99,7 @@ describe('TransactionScanService', () => {
         },
       };
 
-      const mockSecurityAlertsApiClient =
-        createMockSecurityAlertsApiClient(mockApiResponse);
-      const mockSnapClient = createMockSnapClient();
-
-      const service = new TransactionScanService(
-        mockSecurityAlertsApiClient as unknown as SecurityAlertsApiClient,
-        mockSnapClient as unknown as SnapClient,
-        mockLogger,
-      );
+      const { service } = createService(mockApiResponse);
 
       const result = await service.scanTransaction({
         accountAddress: 'TExvJsxzPyAZ2NtkrWgNKnbLkpqnFJ73DT',
@@ -149,15 +151,7 @@ describe('TransactionScanService', () => {
         },
       };
 
-      const mockSecurityAlertsApiClient =
-        createMockSecurityAlertsApiClient(mockApiResponse);
-      const mockSnapClient = createMockSnapClient();
-
-      const service = new TransactionScanService(
-        mockSecurityAlertsApiClient as unknown as SecurityAlertsApiClient,
-        mockSnapClient as unknown as SnapClient,
-        mockLogger,
-      );
+      const { service } = createService(mockApiResponse);
 
       const result = await service.scanTransaction({
         accountAddress: 'TExvJsxzPyAZ2NtkrWgNKnbLkpqnFJ73DT',
@@ -210,15 +204,7 @@ describe('TransactionScanService', () => {
         },
       };
 
-      const mockSecurityAlertsApiClient =
-        createMockSecurityAlertsApiClient(mockApiResponse);
-      const mockSnapClient = createMockSnapClient();
-
-      const service = new TransactionScanService(
-        mockSecurityAlertsApiClient as unknown as SecurityAlertsApiClient,
-        mockSnapClient as unknown as SnapClient,
-        mockLogger,
-      );
+      const { service } = createService(mockApiResponse);
 
       const result = await service.scanTransaction({
         accountAddress: 'TExvJsxzPyAZ2NtkrWgNKnbLkpqnFJ73DT',
@@ -270,15 +256,7 @@ describe('TransactionScanService', () => {
         },
       };
 
-      const mockSecurityAlertsApiClient =
-        createMockSecurityAlertsApiClient(mockApiResponse);
-      const mockSnapClient = createMockSnapClient();
-
-      const service = new TransactionScanService(
-        mockSecurityAlertsApiClient as unknown as SecurityAlertsApiClient,
-        mockSnapClient as unknown as SnapClient,
-        mockLogger,
-      );
+      const { service } = createService(mockApiResponse);
 
       const result = await service.scanTransaction({
         accountAddress: 'TExvJsxzPyAZ2NtkrWgNKnbLkpqnFJ73DT',
@@ -331,15 +309,7 @@ describe('TransactionScanService', () => {
         },
       };
 
-      const mockSecurityAlertsApiClient =
-        createMockSecurityAlertsApiClient(mockApiResponse);
-      const mockSnapClient = createMockSnapClient();
-
-      const service = new TransactionScanService(
-        mockSecurityAlertsApiClient as unknown as SecurityAlertsApiClient,
-        mockSnapClient as unknown as SnapClient,
-        mockLogger,
-      );
+      const { service } = createService(mockApiResponse);
 
       const result = await service.scanTransaction({
         accountAddress: 'TExvJsxzPyAZ2NtkrWgNKnbLkpqnFJ73DT',
@@ -418,15 +388,7 @@ describe('TransactionScanService', () => {
         },
       };
 
-      const mockSecurityAlertsApiClient =
-        createMockSecurityAlertsApiClient(mockApiResponse);
-      const mockSnapClient = createMockSnapClient();
-
-      const service = new TransactionScanService(
-        mockSecurityAlertsApiClient as unknown as SecurityAlertsApiClient,
-        mockSnapClient as unknown as SnapClient,
-        mockLogger,
-      );
+      const { service } = createService(mockApiResponse);
 
       const result = await service.scanTransaction({
         accountAddress: 'TExvJsxzPyAZ2NtkrWgNKnbLkpqnFJ73DT',
@@ -502,15 +464,7 @@ describe('TransactionScanService', () => {
         },
       };
 
-      const mockSecurityAlertsApiClient =
-        createMockSecurityAlertsApiClient(mockApiResponse);
-      const mockSnapClient = createMockSnapClient();
-
-      const service = new TransactionScanService(
-        mockSecurityAlertsApiClient as unknown as SecurityAlertsApiClient,
-        mockSnapClient as unknown as SnapClient,
-        mockLogger,
-      );
+      const { service } = createService(mockApiResponse);
 
       const result = await service.scanTransaction({
         accountAddress: 'TExvJsxzPyAZ2NtkrWgNKnbLkpqnFJ73DT',
@@ -536,20 +490,12 @@ describe('TransactionScanService', () => {
     it('tracks the error', async () => {
       const error = new Error('Scan failed');
 
-      const mockSecurityAlertsApiClient = createMockSecurityAlertsApiClient({
+      const { service, scanTransaction, trackError } = createService({
         simulation: { status: 'Success' },
         // eslint-disable-next-line @typescript-eslint/naming-convention
         validation: { status: 'Success', result_type: 'Benign' },
       });
-      mockSecurityAlertsApiClient.scanTransaction.mockRejectedValueOnce(error);
-
-      const mockSnapClient = createMockSnapClient();
-
-      const service = new TransactionScanService(
-        mockSecurityAlertsApiClient as unknown as SecurityAlertsApiClient,
-        mockSnapClient as unknown as SnapClient,
-        mockLogger,
-      );
+      scanTransaction.mockRejectedValueOnce(error);
 
       await service.scanTransaction({
         accountAddress: 'TExvJsxzPyAZ2NtkrWgNKnbLkpqnFJ73DT',
@@ -559,7 +505,7 @@ describe('TransactionScanService', () => {
         options: ['simulation'],
       });
 
-      expect(mockSnapClient.trackError).toHaveBeenCalledWith(error);
+      expect(trackError).toHaveBeenCalledWith(error);
     });
   });
 });
