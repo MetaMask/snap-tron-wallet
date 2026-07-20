@@ -6,7 +6,7 @@ import type { TronWebFactory } from '../clients/tronweb/TronWebFactory';
 import {
   Network,
   TRACK_TX_MAX_ATTEMPTS,
-  TRACK_TX_INTERVAL,
+  TRACK_TX_POLL_INTERVAL,
 } from '../constants';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { State, UnencryptedStateValue } from '../services/state/State';
@@ -1021,7 +1021,7 @@ describe('CronHandler', () => {
           accountIds: ACCOUNT_IDS,
           attempt: 1,
         },
-        duration: TRACK_TX_INTERVAL,
+        duration: TRACK_TX_POLL_INTERVAL,
       });
     });
 

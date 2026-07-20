@@ -4,7 +4,7 @@ import type { PriceApiClient } from '../clients/price-api/PriceApiClient';
 import type { SnapClient } from '../clients/snap/SnapClient';
 import type { TronHttpClient } from '../clients/tron-http/TronHttpClient';
 import type { Network } from '../constants';
-import { TRACK_TX_INTERVAL, TRACK_TX_MAX_ATTEMPTS } from '../constants';
+import { TRACK_TX_MAX_ATTEMPTS, TRACK_TX_POLL_INTERVAL } from '../constants';
 import type { TronKeyringAccount } from '../entities/keyring-account';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { State, UnencryptedStateValue } from '../services/state/State';
@@ -611,7 +611,7 @@ export class CronHandler {
    * Background job to track a transaction's confirmation status.
    * Syncs accounts on first check to fetch transaction with status from network.
    * Continues polling until confirmed, then syncs again to update status.
-   * Polls on Tron block-time intervals (~3s) for up to 5 attempts (~15s total).
+   * Polls every 1s after the initial 3s delay for up to 13 attempts (~15s total).
    *
    * @param params - Transaction tracking parameters
    * @param params.txId - The transaction ID to track
@@ -631,7 +631,7 @@ export class CronHandler {
     attempt: number;
   }): Promise<void> {
     const maxAttempts = TRACK_TX_MAX_ATTEMPTS;
-    const pollingInterval = TRACK_TX_INTERVAL;
+    const pollingInterval = TRACK_TX_POLL_INTERVAL;
 
     this.#logger.info(
       `[Attempt ${attempt + 1} of ${maxAttempts}] Tracking transaction ${txId} on ${scope}...`,
