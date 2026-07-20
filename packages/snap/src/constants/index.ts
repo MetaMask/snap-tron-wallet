@@ -31,12 +31,6 @@ export const TRACK_TX_INTERVAL = 'PT3S';
  */
 export const TRACK_TX_POLL_INTERVAL = 'PT1S';
 
-/**
- * Maximum number of attempts to track a transaction confirmation.
- * With a 3s initial delay and 1s reschedules, 13 attempts covers ~15 seconds.
- */
-export const TRACK_TX_MAX_ATTEMPTS = 13;
-
 export enum Network {
   Mainnet = TrxScope.Mainnet,
   Nile = TrxScope.Nile,

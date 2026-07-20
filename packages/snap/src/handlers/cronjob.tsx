@@ -4,7 +4,7 @@ import type { PriceApiClient } from '../clients/price-api/PriceApiClient';
 import type { SnapClient } from '../clients/snap/SnapClient';
 import type { TronHttpClient } from '../clients/tron-http/TronHttpClient';
 import type { Network } from '../constants';
-import { TRACK_TX_MAX_ATTEMPTS, TRACK_TX_POLL_INTERVAL } from '../constants';
+import { TRACK_TX_POLL_INTERVAL } from '../constants';
 import type { TronKeyringAccount } from '../entities/keyring-account';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { State, UnencryptedStateValue } from '../services/state/State';
@@ -609,9 +609,7 @@ export class CronHandler {
 
   /**
    * Background job to track a transaction's confirmation status.
-   * Syncs accounts on first check to fetch transaction with status from network.
-   * Continues polling until confirmed, then syncs again to update status.
-   * Polls every 1s after the initial 3s delay for up to 13 attempts (~15s total).
+   * Continues polling until confirmed, then syncs accounts and emits finalized event.
    *
    * @param params - Transaction tracking parameters
    * @param params.txId - The transaction ID to track
@@ -630,27 +628,9 @@ export class CronHandler {
     accountIds: string[];
     attempt: number;
   }): Promise<void> {
-    const maxAttempts = TRACK_TX_MAX_ATTEMPTS;
-    const pollingInterval = TRACK_TX_POLL_INTERVAL;
-
     this.#logger.info(
-      `[Attempt ${attempt + 1} of ${maxAttempts}] Tracking transaction ${txId} on ${scope}...`,
+      `[Attempt ${attempt + 1}] Tracking transaction ${txId} on ${scope}...`,
     );
-
-    // Check if we've exceeded maximum attempts
-    if (attempt >= maxAttempts) {
-      this.#logger.warn(
-        { txId, scope, attempts: maxAttempts },
-        'Transaction tracking timeout - syncing accounts',
-      );
-
-      // Fallback: sync accounts anyway to update final status
-      const accounts = await this.#accountsService.findByIds(accountIds);
-      if (accounts.length > 0) {
-        await this.#accountsService.synchronize(accounts);
-      }
-      return;
-    }
 
     try {
       // Fetch transaction info from Full Node API
@@ -662,33 +642,21 @@ export class CronHandler {
 
       // If transaction not found yet (not confirmed), schedule next check
       if (!txInfo) {
-        if (attempt < maxAttempts - 1) {
-          this.#logger.info(
-            { txId, attempt },
-            'Transaction not confirmed yet, scheduling next check...',
-          );
+        this.#logger.info(
+          { txId, attempt },
+          'Transaction not confirmed yet, scheduling next check...',
+        );
 
-          await this.#snapClient.scheduleBackgroundEvent({
-            method: BackgroundEventMethod.TrackTransaction,
-            params: {
-              txId,
-              scope,
-              accountIds,
-              attempt: attempt + 1,
-            },
-            duration: pollingInterval,
-          });
-        } else {
-          this.#logger.warn(
-            { txId, scope, attempts: maxAttempts },
-            'Transaction tracking timeout - syncing accounts',
-          );
-
-          const accounts = await this.#accountsService.findByIds(accountIds);
-          if (accounts.length > 0) {
-            await this.#accountsService.synchronize(accounts);
-          }
-        }
+        await this.#snapClient.scheduleBackgroundEvent({
+          method: BackgroundEventMethod.TrackTransaction,
+          params: {
+            txId,
+            scope,
+            accountIds,
+            attempt: attempt + 1,
+          },
+          duration: TRACK_TX_POLL_INTERVAL,
+        });
         return;
       }
 
@@ -726,29 +694,16 @@ export class CronHandler {
         'Error tracking transaction',
       );
 
-      // On error, retry with next attempt (unless we've hit max attempts)
-      if (attempt < maxAttempts - 1) {
-        await this.#snapClient.scheduleBackgroundEvent({
-          method: BackgroundEventMethod.TrackTransaction,
-          params: {
-            txId,
-            scope,
-            accountIds,
-            attempt: attempt + 1,
-          },
-          duration: pollingInterval,
-        });
-      } else {
-        // Max attempts reached - fallback to sync
-        this.#logger.warn(
-          { txId, scope },
-          'Max tracking attempts reached with errors - falling back to account sync',
-        );
-        const accounts = await this.#accountsService.findByIds(accountIds);
-        if (accounts.length > 0) {
-          await this.#accountsService.synchronize(accounts);
-        }
-      }
+      await this.#snapClient.scheduleBackgroundEvent({
+        method: BackgroundEventMethod.TrackTransaction,
+        params: {
+          txId,
+          scope,
+          accountIds,
+          attempt: attempt + 1,
+        },
+        duration: TRACK_TX_POLL_INTERVAL,
+      });
     }
   }
 }

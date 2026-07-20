@@ -3,11 +3,7 @@ import type { PriceApiClient } from '../clients/price-api/PriceApiClient';
 import type { SnapClient } from '../clients/snap/SnapClient';
 import type { TronHttpClient } from '../clients/tron-http/TronHttpClient';
 import type { TronWebFactory } from '../clients/tronweb/TronWebFactory';
-import {
-  Network,
-  TRACK_TX_MAX_ATTEMPTS,
-  TRACK_TX_POLL_INTERVAL,
-} from '../constants';
+import { Network, TRACK_TX_POLL_INTERVAL } from '../constants';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { State, UnencryptedStateValue } from '../services/state/State';
 import { TransactionExpirationRefresherService } from '../services/transaction-expiration-refresher/TransactionExpirationRefresherService';
@@ -1023,63 +1019,6 @@ describe('CronHandler', () => {
         },
         duration: TRACK_TX_POLL_INTERVAL,
       });
-    });
-
-    it('syncs accounts immediately on last attempt without scheduling another poll', async () => {
-      const mockAccount = { id: ACCOUNT_ID, type: 'tron:eoa' };
-      const getTransactionInfoById = jest.fn().mockResolvedValue(null);
-      const findByIds = jest.fn().mockResolvedValue([mockAccount]);
-      const synchronize = jest.fn().mockResolvedValue(undefined);
-      const scheduleBackgroundEvent = jest.fn().mockResolvedValue(undefined);
-
-      const { cronHandler } = buildTrackTransactionCronHandler({
-        getTransactionInfoById,
-        findByIds,
-        synchronize,
-        scheduleBackgroundEvent,
-      });
-
-      await cronHandler.trackTransaction({
-        txId: TX_ID,
-        scope: Network.Mainnet,
-        accountIds: ACCOUNT_IDS,
-        attempt: TRACK_TX_MAX_ATTEMPTS - 1,
-      });
-
-      // No further scheduling should occur
-      expect(scheduleBackgroundEvent).not.toHaveBeenCalled();
-      // Accounts should be synced as a fallback
-      expect(findByIds).toHaveBeenCalledWith(ACCOUNT_IDS);
-      expect(synchronize).toHaveBeenCalledWith([mockAccount]);
-    });
-
-    it('does not schedule beyond maxAttempts when transaction stays unconfirmed', async () => {
-      const mockAccount = { id: ACCOUNT_ID, type: 'tron:eoa' };
-      const getTransactionInfoById = jest.fn().mockResolvedValue(null);
-      const scheduleBackgroundEvent = jest.fn().mockResolvedValue(undefined);
-      const findByIds = jest.fn().mockResolvedValue([mockAccount]);
-      const synchronize = jest.fn().mockResolvedValue(undefined);
-
-      const { cronHandler } = buildTrackTransactionCronHandler({
-        getTransactionInfoById,
-        findByIds,
-        synchronize,
-        scheduleBackgroundEvent,
-      });
-
-      for (let attempt = 0; attempt < TRACK_TX_MAX_ATTEMPTS; attempt++) {
-        await cronHandler.trackTransaction({
-          txId: TX_ID,
-          scope: Network.Mainnet,
-          accountIds: ACCOUNT_IDS,
-          attempt,
-        });
-      }
-
-      expect(scheduleBackgroundEvent).toHaveBeenCalledTimes(
-        TRACK_TX_MAX_ATTEMPTS - 1,
-      );
-      expect(synchronize).toHaveBeenCalledTimes(1);
     });
 
     it('syncs accounts and emits finalized event when transaction confirms', async () => {
