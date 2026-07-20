@@ -25,19 +25,33 @@ const METAMASK_ORIGIN = 'metamask';
 const METAMASK_ORIGIN_URL = 'https://metamask.io';
 
 export class TransactionScanService {
-  readonly #securityAlertsApiClient: SecurityAlertsApiClient;
+  readonly #scanTransaction: SecurityAlertsApiClient['scanTransaction'];
 
-  readonly #snapClient: SnapClient;
+  readonly #trackSecurityScanCompleted: SnapClient['trackSecurityScanCompleted'];
+
+  readonly #trackSecurityAlertDetected: SnapClient['trackSecurityAlertDetected'];
+
+  readonly #trackError: SnapClient['trackError'];
 
   readonly #logger: ILogger;
 
-  constructor(
-    securityAlertsApiClient: SecurityAlertsApiClient,
-    snapClient: SnapClient,
-    logger: ILogger,
-  ) {
-    this.#securityAlertsApiClient = securityAlertsApiClient;
-    this.#snapClient = snapClient;
+  constructor({
+    scanTransaction,
+    trackSecurityScanCompleted,
+    trackSecurityAlertDetected,
+    trackError,
+    logger,
+  }: {
+    scanTransaction: SecurityAlertsApiClient['scanTransaction'];
+    trackSecurityScanCompleted: SnapClient['trackSecurityScanCompleted'];
+    trackSecurityAlertDetected: SnapClient['trackSecurityAlertDetected'];
+    trackError: SnapClient['trackError'];
+    logger: ILogger;
+  }) {
+    this.#scanTransaction = scanTransaction;
+    this.#trackSecurityScanCompleted = trackSecurityScanCompleted;
+    this.#trackSecurityAlertDetected = trackSecurityAlertDetected;
+    this.#trackError = trackError;
     this.#logger = logger;
   }
 
@@ -101,7 +115,7 @@ export class TransactionScanService {
     }
 
     try {
-      const result = await this.#securityAlertsApiClient.scanTransaction({
+      const result = await this.#scanTransaction({
         accountAddress,
         transactionRawData,
         origin: origin === METAMASK_ORIGIN ? METAMASK_ORIGIN_URL : origin,
@@ -117,7 +131,7 @@ export class TransactionScanService {
 
         // Track error if account is provided
         if (account) {
-          await this.#snapClient.trackSecurityScanCompleted({
+          await this.#trackSecurityScanCompleted({
             origin,
             accountType: account.type,
             chainIdCaip: scope,
@@ -144,7 +158,7 @@ export class TransactionScanService {
         );
 
         // Track scan completed
-        await this.#snapClient.trackSecurityScanCompleted({
+        await this.#trackSecurityScanCompleted({
           origin,
           accountType: account.type,
           chainIdCaip: scope,
@@ -161,7 +175,7 @@ export class TransactionScanService {
             ? (scan.validation.type as SecurityAlertResponse)
             : SecurityAlertResponse.Warning;
 
-          await this.#snapClient.trackSecurityAlertDetected({
+          await this.#trackSecurityAlertDetected({
             origin,
             accountType: account.type,
             chainIdCaip: scope,
@@ -176,12 +190,12 @@ export class TransactionScanService {
 
       return scan;
     } catch (error) {
-      await this.#snapClient.trackError(error as Error);
+      await this.#trackError(error as Error);
       this.#logger.error(error);
 
       // Track error if account is provided
       if (account) {
-        await this.#snapClient.trackSecurityScanCompleted({
+        await this.#trackSecurityScanCompleted({
           origin,
           accountType: account.type,
           chainIdCaip: scope,

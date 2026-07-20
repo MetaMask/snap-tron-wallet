@@ -153,11 +153,17 @@ const walletService = new WalletService({
   tronWebFactory,
 });
 
-const transactionScanService = new TransactionScanService(
-  securityAlertsApiClient,
-  snapClient,
+const transactionScanService = new TransactionScanService({
+  scanTransaction: securityAlertsApiClient.scanTransaction.bind(
+    securityAlertsApiClient,
+  ),
+  trackSecurityScanCompleted:
+    snapClient.trackSecurityScanCompleted.bind(snapClient),
+  trackSecurityAlertDetected:
+    snapClient.trackSecurityAlertDetected.bind(snapClient),
+  trackError: snapClient.trackError.bind(snapClient),
   logger,
-);
+});
 
 const confirmationHandler = new ConfirmationHandler({
   snapClient,
