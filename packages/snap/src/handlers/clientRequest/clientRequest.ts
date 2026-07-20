@@ -42,6 +42,7 @@ import {
   FEE_LIMIT,
   Network,
   Networks,
+  TRON_BLOCK_TIME,
   ZERO,
 } from '../../constants';
 import type { AccountsService } from '../../services/accounts/AccountsService';
@@ -304,7 +305,7 @@ export class ClientRequestHandler {
         accountIds: [accountId],
         attempt: 0,
       },
-      duration: 'PT5S',
+      duration: TRON_BLOCK_TIME,
     });
 
     return {

@@ -16,7 +16,13 @@ import { ClientRequestMethod, SendErrorCodes } from './types';
 import type { OnAmountInputRequestStruct } from './validation';
 import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
-import { FALLBACK_FEE, FEE_LIMIT, Network, Networks } from '../../constants';
+import {
+  FALLBACK_FEE,
+  FEE_LIMIT,
+  Network,
+  Networks,
+  TRON_BLOCK_TIME,
+} from '../../constants';
 import type {
   AssetEntity,
   NativeAsset,
@@ -464,7 +470,7 @@ describe('ClientRequestHandler', () => {
             accountIds: [TEST_ACCOUNT_ID],
             attempt: 0,
           },
-          duration: 'PT5S',
+          duration: TRON_BLOCK_TIME,
         });
       });
 

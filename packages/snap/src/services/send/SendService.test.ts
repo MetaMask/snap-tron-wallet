@@ -5,7 +5,7 @@ import { TronWeb } from 'tronweb';
 import type { Transaction, TransferContract } from 'tronweb/lib/esm/types';
 
 import { SendService } from './SendService';
-import { FEE_LIMIT, Network, Networks } from '../../constants';
+import { FEE_LIMIT, Network, Networks, TRON_BLOCK_TIME } from '../../constants';
 import type { AssetEntity } from '../../entities/assets';
 import { SendErrorCodes } from '../../handlers/clientRequest/types';
 import { BackgroundEventMethod } from '../../handlers/cronjob';
@@ -163,7 +163,7 @@ describe('SendService', () => {
           accountIds: [TEST_ACCOUNT_ID],
           attempt: 0,
         },
-        duration: 'PT5S',
+        duration: TRON_BLOCK_TIME,
       });
       expect(result).toStrictEqual({
         result: true,
