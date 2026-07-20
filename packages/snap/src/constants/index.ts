@@ -20,6 +20,18 @@ export const FALLBACK_FEE = 37_000_000;
 export const NULL_ADDRESS = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 export const CONSENSYS_SR_NODE_ADDRESS = 'TVMwGfdDz58VvM7yTzGMWWSHsmofSxa9jH';
 
+/**
+ * Tron block time is approximately 3 seconds.
+ * This is used for transaction tracking polling intervals.
+ */
+export const TRON_BLOCK_TIME = 'PT3S';
+
+/**
+ * Maximum number of attempts to track a transaction confirmation.
+ * With PT3S polling interval and 5 attempts, this covers ~15 seconds.
+ */
+export const TRACK_TX_MAX_ATTEMPTS = 5;
+
 export enum Network {
   Mainnet = TrxScope.Mainnet,
   Nile = TrxScope.Nile,
