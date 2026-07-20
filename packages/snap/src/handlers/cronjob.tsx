@@ -662,21 +662,33 @@ export class CronHandler {
 
       // If transaction not found yet (not confirmed), schedule next check
       if (!txInfo) {
-        this.#logger.info(
-          { txId, attempt },
-          'Transaction not confirmed yet, scheduling next check...',
-        );
+        if (attempt < maxAttempts - 1) {
+          this.#logger.info(
+            { txId, attempt },
+            'Transaction not confirmed yet, scheduling next check...',
+          );
 
-        await this.#snapClient.scheduleBackgroundEvent({
-          method: BackgroundEventMethod.TrackTransaction,
-          params: {
-            txId,
-            scope,
-            accountIds,
-            attempt: attempt + 1,
-          },
-          duration: pollingInterval,
-        });
+          await this.#snapClient.scheduleBackgroundEvent({
+            method: BackgroundEventMethod.TrackTransaction,
+            params: {
+              txId,
+              scope,
+              accountIds,
+              attempt: attempt + 1,
+            },
+            duration: pollingInterval,
+          });
+        } else {
+          this.#logger.warn(
+            { txId, scope, attempts: maxAttempts },
+            'Transaction tracking timeout - syncing accounts',
+          );
+
+          const accounts = await this.#accountsService.findByIds(accountIds);
+          if (accounts.length > 0) {
+            await this.#accountsService.synchronize(accounts);
+          }
+        }
         return;
       }
 
