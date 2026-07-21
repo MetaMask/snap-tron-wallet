@@ -180,5 +180,19 @@ gotchas for running things after the environment is up.
   `onKeyringRequest`.
 - **Lint note:** run `yarn lint` from the repo root. If you ran the test suite first, the generated
   `packages/snap/coverage/` dir produces a few harmless "Unused eslint-disable directive" warnings
-  (0 errors); they are not from source files.
+  (0 errors); they are not from source files. Prefer the root-level `yarn lint` / `yarn lint:eslint`
+  over `yarn workspace @metamask/tron-wallet-snap run lint:eslint` — the latter can fail with
+  `command not found: eslint` because eslint is a root-only devDependency not exposed to the
+  workspace's own script bin path.
+- **Port 8080 is shared with the extension.** The snap dev server (`yarn start` /
+  `yarn workspace @metamask/tron-wallet-snap start`) listens on **port 8080**, the same port the
+  sibling `metamask-extension` repo's `yarn start` webpack-dev-server uses. Only run one of the two
+  at a time; otherwise `mm-snap watch` fails with `EADDRINUSE :::8080` (the dapp on :3000 is
+  unaffected but is useless without the snap server).
+- **`installSnap()` needs an in-sync manifest.** `@metamask/snaps-jest` `installSnap()` loads the
+  on-disk `snap.manifest.json` + `dist/bundle.js` and validates the shasum. `yarn start` rewrites the
+  manifest to local-dev state and can leave it out of sync, causing
+  `Invalid Snap manifest: manifest shasum does not match computed shasum`. Run `yarn build:snap`
+  (which recomputes the shasum) before running any installSnap-based test, and after stopping a
+  `yarn start` session.
 
