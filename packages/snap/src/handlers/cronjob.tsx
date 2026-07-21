@@ -4,7 +4,7 @@ import type { PriceApiClient } from '../clients/price-api/PriceApiClient';
 import type { SnapClient } from '../clients/snap/SnapClient';
 import type { TronHttpClient } from '../clients/tron-http/TronHttpClient';
 import type { Network } from '../constants';
-import { TRACK_TX_POLL_INTERVAL } from '../constants';
+import { TRACK_TX_MAX_ATTEMPTS, TRACK_TX_POLL_INTERVAL } from '../constants';
 import type { TronKeyringAccount } from '../entities/keyring-account';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { State, UnencryptedStateValue } from '../services/state/State';
@@ -642,6 +642,14 @@ export class CronHandler {
 
       // If transaction not found yet (not confirmed), schedule next check
       if (!txInfo) {
+        if (attempt >= TRACK_TX_MAX_ATTEMPTS - 1) {
+          this.#logger.warn(
+            { txId, scope, attempt },
+            'Transaction tracking timed out',
+          );
+          return;
+        }
+
         this.#logger.info(
           { txId, attempt },
           'Transaction not confirmed yet, scheduling next check...',
@@ -693,6 +701,14 @@ export class CronHandler {
         { error, txId, scope, attempt },
         'Error tracking transaction',
       );
+
+      if (attempt >= TRACK_TX_MAX_ATTEMPTS - 1) {
+        this.#logger.warn(
+          { txId, scope, attempt },
+          'Transaction tracking timed out',
+        );
+        return;
+      }
 
       await this.#snapClient.scheduleBackgroundEvent({
         method: BackgroundEventMethod.TrackTransaction,

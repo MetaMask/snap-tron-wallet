@@ -31,6 +31,8 @@ export const TRACK_TX_INTERVAL = 'PT3S';
  */
 export const TRACK_TX_POLL_INTERVAL = 'PT1S';
 
+export const TRACK_TX_MAX_ATTEMPTS = 60;
+
 export enum Network {
   Mainnet = TrxScope.Mainnet,
   Nile = TrxScope.Nile,

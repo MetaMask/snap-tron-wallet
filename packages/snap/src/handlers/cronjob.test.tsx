@@ -3,7 +3,11 @@ import type { PriceApiClient } from '../clients/price-api/PriceApiClient';
 import type { SnapClient } from '../clients/snap/SnapClient';
 import type { TronHttpClient } from '../clients/tron-http/TronHttpClient';
 import type { TronWebFactory } from '../clients/tronweb/TronWebFactory';
-import { Network, TRACK_TX_POLL_INTERVAL } from '../constants';
+import {
+  Network,
+  TRACK_TX_MAX_ATTEMPTS,
+  TRACK_TX_POLL_INTERVAL,
+} from '../constants';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { State, UnencryptedStateValue } from '../services/state/State';
 import { TransactionExpirationRefresherService } from '../services/transaction-expiration-refresher/TransactionExpirationRefresherService';
@@ -928,132 +932,200 @@ describe('CronHandler', () => {
       synchronize: jest.Mock;
     };
 
-    /**
-     * Builds a CronHandler wired with minimal mocks for testing trackTransaction.
-     *
-     * @param options - The mock dependencies.
-     * @param options.getTransactionInfoById - Mock for TronHttpClient.getTransactionInfoById.
-     * @param options.findByIds - Mock for AccountsService.findByIds.
-     * @param options.synchronize - Mock for AccountsService.synchronize.
-     * @param options.scheduleBackgroundEvent - Optional mock for SnapClient.scheduleBackgroundEvent.
-     * @param options.trackTransactionFinalized - Optional mock for SnapClient.trackTransactionFinalized.
-     * @returns The CronHandler and associated mocks.
-     */
-    function buildTrackTransactionCronHandler({
-      getTransactionInfoById,
-      findByIds,
-      synchronize,
-      scheduleBackgroundEvent,
-      trackTransactionFinalized,
-    }: {
-      getTransactionInfoById: jest.Mock;
-      findByIds: jest.Mock;
-      synchronize: jest.Mock;
-      scheduleBackgroundEvent?: jest.Mock;
-      trackTransactionFinalized?: jest.Mock;
-    }): {
+    type WithTrackTransactionCronHandlerCallback<ReturnValue> = (payload: {
       cronHandler: CronHandler;
-      mockSnapClient: MockSnapClient;
+      mockSnapClient: MockSnapClient & {
+        trackTransactionFinalized: jest.Mock;
+      };
       mockAccountsService: MockAccountsService;
-    } {
-      const mockSnapClient: MockSnapClient = {
-        getClientStatus: jest.fn(),
-        createInterface: jest.fn(),
-        showDialog: jest.fn(),
-        updateInterface: jest.fn(),
-        getInterfaceContext: jest.fn(),
-        scheduleBackgroundEvent:
-          scheduleBackgroundEvent ?? jest.fn().mockResolvedValue(undefined),
-        getPreferences: jest.fn(),
-        trackError: jest.fn(),
-      };
+      mockTronHttpClient: jest.Mocked<
+        Pick<TronHttpClient, 'getTransactionInfoById'>
+      >;
+    }) => Promise<ReturnValue> | ReturnValue;
 
+    /**
+     * Wraps transaction tracking tests with fresh handler dependencies.
+     *
+     * @param testFunction - The test body receiving the handler and its mocks.
+     * @returns The return value of the callback.
+     */
+    async function withTrackTransactionCronHandler<ReturnValue>(
+      testFunction: WithTrackTransactionCronHandlerCallback<ReturnValue>,
+    ): Promise<ReturnValue> {
+      const mockSnapClient = {
+        ...buildMockSnapClient(null),
+        trackTransactionFinalized: jest.fn().mockResolvedValue(undefined),
+      };
       const mockAccountsService: MockAccountsService = {
-        findByIds,
-        synchronize,
+        findByIds: jest.fn(),
+        synchronize: jest.fn(),
       };
-
+      const mockTronHttpClient: jest.Mocked<
+        Pick<TronHttpClient, 'getTransactionInfoById'>
+      > = {
+        getTransactionInfoById: jest.fn(),
+      };
       const cronHandler = new CronHandler({
         logger: buildMockLogger(),
         accountsService: mockAccountsService as unknown as AccountsService,
-        snapClient: {
-          ...mockSnapClient,
-          trackTransactionFinalized:
-            trackTransactionFinalized ?? jest.fn().mockResolvedValue(undefined),
-        } as unknown as SnapClient,
+        snapClient: mockSnapClient as unknown as SnapClient,
         state: {} as unknown as State<UnencryptedStateValue>,
         priceApiClient: {} as PriceApiClient,
-        tronHttpClient: {
-          getTransactionInfoById,
-        } as unknown as TronHttpClient,
+        tronHttpClient: mockTronHttpClient as unknown as TronHttpClient,
         transactionScanService: {} as unknown as TransactionScanService,
         transactionExpirationRefresherService:
           {} as unknown as TransactionExpirationRefresherService,
       });
 
-      return { cronHandler, mockSnapClient, mockAccountsService };
+      return await testFunction({
+        cronHandler,
+        mockSnapClient,
+        mockAccountsService,
+        mockTronHttpClient,
+      });
     }
 
     it('schedules next attempt when transaction is not yet confirmed', async () => {
-      const getTransactionInfoById = jest.fn().mockResolvedValue(null);
-      const { cronHandler, mockSnapClient } = buildTrackTransactionCronHandler({
-        getTransactionInfoById,
-        findByIds: jest.fn(),
-        synchronize: jest.fn(),
-      });
+      await withTrackTransactionCronHandler(
+        async ({ cronHandler, mockSnapClient, mockTronHttpClient }) => {
+          mockTronHttpClient.getTransactionInfoById.mockResolvedValue(null);
 
-      await cronHandler.trackTransaction({
-        txId: TX_ID,
-        scope: Network.Mainnet,
-        accountIds: ACCOUNT_IDS,
-        attempt: 0,
-      });
+          await cronHandler.trackTransaction({
+            txId: TX_ID,
+            scope: Network.Mainnet,
+            accountIds: ACCOUNT_IDS,
+            attempt: 0,
+          });
 
-      expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith({
-        method: BackgroundEventMethod.TrackTransaction,
-        params: {
-          txId: TX_ID,
-          scope: Network.Mainnet,
-          accountIds: ACCOUNT_IDS,
-          attempt: 1,
+          expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith({
+            method: BackgroundEventMethod.TrackTransaction,
+            params: {
+              txId: TX_ID,
+              scope: Network.Mainnet,
+              accountIds: ACCOUNT_IDS,
+              attempt: 1,
+            },
+            duration: TRACK_TX_POLL_INTERVAL,
+          });
         },
-        duration: TRACK_TX_POLL_INTERVAL,
-      });
+      );
     });
 
     it('syncs accounts and emits finalized event when transaction confirms', async () => {
-      const txInfo = { blockNumber: 100 };
-      const mockAccount = { id: ACCOUNT_ID, type: 'tron:eoa' };
-      const getTransactionInfoById = jest.fn().mockResolvedValue(txInfo);
-      const findByIds = jest.fn().mockResolvedValue([mockAccount]);
-      const scheduleBackgroundEvent = jest.fn().mockResolvedValue(undefined);
-      const trackTransactionFinalized = jest.fn().mockResolvedValue(undefined);
+      await withTrackTransactionCronHandler(
+        async ({
+          cronHandler,
+          mockSnapClient,
+          mockAccountsService,
+          mockTronHttpClient,
+        }) => {
+          const mockAccount = { id: ACCOUNT_ID, type: 'tron:eoa' };
+          mockTronHttpClient.getTransactionInfoById.mockResolvedValue({
+            blockNumber: 100,
+          } as any);
+          mockAccountsService.findByIds.mockResolvedValue([mockAccount]);
 
-      const { cronHandler } = buildTrackTransactionCronHandler({
-        getTransactionInfoById,
-        findByIds,
-        synchronize: jest.fn(),
-        scheduleBackgroundEvent,
-        trackTransactionFinalized,
-      });
+          await cronHandler.trackTransaction({
+            txId: TX_ID,
+            scope: Network.Mainnet,
+            accountIds: ACCOUNT_IDS,
+            attempt: 0,
+          });
 
-      await cronHandler.trackTransaction({
-        txId: TX_ID,
-        scope: Network.Mainnet,
-        accountIds: ACCOUNT_IDS,
-        attempt: 0,
-      });
-
-      expect(scheduleBackgroundEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          method: BackgroundEventMethod.SynchronizeSelectedAccounts,
-        }),
+          expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith(
+            expect.objectContaining({
+              method: BackgroundEventMethod.SynchronizeSelectedAccounts,
+            }),
+          );
+          expect(mockSnapClient.trackTransactionFinalized).toHaveBeenCalledWith(
+            {
+              origin: 'MetaMask',
+              accountType: mockAccount.type,
+              chainIdCaip: Network.Mainnet,
+            },
+          );
+        },
       );
-      expect(trackTransactionFinalized).toHaveBeenCalledWith({
-        origin: 'MetaMask',
-        accountType: mockAccount.type,
-        chainIdCaip: Network.Mainnet,
-      });
+    });
+
+    it('schedules retry after a transient error below the limit', async () => {
+      await withTrackTransactionCronHandler(
+        async ({ cronHandler, mockSnapClient, mockTronHttpClient }) => {
+          mockTronHttpClient.getTransactionInfoById.mockRejectedValue(
+            new Error('Network error'),
+          );
+
+          await cronHandler.trackTransaction({
+            txId: TX_ID,
+            scope: Network.Mainnet,
+            accountIds: ACCOUNT_IDS,
+            attempt: TRACK_TX_MAX_ATTEMPTS - 2,
+          });
+
+          expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith(
+            expect.objectContaining({
+              method: BackgroundEventMethod.TrackTransaction,
+              params: expect.objectContaining({
+                attempt: TRACK_TX_MAX_ATTEMPTS - 1,
+              }),
+            }),
+          );
+        },
+      );
+    });
+
+    it('stops when an unconfirmed transaction reaches the limit', async () => {
+      await withTrackTransactionCronHandler(
+        async ({
+          cronHandler,
+          mockSnapClient,
+          mockAccountsService,
+          mockTronHttpClient,
+        }) => {
+          mockTronHttpClient.getTransactionInfoById.mockResolvedValue(null);
+
+          await cronHandler.trackTransaction({
+            txId: TX_ID,
+            scope: Network.Mainnet,
+            accountIds: ACCOUNT_IDS,
+            attempt: TRACK_TX_MAX_ATTEMPTS - 1,
+          });
+
+          expect(mockSnapClient.scheduleBackgroundEvent).not.toHaveBeenCalled();
+          expect(mockAccountsService.findByIds).not.toHaveBeenCalled();
+          expect(
+            mockSnapClient.trackTransactionFinalized,
+          ).not.toHaveBeenCalled();
+        },
+      );
+    });
+
+    it('stops when a tracking error reaches the limit', async () => {
+      await withTrackTransactionCronHandler(
+        async ({
+          cronHandler,
+          mockSnapClient,
+          mockAccountsService,
+          mockTronHttpClient,
+        }) => {
+          mockTronHttpClient.getTransactionInfoById.mockRejectedValue(
+            new Error('Network error'),
+          );
+
+          await cronHandler.trackTransaction({
+            txId: TX_ID,
+            scope: Network.Mainnet,
+            accountIds: ACCOUNT_IDS,
+            attempt: TRACK_TX_MAX_ATTEMPTS - 1,
+          });
+
+          expect(mockSnapClient.scheduleBackgroundEvent).not.toHaveBeenCalled();
+          expect(mockAccountsService.findByIds).not.toHaveBeenCalled();
+          expect(
+            mockSnapClient.trackTransactionFinalized,
+          ).not.toHaveBeenCalled();
+        },
+      );
     });
   });
 });
