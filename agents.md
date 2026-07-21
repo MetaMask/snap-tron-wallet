@@ -145,3 +145,34 @@ Test names should skip "should" and start directly with the verb.
 - `it('should return empty array when no transactions exist', ...)`
 - `it('should throw error for invalid address', ...)`
 
+## Cursor Cloud specific instructions
+
+For personal multi-repo setup (Snap + Extension), see `.cursor/PERSONAL_CLOUD_ENV.md` and `.cursor/environment.json`.
+
+### Layout
+
+Cloud Agents may have Extension available as:
+
+- a multi-repo sibling (`../metamask-extension` or `/workspace/metamask-extension`), or
+- a clone under `$HOME/metamask-extension` created by `.cursor/cloud-install.sh`
+
+Prefer the sibling path when the personal Cloud Environment includes both repos.
+
+### Pairing an Extension preview branch
+
+When validating a Snap change against Extension:
+
+1. Ensure a preview exists (`@metamaskbot publish-preview` on the Snap PR) and note `@metamask-previews/tron-wallet-snap@<version>`.
+2. In the Extension checkout on `main`, set:
+   `"@metamask/tron-wallet-snap": "npm:@metamask-previews/tron-wallet-snap@<version>"`
+3. Run `yarn`, commit `package.json` + `yarn.lock`, open a **draft** Extension PR.
+4. Comment the Extension PR URL on the Snap PR.
+
+Do not merge Extension preview PRs by default; they are for QA / local testing.
+
+### Extension build notes
+
+- Extension needs Node from its `.nvmrc` (v24+) and Yarn 4 via corepack.
+- `.metamaskrc` can use a placeholder Infura id to build; set Cloud secret `INFURA_PROJECT_ID` for live RPC.
+- `yarn build` / `yarn start` produce `dist/chrome` for Load unpacked (or zip that folder for sharing).
+
