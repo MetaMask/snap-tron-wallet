@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Align transaction-status polling with Tron's three-second block time, while preserving the existing 15-second tracking window ([#364](https://github.com/MetaMask/snap-tron-wallet/pull/364))
+- Align transaction-status polling with Tron's 3 second block time, while preserving the existing 15-second tracking window ([#364](https://github.com/MetaMask/snap-tron-wallet/pull/364))
 
 ## [1.32.0]
 
