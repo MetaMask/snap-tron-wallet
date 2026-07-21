@@ -4,7 +4,7 @@ import type { PriceApiClient } from '../clients/price-api/PriceApiClient';
 import type { SnapClient } from '../clients/snap/SnapClient';
 import type { TronHttpClient } from '../clients/tron-http/TronHttpClient';
 import type { Network } from '../constants';
-import { TRACK_TX_MAX_ATTEMPTS, TRACK_TX_POLL_INTERVAL } from '../constants';
+import { TRACK_TX_INTERVAL, TRACK_TX_MAX_ATTEMPTS } from '../constants';
 import type { TronKeyringAccount } from '../entities/keyring-account';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { State, UnencryptedStateValue } from '../services/state/State';
@@ -608,6 +608,37 @@ export class CronHandler {
   }
 
   /**
+   * Fallback when transaction tracking reaches the attempt limit.
+   *
+   * @param params - Timeout fallback parameters.
+   * @param params.txId - The transaction ID being tracked.
+   * @param params.scope - The network scope.
+   * @param params.accountIds - Account IDs to synchronize.
+   * @param params.attempt - The attempt that triggered the timeout.
+   */
+  async #syncAccountsAfterTrackingTimeout({
+    txId,
+    scope,
+    accountIds,
+    attempt,
+  }: {
+    txId: string;
+    scope: Network;
+    accountIds: string[];
+    attempt: number;
+  }): Promise<void> {
+    this.#logger.warn(
+      { txId, scope, attempt },
+      'Transaction tracking timed out - syncing accounts',
+    );
+
+    const accounts = await this.#accountsService.findByIds(accountIds);
+    if (accounts.length > 0) {
+      await this.#accountsService.synchronize(accounts);
+    }
+  }
+
+  /**
    * Background job to track a transaction's confirmation status.
    * Continues polling until confirmed, then syncs accounts and emits finalized event.
    *
@@ -643,10 +674,12 @@ export class CronHandler {
       // If transaction not found yet (not confirmed), schedule next check
       if (!txInfo) {
         if (attempt >= TRACK_TX_MAX_ATTEMPTS - 1) {
-          this.#logger.warn(
-            { txId, scope, attempt },
-            'Transaction tracking timed out',
-          );
+          await this.#syncAccountsAfterTrackingTimeout({
+            txId,
+            scope,
+            accountIds,
+            attempt,
+          });
           return;
         }
 
@@ -663,7 +696,7 @@ export class CronHandler {
             accountIds,
             attempt: attempt + 1,
           },
-          duration: TRACK_TX_POLL_INTERVAL,
+          duration: TRACK_TX_INTERVAL,
         });
         return;
       }
@@ -703,10 +736,12 @@ export class CronHandler {
       );
 
       if (attempt >= TRACK_TX_MAX_ATTEMPTS - 1) {
-        this.#logger.warn(
-          { txId, scope, attempt },
-          'Transaction tracking timed out',
-        );
+        await this.#syncAccountsAfterTrackingTimeout({
+          txId,
+          scope,
+          accountIds,
+          attempt,
+        });
         return;
       }
 
@@ -718,7 +753,7 @@ export class CronHandler {
           accountIds,
           attempt: attempt + 1,
         },
-        duration: TRACK_TX_POLL_INTERVAL,
+        duration: TRACK_TX_INTERVAL,
       });
     }
   }

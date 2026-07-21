@@ -27,11 +27,10 @@ export const CONSENSYS_SR_NODE_ADDRESS = 'TVMwGfdDz58VvM7yTzGMWWSHsmofSxa9jH';
 export const TRACK_TX_INTERVAL = 'PT3S';
 
 /**
- * ISO 8601 duration for subsequent transaction tracking polls within the cronjob.
+ * Maximum number of attempts to track a transaction confirmation.
+ * With a three-second poll interval and five attempts, this covers ~15 seconds.
  */
-export const TRACK_TX_POLL_INTERVAL = 'PT1S';
-
-export const TRACK_TX_MAX_ATTEMPTS = 60;
+export const TRACK_TX_MAX_ATTEMPTS = 5;
 
 export enum Network {
   Mainnet = TrxScope.Mainnet,

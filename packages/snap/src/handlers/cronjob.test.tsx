@@ -5,8 +5,8 @@ import type { TronHttpClient } from '../clients/tron-http/TronHttpClient';
 import type { TronWebFactory } from '../clients/tronweb/TronWebFactory';
 import {
   Network,
+  TRACK_TX_INTERVAL,
   TRACK_TX_MAX_ATTEMPTS,
-  TRACK_TX_POLL_INTERVAL,
 } from '../constants';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { State, UnencryptedStateValue } from '../services/state/State';
@@ -1005,7 +1005,7 @@ describe('CronHandler', () => {
               accountIds: ACCOUNT_IDS,
               attempt: 1,
             },
-            duration: TRACK_TX_POLL_INTERVAL,
+            duration: TRACK_TX_INTERVAL,
           });
         },
       );
@@ -1074,7 +1074,75 @@ describe('CronHandler', () => {
       );
     });
 
-    it('stops when an unconfirmed transaction reaches the limit', async () => {
+    it('syncs accounts when an unconfirmed transaction reaches the limit', async () => {
+      await withTrackTransactionCronHandler(
+        async ({
+          cronHandler,
+          mockSnapClient,
+          mockAccountsService,
+          mockTronHttpClient,
+        }) => {
+          const mockAccount = { id: ACCOUNT_ID, type: 'tron:eoa' };
+          mockTronHttpClient.getTransactionInfoById.mockResolvedValue(null);
+          mockAccountsService.findByIds.mockResolvedValue([mockAccount]);
+
+          await cronHandler.trackTransaction({
+            txId: TX_ID,
+            scope: Network.Mainnet,
+            accountIds: ACCOUNT_IDS,
+            attempt: TRACK_TX_MAX_ATTEMPTS - 1,
+          });
+
+          expect(mockSnapClient.scheduleBackgroundEvent).not.toHaveBeenCalled();
+          expect(mockAccountsService.findByIds).toHaveBeenCalledWith(
+            ACCOUNT_IDS,
+          );
+          expect(mockAccountsService.synchronize).toHaveBeenCalledWith([
+            mockAccount,
+          ]);
+          expect(
+            mockSnapClient.trackTransactionFinalized,
+          ).not.toHaveBeenCalled();
+        },
+      );
+    });
+
+    it('syncs accounts when a tracking error reaches the limit', async () => {
+      await withTrackTransactionCronHandler(
+        async ({
+          cronHandler,
+          mockSnapClient,
+          mockAccountsService,
+          mockTronHttpClient,
+        }) => {
+          const mockAccount = { id: ACCOUNT_ID, type: 'tron:eoa' };
+          mockTronHttpClient.getTransactionInfoById.mockRejectedValue(
+            new Error('Network error'),
+          );
+          mockAccountsService.findByIds.mockResolvedValue([mockAccount]);
+
+          await cronHandler.trackTransaction({
+            txId: TX_ID,
+            scope: Network.Mainnet,
+            accountIds: ACCOUNT_IDS,
+            attempt: TRACK_TX_MAX_ATTEMPTS - 1,
+          });
+
+          expect(mockSnapClient.scheduleBackgroundEvent).not.toHaveBeenCalled();
+          expect(mockAccountsService.findByIds).toHaveBeenCalledWith(
+            ACCOUNT_IDS,
+          );
+          expect(mockAccountsService.synchronize).toHaveBeenCalledWith([
+            mockAccount,
+          ]);
+          expect(
+            mockSnapClient.trackTransactionFinalized,
+          ).not.toHaveBeenCalled();
+        },
+      );
+    });
+
+    it('skips sync when timeout fallback finds no accounts', async () => {
       await withTrackTransactionCronHandler(
         async ({
           cronHandler,
@@ -1083,6 +1151,7 @@ describe('CronHandler', () => {
           mockTronHttpClient,
         }) => {
           mockTronHttpClient.getTransactionInfoById.mockResolvedValue(null);
+          mockAccountsService.findByIds.mockResolvedValue([]);
 
           await cronHandler.trackTransaction({
             txId: TX_ID,
@@ -1091,39 +1160,8 @@ describe('CronHandler', () => {
             attempt: TRACK_TX_MAX_ATTEMPTS - 1,
           });
 
+          expect(mockAccountsService.synchronize).not.toHaveBeenCalled();
           expect(mockSnapClient.scheduleBackgroundEvent).not.toHaveBeenCalled();
-          expect(mockAccountsService.findByIds).not.toHaveBeenCalled();
-          expect(
-            mockSnapClient.trackTransactionFinalized,
-          ).not.toHaveBeenCalled();
-        },
-      );
-    });
-
-    it('stops when a tracking error reaches the limit', async () => {
-      await withTrackTransactionCronHandler(
-        async ({
-          cronHandler,
-          mockSnapClient,
-          mockAccountsService,
-          mockTronHttpClient,
-        }) => {
-          mockTronHttpClient.getTransactionInfoById.mockRejectedValue(
-            new Error('Network error'),
-          );
-
-          await cronHandler.trackTransaction({
-            txId: TX_ID,
-            scope: Network.Mainnet,
-            accountIds: ACCOUNT_IDS,
-            attempt: TRACK_TX_MAX_ATTEMPTS - 1,
-          });
-
-          expect(mockSnapClient.scheduleBackgroundEvent).not.toHaveBeenCalled();
-          expect(mockAccountsService.findByIds).not.toHaveBeenCalled();
-          expect(
-            mockSnapClient.trackTransactionFinalized,
-          ).not.toHaveBeenCalled();
         },
       );
     });
