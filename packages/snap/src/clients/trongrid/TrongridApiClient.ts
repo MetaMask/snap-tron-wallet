@@ -19,34 +19,34 @@ import type {
   TrongridApiResponse,
 } from './types';
 import type { ICache } from '../../caching/ICache';
+import {
+  useCacheUntil,
+  type ResultWithExpiry,
+} from '../../caching/useCacheUntil';
 import type { Network } from '../../constants';
 import type { ConfigProvider } from '../../services/config';
 import { buildUrl } from '../../utils/buildUrl';
-import logger from '../../utils/logger';
 import type { Serializable } from '../../utils/serialization/types';
 import type { TronHttpClient } from '../tron-http/TronHttpClient';
 import type { ChainParameter } from '../tron-http/types';
 
 /**
- * Function name used for the `getChainParameters` cache key. Also used by
- * {@link TrongridApiClient.peekCachedChainParameters} so the peek reads the
- * exact same entry the cached write produced.
+ * Function name used for the `useCacheUntil` cache key for `getChainParameters`.
+ * Also used by {@link TrongridApiClient.peekCachedChainParameters} so the peek
+ * reads the exact same entry the cached write produced.
  */
 const CHAIN_PARAMETERS_FUNCTION_NAME = 'TrongridApiClient:getChainParameters';
 
 /**
- * Build the cache key for `getChainParameters(scope)`.
+ * Build the cache key for `getChainParameters(scope)`. Must match the key
+ * produced by `useCacheUntil`'s default key generator
+ * (`${functionName}:${JSON.stringify(arg)}`).
  *
  * @param scope - The network scope to build the cache key for.
  * @returns The cache key for the chain-parameters entry.
  */
 const chainParametersCacheKey = (scope: Network): string =>
   `${CHAIN_PARAMETERS_FUNCTION_NAME}:${JSON.stringify(scope)}`;
-
-type ChainParametersCacheEntry = {
-  parameters: ChainParameter[];
-  expiresAt: number;
-};
 
 export class TrongridApiClient {
   readonly #clients: Map<
@@ -60,6 +60,14 @@ export class TrongridApiClient {
   readonly #tronHttpClient: TronHttpClient;
 
   readonly #cache: ICache<Serializable>;
+
+  /**
+   * Cached version of getChainParameters that uses maintenance-aligned expiry.
+   * The cache is invalidated when the next maintenance period is reached.
+   */
+  readonly #cachedGetChainParameters: (
+    scope: Network,
+  ) => Promise<ChainParameter[]>;
 
   constructor({
     configProvider,
@@ -85,6 +93,15 @@ export class TrongridApiClient {
 
     this.#tronHttpClient = tronHttpClient;
     this.#cache = cache;
+
+    // Create cached version of getChainParameters with maintenance-aligned expiry
+    this.#cachedGetChainParameters = useCacheUntil(
+      this.#fetchChainParametersWithExpiry.bind(this),
+      this.#cache,
+      {
+        functionName: CHAIN_PARAMETERS_FUNCTION_NAME,
+      },
+    );
   }
 
   /**
@@ -103,7 +120,7 @@ export class TrongridApiClient {
     scope: Network,
   ): Promise<ChainParameter[] | undefined> {
     const cached = await this.#cache.peek(chainParametersCacheKey(scope));
-    return (cached as ChainParametersCacheEntry | undefined)?.parameters;
+    return cached as ChainParameter[] | undefined;
   }
 
   /**
@@ -329,30 +346,7 @@ export class TrongridApiClient {
    * @returns Promise<ChainParameter[]> - Chain parameters data
    */
   async getChainParameters(scope: Network): Promise<ChainParameter[]> {
-    const cacheKey = chainParametersCacheKey(scope);
-
-    try {
-      const cached = (await this.#cache.get(cacheKey)) as
-        | ChainParametersCacheEntry
-        | undefined;
-      if (cached && Date.now() < cached.expiresAt) {
-        return cached.parameters;
-      }
-    } catch (error) {
-      logger.error(`Cache get error for key "${cacheKey}":`, error);
-    }
-
-    const { result, expiresAt } =
-      await this.#fetchChainParametersWithExpiry(scope);
-    const ttlMilliseconds = Math.max(0, expiresAt - Date.now());
-
-    await this.#cache
-      .set(cacheKey, { parameters: result, expiresAt }, ttlMilliseconds)
-      .catch((error) => {
-        logger.error(`Cache set error for key "${cacheKey}":`, error);
-      });
-
-    return result;
+    return this.#cachedGetChainParameters(scope);
   }
 
   /**
@@ -364,7 +358,7 @@ export class TrongridApiClient {
    */
   async #fetchChainParametersWithExpiry(
     scope: Network,
-  ): Promise<{ result: ChainParameter[]; expiresAt: number }> {
+  ): Promise<ResultWithExpiry<ChainParameter[]>> {
     // Fetch both in parallel for efficiency
     // Delegates to TronHttpClient for the actual API calls
     const [parameters, nextMaintenanceTime] = await Promise.all([
