@@ -1,5 +1,12 @@
-import type { KeyringRequest } from '@metamask/keyring-api';
-import { UserRejectedRequestError } from '@metamask/snaps-sdk';
+import {
+  AccountCreationType,
+  type CreateAccountOptions as KeyringBatchCreateAccountOptions,
+  type KeyringRequest,
+} from '@metamask/keyring-api';
+import {
+  InvalidParamsError,
+  UserRejectedRequestError,
+} from '@metamask/snaps-sdk';
 import { bytesToBase64, bytesToHex, stringToBytes } from '@metamask/utils';
 
 import type { SnapClient } from '../clients/snap/SnapClient';
@@ -59,11 +66,17 @@ describe('KeyringHandler', () => {
   let mockConfirmationHandler: jest.Mocked<ConfirmationHandler>;
 
   beforeEach(() => {
-    mockSnapClient = {} as any;
+    mockSnapClient = {
+      scheduleBackgroundEvent: jest.fn().mockResolvedValue(undefined),
+      trackError: jest.fn(),
+    } as any;
     mockAccountsService = {
       findById: jest.fn().mockResolvedValue(mockAccount),
       findByIdOrThrow: jest.fn().mockResolvedValue(mockAccount),
       deriveAccount: jest.fn(),
+      create: jest.fn(),
+      createAccounts: jest.fn(),
+      getAll: jest.fn().mockResolvedValue([mockAccount]),
     } as any;
     mockAssetsService = {} as any;
     mockTransactionsService = {
@@ -176,7 +189,7 @@ describe('KeyringHandler', () => {
     });
 
     describe('signTransaction', () => {
-      it('successfully signs a transaction', async () => {
+      it('confirms and signs the transaction without modifying its payload', async () => {
         const request: KeyringRequest = {
           id: '00000000-0000-4000-8000-000000000004',
           origin: 'https://test-origin.com',
@@ -193,6 +206,12 @@ describe('KeyringHandler', () => {
             },
           },
         };
+        const transactionParams = request.request.params as {
+          transaction: {
+            rawDataHex: string;
+            type: string;
+          };
+        };
 
         const result = await keyringHandler.submitRequest(request);
 
@@ -200,11 +219,30 @@ describe('KeyringHandler', () => {
           pending: false,
           result: { signature: '0xsignature123' },
         });
+        // The request reaching confirmation keeps the dApp's original payload.
+        expect(
+          mockConfirmationHandler.handleKeyringRequest,
+        ).toHaveBeenCalledWith({
+          request: expect.objectContaining({
+            request: expect.objectContaining({
+              params: expect.objectContaining({
+                transaction: expect.objectContaining({
+                  rawDataHex: transactionParams.transaction.rawDataHex,
+                }),
+              }),
+            }),
+          }),
+          account: mockAccount,
+        });
         expect(mockWalletService.handleKeyringRequest).toHaveBeenCalledWith({
           account: mockAccount,
           scope: Network.Mainnet,
           method: TronMultichainMethod.SignTransaction,
-          params: request.request.params,
+          params: expect.objectContaining({
+            transaction: expect.objectContaining({
+              rawDataHex: transactionParams.transaction.rawDataHex,
+            }),
+          }),
         });
       });
 
@@ -580,6 +618,108 @@ describe('KeyringHandler', () => {
       expect(
         mockTransactionsService.checkAddressActivity,
       ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('setSelectedAccounts', () => {
+    const NON_EXISTENT_ACCOUNT_ID = '123e4567-e89b-42d3-a456-426614174999';
+
+    it('schedules a background sync for known accounts', async () => {
+      await keyringHandler.setSelectedAccounts([mockAccount.id]);
+
+      expect(mockSnapClient.scheduleBackgroundEvent).toHaveBeenCalledWith({
+        method: 'onSynchronizeSelectedAccounts',
+        params: { accountIds: [mockAccount.id] },
+        duration: 'PT1S',
+      });
+    });
+
+    it('rejects if an account id is not a valid UUID', async () => {
+      await expect(
+        keyringHandler.setSelectedAccounts([mockAccount.id, 'not-a-uuid']),
+      ).rejects.toThrow(InvalidParamsError);
+
+      expect(mockSnapClient.scheduleBackgroundEvent).not.toHaveBeenCalled();
+    });
+
+    it('rejects if an account id is not part of existing accounts', async () => {
+      await expect(
+        keyringHandler.setSelectedAccounts([
+          mockAccount.id,
+          NON_EXISTENT_ACCOUNT_ID,
+        ]),
+      ).rejects.toThrow(InvalidParamsError);
+
+      expect(mockSnapClient.scheduleBackgroundEvent).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listAccounts', () => {
+    it('fails with cause', async () => {
+      const causeError = new Error('Account error');
+
+      mockAccountsService.getAll.mockRejectedValue(causeError);
+
+      await expect(keyringHandler.listAccounts()).rejects.toMatchObject({
+        message: 'Error listing accounts',
+        cause: causeError,
+      });
+    });
+  });
+
+  describe('createAccount', () => {
+    it('fails with cause', async () => {
+      const causeError = new Error('Account error');
+
+      mockAccountsService.create.mockRejectedValue(causeError);
+
+      await expect(keyringHandler.createAccount()).rejects.toMatchObject({
+        message: `Error creating account: ${causeError.message}`,
+        cause: causeError,
+      });
+    });
+  });
+
+  describe('createAccounts', () => {
+    it('delegates to accountsService.createAccounts and returns the result', async () => {
+      const createdAccounts = [
+        {
+          id: mockAccount.id,
+          address: mockAccount.address,
+          type: mockAccount.type,
+          options: mockAccount.options,
+          methods: mockAccount.methods,
+          scopes: mockAccount.scopes,
+        },
+      ];
+      const options: KeyringBatchCreateAccountOptions = {
+        type: AccountCreationType.Bip44DeriveIndex,
+        entropySource: 'entropy-source-1',
+        groupIndex: 0,
+      };
+
+      mockAccountsService.createAccounts.mockResolvedValue(createdAccounts);
+
+      const result = await keyringHandler.createAccounts(options);
+
+      expect(mockAccountsService.createAccounts).toHaveBeenCalledWith(options);
+      expect(result).toStrictEqual(createdAccounts);
+    });
+
+    it('sanitizes errors before rethrowing from accountsService.createAccounts', async () => {
+      mockAccountsService.createAccounts.mockRejectedValue(
+        new Error('batch create failed'),
+      );
+
+      await expect(
+        keyringHandler.createAccounts({
+          type: AccountCreationType.Bip44DeriveIndex,
+          entropySource: 'entropy-source-1',
+          groupIndex: 0,
+        } satisfies KeyringBatchCreateAccountOptions),
+      ).rejects.toThrow(
+        'Key derivation failed. Please check your connection and try again.',
+      );
     });
   });
 });

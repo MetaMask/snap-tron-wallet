@@ -12,9 +12,14 @@ import { Network, Networks, ZERO } from '../../../../constants';
 import snapContext from '../../../../context';
 import type { TronKeyringAccount } from '../../../../entities/keyring-account';
 import { BackgroundEventMethod } from '../../../../handlers/cronjob';
+import { EXPIRED_TRANSACTION_SCAN } from '../../../../services/transaction-scan/buildExpiredScanResult';
+import type { TransactionScanResult } from '../../../../services/transaction-scan/types';
 import { TRX_IMAGE_SVG } from '../../../../static/tron-logo';
 import { FetchStatus } from '../../../../types/snap';
+import { sunToTrx } from '../../../../utils/conversion';
+import logger from '../../../../utils/logger';
 import { SignTransactionRequestStruct } from '../../../../validation/structs';
+import { getTransactionTrxValue } from '../../../../validation/transaction';
 import { getIconUrlForKnownAsset } from '../../utils/getIconUrlForKnownAsset';
 
 export const DEFAULT_CONTEXT: ConfirmSignTransactionContext = {
@@ -32,6 +37,7 @@ export const DEFAULT_CONTEXT: ConfirmSignTransactionContext = {
   tokenPricesFetchStatus: FetchStatus.Initial,
   fees: [],
   feesFetchStatus: FetchStatus.Initial,
+  isInsufficientBalance: false,
   preferences: {
     locale: 'en',
     currency: 'usd',
@@ -77,7 +83,7 @@ export async function render(
     account,
     transaction,
     origin: origin ?? 'Unknown',
-    scanFetchStatus: FetchStatus.Fetching,
+    scanFetchStatus: FetchStatus.Loading, // Start as Loading (first fetch) not Fetching
     tokenPricesFetchStatus: FetchStatus.Initial,
     feesFetchStatus: FetchStatus.Initial,
   };
@@ -88,6 +94,7 @@ export async function render(
   const [preferences, accountAssets] = await Promise.all([
     snapClient.getPreferences().catch(() => DEFAULT_CONTEXT.preferences),
     assetsService.getAssetsByAccountId(account.id, [
+      Networks[scope as Network].nativeToken.id,
       Networks[scope as Network].bandwidth.id,
       Networks[scope as Network].energy.id,
     ]),
@@ -100,7 +107,7 @@ export async function render(
 
   // Calculate fees
   try {
-    const [bandwidthAsset, energyAsset] = accountAssets;
+    const [nativeTokenAsset, bandwidthAsset, energyAsset] = accountAssets;
 
     const availableEnergy = energyAsset
       ? new BigNumber(energyAsset.rawAmount)
@@ -149,11 +156,23 @@ export async function render(
 
     context.fees = fees;
     context.feesFetchStatus = FetchStatus.Fetched;
+    const trxFee = new BigNumber(
+      fees.find(
+        (fee) => fee.asset.type === Networks[scope as Network].nativeToken.id,
+      )?.asset.amount ?? '0',
+    );
+    const trxBalance = nativeTokenAsset
+      ? sunToTrx(nativeTokenAsset.rawAmount)
+      : ZERO;
+    context.isInsufficientBalance = getTransactionTrxValue(rawData)
+      .plus(trxFee)
+      .isGreaterThan(trxBalance);
     context.tokenPrices = tokenPrices;
     context.tokenPricesFetchStatus = FetchStatus.Fetched;
   } catch {
     context.fees = [];
     context.feesFetchStatus = FetchStatus.Error;
+    context.isInsufficientBalance = false;
     context.tokenPrices = {};
     context.tokenPricesFetchStatus = FetchStatus.Error;
   }
@@ -166,72 +185,109 @@ export async function render(
 
   const dialogPromise = snapClient.showDialog(id);
 
-  // Parallelize: Store interface ID + Start security scan
+  // Store the interface ID so the cron refresh can find this dialog.
   const storeIdPromise = snapContext.state.setKey(
     `mapInterfaceNameToId.${CONFIRM_SIGN_TRANSACTION_INTERFACE_NAME}`,
     id,
   );
 
-  // If security scanning is enabled, scan the transaction
-  if (transactionScanService && (useSecurityAlerts || simulateOnChainActions)) {
-    const options: string[] = [];
+  const securityScanEnabled =
+    Boolean(transactionScanService) &&
+    (useSecurityAlerts || simulateOnChainActions);
 
-    if (simulateOnChainActions) {
-      options.push('simulation');
+  try {
+    let scan: TransactionScanResult | null = null;
+
+    if (securityScanEnabled) {
+      const options: string[] = [];
+
+      if (simulateOnChainActions) {
+        options.push('simulation');
+      }
+
+      if (useSecurityAlerts) {
+        options.push('validation');
+      }
+
+      try {
+        scan = await transactionScanService.scanTransaction({
+          accountAddress: account.address,
+          transactionRawData: rawData,
+          origin,
+          scope: scope as Network,
+          options,
+        });
+      } catch {
+        scan = null;
+      }
     }
 
-    if (useSecurityAlerts) {
-      options.push('validation');
-    }
-
+    // Local TAPOS-expiry check. The security-API simulation does not validate
+    // Tron TAPOS fields (expiration / ref block), so the snap surfaces protocol
+    // expiry itself. This is independent of the security preferences: an expired
+    // transaction won't broadcast regardless of the contract simulation result,
+    // so it takes precedence over a benign scan.
     try {
-      const scan = await transactionScanService.scanTransaction({
-        accountAddress: account.address,
-        transactionRawData: rawData,
-        origin,
-        scope: scope as Network,
-        options,
-      });
+      const expired =
+        await snapContext.transactionExpirationRefresherService.isTransactionExpired(
+          {
+            scope: scope as Network,
+            rawData,
+          },
+        );
 
-      context.scan = scan;
-      context.scanFetchStatus = scan ? FetchStatus.Fetched : FetchStatus.Error;
-    } catch {
-      context.scan = null;
-      context.scanFetchStatus = FetchStatus.Error;
+      if (expired) {
+        scan = EXPIRED_TRANSACTION_SCAN;
+      }
+    } catch (error) {
+      logger.error('Error checking transaction expiration:', error);
+      await snapClient.trackError(error as Error);
     }
 
-    // Ensure interface ID is stored before updating
+    context.scan = scan;
+    if (scan) {
+      context.scanFetchStatus = FetchStatus.Fetched;
+    } else if (securityScanEnabled) {
+      context.scanFetchStatus = FetchStatus.Error;
+    } else {
+      context.scanFetchStatus = FetchStatus.Fetched;
+    }
+
     await storeIdPromise;
 
-    // Update interface with scan results (silently ignores if interface was dismissed)
-    const updated = await snapClient.updateInterfaceIfExists(
+    await snapClient.updateInterface(
       id,
       <ConfirmSignTransaction context={context} />,
       context,
     );
+  } catch {
+    context.scan = null;
+    context.scanFetchStatus = FetchStatus.Error;
 
-    // If interface was dismissed during scan, exit early
-    if (!updated) {
-      return dialogPromise;
-    }
+    await storeIdPromise;
 
+    await snapClient.updateInterface(
+      id,
+      <ConfirmSignTransaction context={context} />,
+      context,
+    );
+  }
+
+  // Re-scan periodically so the expiry banner appears live as the transaction
+  // ages past its TAPOS validity window, regardless of security preferences.
+  // Scheduling is best-effort and isolated from the scan result: a failure here
+  // must not wipe out a valid scan or flip the UI into a scan error state — the
+  // user can still act on the current result, only live refreshes are skipped.
+  try {
     await snapClient.scheduleBackgroundEvent({
       method: BackgroundEventMethod.RefreshSignTransaction,
       duration: 'PT20S',
     });
-  } else {
-    // No scanning, mark as fetched immediately
-    context.scanFetchStatus = FetchStatus.Fetched;
-
-    // Ensure interface ID is stored before updating
-    await storeIdPromise;
-
-    // Update interface (silently ignores if interface was dismissed)
-    await snapClient.updateInterfaceIfExists(
-      id,
-      <ConfirmSignTransaction context={context} />,
-      context,
-    );
+  } catch (error) {
+    logger.error('Error scheduling background refresh event:', error);
+    await snapClient.trackError(error as Error);
+    // Best-effort: live expiry refreshes won't run, but the rendered result
+    // stays intact.
   }
 
   return dialogPromise;

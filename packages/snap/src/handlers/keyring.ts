@@ -3,6 +3,7 @@ import {
   KeyringEvent,
   ListAccountAssetsResponseStruct,
   type Balance,
+  type CreateAccountOptions as KeyringBatchCreateAccountOptions,
   type DiscoveredAccount,
   type EntropySourceId,
   type Keyring,
@@ -17,7 +18,11 @@ import {
   emitSnapKeyringEvent,
   handleKeyringRequest,
 } from '@metamask/keyring-snap-sdk';
-import { SnapError, UserRejectedRequestError } from '@metamask/snaps-sdk';
+import {
+  InvalidParamsError,
+  SnapError,
+  UserRejectedRequestError,
+} from '@metamask/snaps-sdk';
 import type { Json, JsonRpcRequest } from '@metamask/snaps-sdk';
 import { array, assert } from '@metamask/superstruct';
 import type {
@@ -30,7 +35,7 @@ import { sortBy } from 'lodash';
 import type { SnapClient } from '../clients/snap/SnapClient';
 import { ESSENTIAL_ASSETS, type Network } from '../constants';
 import { BackgroundEventMethod } from './cronjob';
-import type { TronMultichainMethod } from './keyring-types';
+import { TronMultichainMethod } from './keyring-types';
 import {
   asStrictKeyringAccount,
   type TronKeyringAccount,
@@ -41,7 +46,7 @@ import type { AssetsService } from '../services/assets/AssetsService';
 import type { ConfirmationHandler } from '../services/confirmation/ConfirmationHandler';
 import type { TransactionsService } from '../services/transactions/TransactionsService';
 import type { WalletService } from '../services/wallet/WalletService';
-import { withCatchAndThrowSnapError } from '../utils/errors';
+import { sanitizeSensitiveError } from '../utils/errors';
 import { createPrefixedLogger, type ILogger } from '../utils/logger';
 import {
   CreateAccountOptionsStruct,
@@ -52,7 +57,9 @@ import {
   GetAccountStruct,
   ListAccountAssetsStruct,
   ListAccountTransactionsStruct,
+  SignTransactionRequestStruct,
   TronKeyringRequestStruct,
+  type TronWalletKeyringRequest,
   UuidStruct,
 } from '../validation/structs';
 import {
@@ -104,13 +111,8 @@ export class KeyringHandler implements Keyring {
 
   async handle(origin: string, request: JsonRpcRequest): Promise<Json> {
     validateOrigin(origin, request.method);
-
-    const result =
-      (await withCatchAndThrowSnapError(async () =>
-        handleKeyringRequest(this, request),
-      )) ?? null;
-
-    return result;
+    const result = await handleKeyringRequest(this, request);
+    return result ?? null;
   }
 
   async #listAccounts(): Promise<TronKeyringAccount[]> {
@@ -120,7 +122,7 @@ export class KeyringHandler implements Keyring {
       return sortBy(keyringAccounts, ['entropySource', 'index']);
     } catch (error) {
       this.#logger.error({ error }, 'Error listing accounts');
-      throw new Error('Error listing accounts');
+      throw new Error('Error listing accounts', { cause: error });
     }
   }
 
@@ -171,7 +173,20 @@ export class KeyringHandler implements Keyring {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       this.#logger.error({ error }, 'Error creating account');
-      throw new Error(`Error creating account: ${error.message}`);
+      throw new Error(`Error creating account: ${error.message}`, {
+        cause: error,
+      });
+    }
+  }
+
+  async createAccounts(
+    options: KeyringBatchCreateAccountOptions,
+  ): Promise<KeyringAccount[]> {
+    try {
+      return await this.#accountsService.createAccounts(options);
+    } catch (error: unknown) {
+      this.#logger.error({ error }, 'Error creating accounts');
+      throw sanitizeSensitiveError(error);
     }
   }
 
@@ -420,6 +435,21 @@ export class KeyringHandler implements Keyring {
     return { pending: false, result: await this.#handleSubmitRequest(request) };
   }
 
+  #prepareRequestForConfirmation(
+    request: TronWalletKeyringRequest,
+  ): TronWalletKeyringRequest {
+    if (request.request.method !== TronMultichainMethod.SignTransaction) {
+      return request;
+    }
+
+    // Validate the transaction params, but never modify the payload. The dApp
+    // broadcasts using its original TxID, so the snap must sign exactly what it
+    // received — refreshing expiration/TAPOS here would break the broadcast.
+    assert(request.request.params, SignTransactionRequestStruct);
+
+    return request;
+  }
+
   async #handleSubmitRequest(request: KeyringRequest): Promise<Json> {
     assert(request, TronKeyringRequestStruct);
 
@@ -443,8 +473,10 @@ export class KeyringHandler implements Keyring {
       throw new Error(`Method "${method}" is not allowed for this account`);
     }
 
+    const requestToHandle = this.#prepareRequestForConfirmation(request);
+
     const isConfirmed = await this.#confirmationHandler.handleKeyringRequest({
-      request,
+      request: requestToHandle,
       account,
     });
 
@@ -454,9 +486,9 @@ export class KeyringHandler implements Keyring {
 
     const result = await this.#walletService.handleKeyringRequest({
       account,
-      scope,
-      method: method as TronMultichainMethod,
-      params,
+      scope: requestToHandle.scope,
+      method: requestToHandle.request.method as TronMultichainMethod,
+      params: requestToHandle.request.params ?? params,
     });
 
     return result;
@@ -469,6 +501,16 @@ export class KeyringHandler implements Keyring {
    */
   async setSelectedAccounts(accountIds: string[]): Promise<void> {
     validateRequest(accountIds, array(UuidStruct));
+
+    const existingIds = new Set(
+      (await this.#listAccounts()).map((account) => account.id),
+    );
+    if (!accountIds.every((id) => existingIds.has(id))) {
+      // eslint-disable-next-line @typescript-eslint/only-throw-error
+      throw new InvalidParamsError(
+        'Account IDs were not part of existing accounts.',
+      );
+    }
 
     await this.#snapClient.scheduleBackgroundEvent({
       method: BackgroundEventMethod.SynchronizeSelectedAccounts,

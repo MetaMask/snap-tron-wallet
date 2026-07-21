@@ -3,13 +3,22 @@ import { FeeType } from '@metamask/keyring-api';
 import { BigNumber } from 'bignumber.js';
 import type { Transaction } from 'tronweb/lib/esm/types';
 
+import { FeeUnavailableError } from './errors';
 import type { ComputeFeeResult } from './types';
+import type { SnapClient } from '../../clients/snap/SnapClient';
 import type { TronHttpClient } from '../../clients/tron-http/TronHttpClient';
-import type { ContractInfo } from '../../clients/tron-http/types';
-import type { TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
+import type {
+  ChainParameter,
+  ContractInfo,
+} from '../../clients/tron-http/types';
+import { TrongridAccountNotFoundError } from '../../clients/trongrid/errors';
+import { type TrongridApiClient } from '../../clients/trongrid/TrongridApiClient';
 import type { Network } from '../../constants';
 import {
   ACCOUNT_ACTIVATION_FEE_TRX,
+  FALLBACK_ENERGY_PRICE_SUN,
+  FALLBACK_GET_ENERGY_FEE_SUN,
+  FALLBACK_GET_TRANSACTION_FEE_SUN,
   MEMO_FEE_TRX,
   Networks,
   SUN_IN_TRX,
@@ -122,18 +131,23 @@ export class FeeCalculatorService {
 
   readonly #tronHttpClient: TronHttpClient;
 
+  readonly #snapClient: SnapClient;
+
   constructor({
     logger,
     trongridApiClient,
     tronHttpClient,
+    snapClient,
   }: {
     logger: ILogger;
     trongridApiClient: TrongridApiClient;
     tronHttpClient: TronHttpClient;
+    snapClient: SnapClient;
   }) {
     this.#logger = createPrefixedLogger(logger, '[💸 FeeCalculatorService]');
     this.#trongridApiClient = trongridApiClient;
     this.#tronHttpClient = tronHttpClient;
+    this.#snapClient = snapClient;
   }
 
   /**
@@ -267,10 +281,59 @@ export class FeeCalculatorService {
     try {
       await this.#trongridApiClient.getAccountInfoByAddress(scope, address);
       return true;
-    } catch {
+    } catch (error) {
+      if (!(error instanceof TrongridAccountNotFoundError)) {
+        await this.#snapClient.trackError(error as Error);
+      }
       // If the account is not found, it means it's not activated
       this.#logger.log(`Account ${address} is not activated on ${scope}`);
       return false;
+    }
+  }
+
+  /**
+   * Fetch chain parameters for `scope`, degrading gracefully when TronGrid is
+   * unavailable.
+   *
+   * Resolution order: (1) live TronGrid fetch; (2) last-known cached chain
+   * parameters via `peekCachedChainParameters`; (3) if neither is available,
+   * throw {@link FeeUnavailableError}.
+   *
+   * The live-fetch failure is reported via `trackError` (Sentry) so the
+   * degraded path is observable.
+   *
+   * @param scope - The network scope to fetch chain parameters for.
+   * @returns Chain parameters (live, or last-known cached).
+   * @throws {@link FeeUnavailableError} when no live and no cached data exists.
+   */
+  async #getChainParameters(scope: Network): Promise<ChainParameter[]> {
+    try {
+      return await this.#trongridApiClient.getChainParameters(scope);
+    } catch (error) {
+      await this.#snapClient.trackError(error as Error);
+      this.#logger.warn(
+        { error },
+        'Failed to fetch chain parameters, attempting cached fallback',
+      );
+
+      try {
+        const cached =
+          await this.#trongridApiClient.peekCachedChainParameters(scope);
+        if (cached && cached.length > 0) {
+          this.#logger.log(
+            'Using last-known cached chain parameters as fee floor',
+          );
+          return cached;
+        }
+      } catch (cacheError) {
+        this.#logger.warn(
+          { error: cacheError },
+          'Failed to read cached chain parameters for fee floor',
+        );
+      }
+
+      this.#logger.log('No cached chain parameters available');
+      throw new FeeUnavailableError();
     }
   }
 
@@ -286,11 +349,10 @@ export class FeeCalculatorService {
     scope: Network,
     feeLimit: number,
   ): Promise<number> {
-    const chainParameters =
-      await this.#trongridApiClient.getChainParameters(scope);
+    const chainParameters = await this.#getChainParameters(scope);
     const energyPrice =
       chainParameters.find((param) => param.key === 'getEnergyFee')?.value ??
-      420; // Fallback to 420 SUN per energy unit
+      FALLBACK_ENERGY_PRICE_SUN;
 
     const maxEnergyFromFeeLimit = Math.floor(feeLimit / energyPrice);
 
@@ -427,6 +489,7 @@ export class FeeCalculatorService {
 
       return availableEnergy;
     } catch (error) {
+      await this.#snapClient.trackError(error as Error);
       this.#logger.warn(
         { error, deployerAddress },
         'Failed to fetch deployer energy',
@@ -497,12 +560,15 @@ export class FeeCalculatorService {
           call_token_value: callTokenValue,
         }),
         // Graceful fallback: if getContract fails, contractInfo will be null
-        this.#tronHttpClient.getContract(scope, contractAddress).catch(() => {
-          this.#logger.warn(
-            'Failed to fetch contract info for energy sharing, assuming user pays all',
-          );
-          return null;
-        }),
+        this.#tronHttpClient
+          .getContract(scope, contractAddress)
+          .catch(async (error) => {
+            await this.#snapClient.trackError(error as Error);
+            this.#logger.warn(
+              'Failed to fetch contract info for energy sharing, assuming user pays all',
+            );
+            return null;
+          }),
       ]);
 
       /**
@@ -546,6 +612,7 @@ export class FeeCalculatorService {
       this.#logger.warn('No energy_used in result, using fallback');
       return this.#getFallbackEnergy(scope, feeLimit);
     } catch (error) {
+      await this.#snapClient.trackError(error as Error);
       this.#logger.error(
         { error },
         'Failed to estimate smart contract energy, using fallback',
@@ -671,6 +738,7 @@ export class FeeCalculatorService {
       JSON.stringify(transaction),
     );
 
+    // resources the transaction is expected to consume
     const bandwidthNeeded = this.#calculateBandwidth(transaction);
     const energyNeeded = await this.#calculateEnergy(
       scope,
@@ -681,14 +749,12 @@ export class FeeCalculatorService {
     /**
      * Calculate consumption and overages:
      * - Bandwidth: If we don't have enough, we pay for ALL of it in TRX (no partial consumption)
-     * - Energy: We consume what we have available, and pay TRX only for the overage
+     * - Energy: We consume what we have available and pay TRX only for the overage
      */
     const hasEnoughBandwidth =
       availableBandwidth.isGreaterThanOrEqualTo(bandwidthNeeded);
-    const bandwidthConsumed = hasEnoughBandwidth ? bandwidthNeeded : ZERO;
     const bandwidthToPayInTRX = hasEnoughBandwidth ? ZERO : bandwidthNeeded;
 
-    const energyConsumed = BigNumber.min(energyNeeded, availableEnergy);
     const energyToPayInTRX = BigNumber.max(
       energyNeeded.minus(availableEnergy),
       ZERO,
@@ -706,15 +772,14 @@ export class FeeCalculatorService {
       bandwidthToPayInTRX.isGreaterThan(0) ||
       energyToPayInTRX.isGreaterThan(0)
     ) {
-      const chainParameters =
-        await this.#trongridApiClient.getChainParameters(scope);
+      const chainParameters = await this.#getChainParameters(scope);
 
       const bandwidthCost =
         chainParameters.find((param) => param.key === 'getTransactionFee')
-          ?.value ?? 1000; // Fallback to 1000 SUN per bandwidth
+          ?.value ?? FALLBACK_GET_TRANSACTION_FEE_SUN;
       const energyCost =
         chainParameters.find((param) => param.key === 'getEnergyFee')?.value ??
-        100; // Fallback to 100 SUN per energy
+        FALLBACK_GET_ENERGY_FEE_SUN;
 
       // Calculate TRX cost for bandwidth and energy that needs to be paid
       const bandwidthCostTRX = bandwidthToPayInTRX
@@ -764,30 +829,32 @@ export class FeeCalculatorService {
     ];
 
     /**
-     * Add energy consumption fee if we're consuming any energy
+     * Add the estimated energy consumption, regardless of whether it is
+     * covered by staked energy or paid for in TRX.
      */
-    if (energyConsumed.isGreaterThan(0)) {
+    if (energyNeeded.isGreaterThan(0)) {
       result.push({
         type: FeeType.Base,
         asset: {
           unit: Networks[scope].energy.symbol,
           type: Networks[scope].energy.id,
-          amount: energyConsumed.toString(),
+          amount: energyNeeded.toString(),
           fungible: true as const,
         },
       });
     }
 
     /**
-     * Add bandwidth consumption fee if we're consuming any bandwidth
+     * Add the estimated bandwidth consumption, regardless of whether it is
+     * covered by free bandwidth or paid for in TRX.
      */
-    if (bandwidthConsumed.isGreaterThan(0)) {
+    if (bandwidthNeeded.isGreaterThan(0)) {
       result.push({
         type: FeeType.Base,
         asset: {
           unit: Networks[scope].bandwidth.symbol,
           type: Networks[scope].bandwidth.id,
-          amount: bandwidthConsumed.toString(),
+          amount: bandwidthNeeded.toString(),
           fungible: true as const,
         },
       });

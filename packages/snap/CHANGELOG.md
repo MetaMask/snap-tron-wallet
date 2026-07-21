@@ -7,8 +7,124 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.33.0]
+
+### Changed
+
+- Align transaction-status polling with Tron's 3 second block time, while preserving the existing 15-second tracking window ([#364](https://github.com/MetaMask/snap-tron-wallet/pull/364))
+
+## [1.32.0]
+
+### Changed
+
+- Improved Tron dApp transaction confirmations to show estimated energy and bandwidth usage ([#355](https://github.com/MetaMask/snap-tron-wallet/pull/355))
+  - Prevent confirmation when the account does not have enough `TRX` to cover the transaction value plus required fees.
+
+## [1.31.0]
+
+### Changed
+
+- Use a `37 TRX` fallback fee when the network fee cannot be estimated for a transaction ([#344](https://github.com/MetaMask/snap-tron-wallet/pull/344))
+
+## [1.30.0]
+
+### Changed
+
+- Increase cronjob interval for account syncing from 30s to 60s ([#356](https://github.com/MetaMask/snap-tron-wallet/pull/356))
+
+## [1.29.1]
+
 ### Fixed
 
+- Loosen price API validation ([#353](https://github.com/MetaMask/snap-tron-wallet/pull/353))
+  - The API response validation refused new fields when Price API service upgrades.
+
+## [1.29.0]
+
+### Changed
+
+- Make computeFee fail-safe on TronGrid failure ([#343](https://github.com/MetaMask/snap-tron-wallet/pull/343))
+- Remove dApp transaction payload modification related to refresh ([#342](https://github.com/MetaMask/snap-tron-wallet/pull/342))
+- Resolve token metadata for log-reconstructed TRC20 transfers [2/3] ([#338](https://github.com/MetaMask/snap-tron-wallet/pull/338))
+- Add TRC20 transfer event log parser [1/3] ([#337](https://github.com/MetaMask/snap-tron-wallet/pull/337))
+
+## [1.28.0]
+
+### Added
+
+- Filter spam TRC10/TRC20 token by excluding received token transactions whose token has no price data ([#332](https://github.com/MetaMask/snap-tron-wallet/pull/332))
+
+### Changed
+
+- Track error in signAndSendTransaction method of SendService ([#323](https://github.com/MetaMask/snap-tron-wallet/pull/323))
+- Track errors in FeeCalculationService ([#318](https://github.com/MetaMask/snap-tron-wallet/pull/318))
+
+## [1.27.0]
+
+### Changed
+
+- TRC-20 approvals are now classified as `TransactionType.TokenApprove` ([#328](https://github.com/MetaMask/snap-tron-wallet/pull/328))
+  - Approvals were previously classified as `TransactionType.Unknown`.
+- chore: track errors in trackEvent handler of SnapClient WPN-366 ([#319](https://github.com/MetaMask/snap-tron-wallet/pull/319))
+
+## [1.26.0]
+
+### Added
+
+- Add `signProofOfOwnership` client request method ([#327](https://github.com/MetaMask/snap-tron-wallet/pull/327))
+  - This method silently signs `metamask:proof-of-ownership:<nonce>:<address>` messages with the account's secp256k1 key via TronWeb's `signMessageV2`
+- Add support for `keyring_createAccounts` method to enable batch account creation. ([#308](https://github.com/MetaMask/snap-tron-wallet/pull/308))
+
+## [1.25.8]
+
+### Fixed
+
+- Removed `snap_trackError` permission from snap manifest ([#320](https://github.com/MetaMask/snap-tron-wallet/pull/320))
+  - This permission was causing errors during snap installation and is not necessary for the snap's functionality.
+
+## [1.25.7]
+
+### Added
+
+- Add `SnapClient.trackError` wrapper around `snap_trackError` for reporting errors to Sentry ([#311](https://github.com/MetaMask/snap-tron-wallet/pull/311))
+- Add `trackError` call in `scanTransaction` method of `TransactionScanService` ([#314](https://github.com/MetaMask/snap-tron-wallet/pull/314))
+- Add `trackError` calls `handle` methods of `ClientRequestHandler` ([#315](https://github.com/MetaMask/snap-tron-wallet/pull/315))
+
+### Changed
+
+- Add `FetchStatus.Loading` in `FetchStatus` enum to represent first fetching state and add `isFetchStatusLoadingOrFetching` helper ([#302](https://github.com/MetaMask/snap-tron-wallet/pull/302))
+- Make Confirm button stay enabled after the first security scan even during refresh ([#302](https://github.com/MetaMask/snap-tron-wallet/pull/302))
+
+## [1.25.6]
+
+### Added
+
+- Filter native TRX receive spam from transaction history ([#301](https://github.com/MetaMask/snap-tron-wallet/pull/301))
+
+### Fixed
+
+- Refresh stale TRON transaction expiration and reference block metadata before confirmation security scans, signing, and broadcasting ([#299](https://github.com/MetaMask/snap-tron-wallet/pull/299))
+
+## [1.25.5]
+
+### Fixed
+
+- Validate transaction `owner_address` against the signer address derived from the persisted account before signing or broadcasting ([#297](https://github.com/MetaMask/snap-tron-wallet/pull/297))
+
+## [1.25.4]
+
+### Changed
+
+- Validate that account IDs passed to `keyring_setSelectedAccounts` belong to the snap, rejecting unknown IDs with `InvalidParamsError` ([#298](https://github.com/MetaMask/snap-tron-wallet/pull/298))
+- Simplify `SnapClient` interface methods by removing defensive `*IfExists` wrappers and aligning with the Solana snap's approach ([#257](https://github.com/MetaMask/snap-tron-wallet/pull/257))
+- Bump `@metamask/keyring-api` to `^22.0.0`. ([#295](https://github.com/MetaMask/snap-tron-wallet/pull/295))
+- Bump `@metamask/keyring-snap-sdk` to `^8.0.0`. ([#295](https://github.com/MetaMask/snap-tron-wallet/pull/295))
+
+## [1.25.3]
+
+### Fixed
+
+- Token balances now update correctly after a swap or transfer. ([#292](https://github.com/MetaMask/snap-tron-wallet/pull/292))
 - Remove interface ID after it is no longer needed ([#284](https://github.com/MetaMask/snap-tron-wallet/pull/284))
 
 ## [1.25.2]
@@ -90,7 +206,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Decode hex-encoded TRC10 token names and symbols from Full Node API responses ([#187](https://github.com/MetaMask/snap-tron-wallet/pull/187))
-- Gracefully handle dismissed interface contexts during background refresh operations ([#188](https://github.com/MetaMask/snap-tron-wallet/pull/188/changes))
+- Gracefully handle dismissed interface contexts during background refresh operations ([#188](https://github.com/MetaMask/snap-tron-wallet/pull/188))
 - Add spent bandwidth from staking as part of the calculation of current bandwidth levels. For both energy and bandwidth, clamp the result between maximum and 0 to avoid negative values ([#197](https://github.com/MetaMask/snap-tron-wallet/pull/197))
 
 ## [1.21.1]
@@ -307,7 +423,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Confirmation UI (#86) ([#86](https://github.com/MetaMask/snap-tron-wallet/pull/86))
+- Confirmation UI ([#86](https://github.com/MetaMask/snap-tron-wallet/pull/86))
 - Transactions analytics ([#90](https://github.com/MetaMask/snap-tron-wallet/pull/90))
 - Add `from` and `to` to confirmation ([#88](https://github.com/MetaMask/snap-tron-wallet/pull/88))
 
@@ -477,7 +593,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release of Tron wallet snap
 - Support for TRX and token assets balances ([#12](https://github.com/MetaMask/snap-tron-wallet/pull/12))
 
-[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.2...HEAD
+[Unreleased]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.33.0...HEAD
+[1.33.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.32.0...v1.33.0
+[1.32.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.31.0...v1.32.0
+[1.31.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.30.0...v1.31.0
+[1.30.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.29.1...v1.30.0
+[1.29.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.29.0...v1.29.1
+[1.29.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.28.0...v1.29.0
+[1.28.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.27.0...v1.28.0
+[1.27.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.26.0...v1.27.0
+[1.26.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.8...v1.26.0
+[1.25.8]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.7...v1.25.8
+[1.25.7]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.6...v1.25.7
+[1.25.6]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.5...v1.25.6
+[1.25.5]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.4...v1.25.5
+[1.25.4]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.3...v1.25.4
+[1.25.3]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.2...v1.25.3
 [1.25.2]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.1...v1.25.2
 [1.25.1]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.25.0...v1.25.1
 [1.25.0]: https://github.com/MetaMask/snap-tron-wallet/compare/v1.24.0...v1.25.0

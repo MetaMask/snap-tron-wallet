@@ -5,13 +5,32 @@ export const ZERO = BigNumber(0);
 export const ACCOUNT_ACTIVATION_FEE_TRX = BigNumber(1);
 export const MEMO_FEE_TRX = BigNumber(1);
 export const SUN_IN_TRX = 1_000_000;
+export const FALLBACK_GET_TRANSACTION_FEE_SUN = 1000;
+export const FALLBACK_GET_ENERGY_FEE_SUN = 100;
+export const FALLBACK_ENERGY_PRICE_SUN = 420;
 /**
- * 100 TRX
+ * 101 TRX
  */
-export const FEE_LIMIT = 100_000_000;
+export const FEE_LIMIT = 101_000_000;
+/**
+ * 37 TRX.
+ */
+export const FALLBACK_FEE = 37_000_000;
 
 export const NULL_ADDRESS = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 export const CONSENSYS_SR_NODE_ADDRESS = 'TVMwGfdDz58VvM7yTzGMWWSHsmofSxa9jH';
+
+/**
+ * ISO 8601 duration for the initial transaction tracking delay.
+ * Aligned with Tron's ~3-second block time so the first poll isn't wasted.
+ */
+export const TRACK_TX_INTERVAL = 'PT3S';
+
+/**
+ * Maximum number of attempts to track a transaction confirmation.
+ * With a three-second poll interval and five attempts, this covers ~15 seconds.
+ */
+export const TRACK_TX_MAX_ATTEMPTS = 5;
 
 export enum Network {
   Mainnet = TrxScope.Mainnet,

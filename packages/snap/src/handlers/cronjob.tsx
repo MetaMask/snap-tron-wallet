@@ -1,13 +1,19 @@
 import type { JsonRpcRequest } from '@metamask/snaps-sdk';
-import { type Types, utils } from 'tronweb';
 
 import type { PriceApiClient } from '../clients/price-api/PriceApiClient';
 import type { SnapClient } from '../clients/snap/SnapClient';
 import type { TronHttpClient } from '../clients/tron-http/TronHttpClient';
 import type { Network } from '../constants';
+import { TRACK_TX_INTERVAL, TRACK_TX_MAX_ATTEMPTS } from '../constants';
 import type { TronKeyringAccount } from '../entities/keyring-account';
 import type { AccountsService } from '../services/accounts/AccountsService';
 import type { State, UnencryptedStateValue } from '../services/state/State';
+import type { TransactionExpirationRefresherService } from '../services/transaction-expiration-refresher/TransactionExpirationRefresherService';
+import type {
+  JsonTransactionRawData,
+  TransactionRawData,
+} from '../services/transaction-expiration-refresher/types';
+import { EXPIRED_TRANSACTION_SCAN } from '../services/transaction-scan/buildExpiredScanResult';
 import type { TransactionScanService } from '../services/transaction-scan/TransactionScanService';
 import { FetchStatus } from '../types/snap';
 import { ConfirmSignTransaction } from '../ui/confirmation/views/ConfirmSignTransaction/ConfirmSignTransaction';
@@ -53,6 +59,8 @@ export class CronHandler {
 
   readonly #transactionScanService: TransactionScanService;
 
+  readonly #transactionExpirationRefresherService: TransactionExpirationRefresherService;
+
   constructor({
     logger,
     accountsService,
@@ -61,6 +69,7 @@ export class CronHandler {
     priceApiClient,
     tronHttpClient,
     transactionScanService,
+    transactionExpirationRefresherService,
   }: {
     logger: ILogger;
     accountsService: AccountsService;
@@ -69,6 +78,7 @@ export class CronHandler {
     priceApiClient: PriceApiClient;
     tronHttpClient: TronHttpClient;
     transactionScanService: TransactionScanService;
+    transactionExpirationRefresherService: TransactionExpirationRefresherService;
   }) {
     this.#logger = createPrefixedLogger(logger, '[⏰ CronHandler]');
     this.#accountsService = accountsService;
@@ -77,6 +87,8 @@ export class CronHandler {
     this.#priceApiClient = priceApiClient;
     this.#tronHttpClient = tronHttpClient;
     this.#transactionScanService = transactionScanService;
+    this.#transactionExpirationRefresherService =
+      transactionExpirationRefresherService;
   }
 
   async handle(request: JsonRpcRequest): Promise<void> {
@@ -216,44 +228,34 @@ export class CronHandler {
   async #refreshTransactionRequestPrices(
     confirmationInterfaceId: string,
   ): Promise<void> {
-    // Get the current interface context (returns null if dismissed)
     const interfaceContext =
-      await this.#snapClient.getInterfaceContextIfExists<ConfirmTransactionRequestContext>(
+      await this.#snapClient.getInterfaceContext<ConfirmTransactionRequestContext>(
         confirmationInterfaceId,
       );
 
-    // Interface was dismissed, clean up and exit
     if (!interfaceContext) {
-      this.#logger.info('Interface no longer exists, cleaning up');
-      await this.#state.setKey(
-        `mapInterfaceNameToId.${CONFIRM_TRANSACTION_INTERFACE_NAME}`,
-        null,
-      );
+      this.#logger.info('Interface context no longer exists, skipping refresh');
       return;
     }
 
     try {
-      // Extract CAIP IDs from context (main asset + fee assets)
       const assetCaipIds = [
         interfaceContext.asset.assetType,
         ...interfaceContext.fees.map((fee) => fee.asset.type),
       ];
       const uniqueAssetCaipIds = [...new Set(assetCaipIds)];
 
-      // First, update UI to show loading skeletons (Solana pattern)
       const fetchingContext: ConfirmTransactionRequestContext = {
         ...interfaceContext,
         tokenPricesFetchStatus: FetchStatus.Fetching,
       };
 
-      // Update interface (silently ignores if interface was dismissed)
-      await this.#snapClient.updateInterfaceIfExists(
+      await this.#snapClient.updateInterface(
         confirmationInterfaceId,
         <ConfirmTransactionRequest context={fetchingContext} />,
         fetchingContext,
       );
 
-      // Fetch fresh prices
       this.#logger.info(
         `Fetching fresh prices for ${uniqueAssetCaipIds.length} assets`,
       );
@@ -264,33 +266,25 @@ export class CronHandler {
         interfaceContext.preferences.currency,
       );
 
-      // Get the latest context (returns null if dismissed during price fetch)
       const latestContext =
-        await this.#snapClient.getInterfaceContextIfExists<ConfirmTransactionRequestContext>(
+        await this.#snapClient.getInterfaceContext<ConfirmTransactionRequestContext>(
           confirmationInterfaceId,
         );
 
-      // Interface was dismissed during price fetch, clean up and exit
       if (!latestContext) {
         this.#logger.info(
-          'Interface dismissed during price fetch, cleaning up',
-        );
-        await this.#state.setKey(
-          `mapInterfaceNameToId.${CONFIRM_TRANSACTION_INTERFACE_NAME}`,
-          null,
+          'Interface context no longer exists after fetch, skipping update',
         );
         return;
       }
 
-      // Update context with fresh prices
       const updatedContext: ConfirmTransactionRequestContext = {
         ...latestContext,
         tokenPrices: prices,
         tokenPricesFetchStatus: FetchStatus.Fetched,
       };
 
-      // Update the interface with new UI and context (silently ignores if dismissed)
-      await this.#snapClient.updateInterfaceIfExists(
+      await this.#snapClient.updateInterface(
         confirmationInterfaceId,
         <ConfirmTransactionRequest context={updatedContext} />,
         updatedContext,
@@ -298,45 +292,17 @@ export class CronHandler {
 
       this.#logger.info('Successfully refreshed confirmation prices');
 
-      // Schedule the next refresh (20 seconds like Solana)
       await this.#snapClient.scheduleBackgroundEvent({
         method: BackgroundEventMethod.RefreshConfirmationPrices,
         duration: 'PT20S',
       });
     } catch (error) {
-      this.#logger.error('Error refreshing confirmation prices:', error);
-
-      // Try to update the UI to show error state if possible
-      const currentContext =
-        await this.#snapClient.getInterfaceContextIfExists<ConfirmTransactionRequestContext>(
-          confirmationInterfaceId,
-        );
-
-      if (currentContext) {
-        const errorContext: ConfirmTransactionRequestContext = {
-          ...currentContext,
-          tokenPricesFetchStatus: FetchStatus.Error,
-        };
-
-        await this.#snapClient.updateInterfaceIfExists(
-          confirmationInterfaceId,
-          <ConfirmTransactionRequest context={errorContext} />,
-          errorContext,
-        );
-      } else {
-        await this.#state.setKey(
-          `mapInterfaceNameToId.${CONFIRM_TRANSACTION_INTERFACE_NAME}`,
-          null,
-        );
-      }
-
-      // Don't schedule another refresh on error - the dialog might be gone
+      this.#logger.warn({ error }, 'Could not refresh confirmation prices');
     }
   }
 
   /**
    * Background job to refresh the security scan for simple send confirmation dialogs.
-   * Follows Solana's snap pattern: get interface ID from map, refresh scan data, update UI.
    */
   async refreshConfirmationSend(): Promise<void> {
     this.#logger.info(
@@ -351,42 +317,29 @@ export class CronHandler {
     const confirmationInterfaceId =
       mapInterfaceNameToId[CONFIRM_TRANSACTION_INTERFACE_NAME];
 
-    // Don't do anything if the confirmation interface is not open
     if (!confirmationInterfaceId) {
       this.#logger.info('No active send confirmation interface found');
       return;
     }
 
-    // Get the current interface context (returns null if dismissed)
     const interfaceContext =
-      await this.#snapClient.getInterfaceContextIfExists<ConfirmTransactionRequestContext>(
+      await this.#snapClient.getInterfaceContext<ConfirmTransactionRequestContext>(
         confirmationInterfaceId,
       );
 
-    // Interface was dismissed, clean up and exit
     if (!interfaceContext) {
-      this.#logger.info('Interface no longer exists, cleaning up');
-      await this.#state.setKey(
-        `mapInterfaceNameToId.${CONFIRM_TRANSACTION_INTERFACE_NAME}`,
-        null,
-      );
+      this.#logger.info('Interface context no longer exists, skipping refresh');
       return;
     }
 
-    // Skip if required fields are missing
     if (!interfaceContext.fromAddress || !interfaceContext.scope) {
       this.#logger.info('Context is missing required fields for scan refresh');
       return;
     }
 
     const { preferences, scope, fromAddress, origin } = interfaceContext;
-    /**
-     * We know that the `transactionRawData` object is valid JSON but Tronweb returns some
-     * fields as `unknown` so we must manually cast it to the correct type.
-     */
-    const transactionRawData = interfaceContext.transactionRawData as
-      | Types.Transaction['raw_data']
-      | null;
+    const transactionRawData =
+      interfaceContext.transactionRawData as JsonTransactionRawData | null;
 
     if (!transactionRawData) {
       this.#logger.info(
@@ -396,27 +349,22 @@ export class CronHandler {
     }
 
     try {
-      // Update UI to show fetching state for scan
       const fetchingContext: ConfirmTransactionRequestContext = {
         ...interfaceContext,
         scanFetchStatus: FetchStatus.Fetching,
       };
 
-      // Update interface (silently ignores if interface was dismissed)
-      await this.#snapClient.updateInterfaceIfExists(
+      await this.#snapClient.updateInterface(
         confirmationInterfaceId,
         <ConfirmTransactionRequest context={fetchingContext} />,
         fetchingContext,
       );
 
-      // Always request simulation for estimated changes;
-      // conditionally add validation based on user preference
       const options: string[] = ['simulation'];
       if (preferences.useSecurityAlerts) {
         options.push('validation');
       }
 
-      // Create a minimal account object for analytics tracking
       const scanAccount = {
         type: interfaceContext.accountType,
         address: fromAddress,
@@ -424,11 +372,18 @@ export class CronHandler {
 
       let { scan } = interfaceContext;
       let { scanFetchStatus } = interfaceContext;
+      let freshTransactionRawData = transactionRawData;
 
       try {
+        freshTransactionRawData =
+          await this.#transactionExpirationRefresherService.ensureFreshRawData({
+            scope,
+            rawData: transactionRawData,
+          });
+
         scan = await this.#transactionScanService.scanTransaction({
           accountAddress: fromAddress,
-          transactionRawData,
+          transactionRawData: freshTransactionRawData,
           origin,
           scope,
           options,
@@ -442,31 +397,26 @@ export class CronHandler {
         scanFetchStatus = FetchStatus.Error;
       }
 
-      // Get the latest context (returns null if dismissed during scan)
       const latestContext =
-        await this.#snapClient.getInterfaceContextIfExists<ConfirmTransactionRequestContext>(
+        await this.#snapClient.getInterfaceContext<ConfirmTransactionRequestContext>(
           confirmationInterfaceId,
         );
 
-      // Interface was dismissed during scan, clean up and exit
       if (!latestContext) {
-        this.#logger.info('Interface dismissed during scan, cleaning up');
-        await this.#state.setKey(
-          `mapInterfaceNameToId.${CONFIRM_TRANSACTION_INTERFACE_NAME}`,
-          null,
+        this.#logger.info(
+          'Interface context no longer exists after scan, skipping update',
         );
         return;
       }
 
-      // Update with scan results
       const updatedContext: ConfirmTransactionRequestContext = {
         ...latestContext,
         scan,
         scanFetchStatus,
+        transactionRawData: freshTransactionRawData,
       };
 
-      // Update the interface with new UI and context (silently ignores if dismissed)
-      await this.#snapClient.updateInterfaceIfExists(
+      await this.#snapClient.updateInterface(
         confirmationInterfaceId,
         <ConfirmTransactionRequest context={updatedContext} />,
         updatedContext,
@@ -474,46 +424,17 @@ export class CronHandler {
 
       this.#logger.info('Successfully refreshed send confirmation');
 
-      // Schedule the next refresh (20 seconds matching Solana pattern)
       await this.#snapClient.scheduleBackgroundEvent({
         method: BackgroundEventMethod.RefreshConfirmationSend,
         duration: 'PT20S',
       });
     } catch (error) {
-      this.#logger.error('Error refreshing send confirmation:', error);
-
-      // Try to update the UI to show error state if possible
-      const currentContext =
-        await this.#snapClient.getInterfaceContextIfExists<ConfirmTransactionRequestContext>(
-          confirmationInterfaceId,
-        );
-
-      if (currentContext) {
-        const errorContext: ConfirmTransactionRequestContext = {
-          ...currentContext,
-          scanFetchStatus: FetchStatus.Error,
-        };
-
-        await this.#snapClient.updateInterfaceIfExists(
-          confirmationInterfaceId,
-          <ConfirmTransactionRequest context={errorContext} />,
-          errorContext,
-        );
-      } else {
-        await this.#state.setKey(
-          `mapInterfaceNameToId.${CONFIRM_TRANSACTION_INTERFACE_NAME}`,
-          null,
-        );
-      }
-
-      // Don't schedule another refresh on error - the dialog might be gone
+      this.#logger.warn({ error }, 'Could not refresh send confirmation');
     }
   }
 
   /**
-   * Background job to refresh security scan and prices for signTransaction confirmation dialogs.
-   * Handles both security scanning and price fetching in a single method.
-   * Follows Solana's pattern: get interface ID from map, refresh data, update UI.
+   * Background job to refresh security scan for signTransaction confirmation dialogs.
    */
   async refreshSignTransaction(): Promise<void> {
     this.#logger.info(
@@ -528,7 +449,6 @@ export class CronHandler {
     const confirmationInterfaceId =
       mapInterfaceNameToId[CONFIRM_SIGN_TRANSACTION_INTERFACE_NAME];
 
-    // Don't do anything if the confirmation interface is not open
     if (!confirmationInterfaceId) {
       this.#logger.info(
         'No active signTransaction confirmation interface found',
@@ -536,23 +456,16 @@ export class CronHandler {
       return;
     }
 
-    // Get the current interface context (returns null if dismissed)
     const interfaceContext =
-      await this.#snapClient.getInterfaceContextIfExists<ConfirmSignTransactionContext>(
+      await this.#snapClient.getInterfaceContext<ConfirmSignTransactionContext>(
         confirmationInterfaceId,
       );
 
-    // Interface was dismissed, clean up and exit
     if (!interfaceContext) {
-      this.#logger.info('Interface no longer exists, cleaning up');
-      await this.#state.setKey(
-        `mapInterfaceNameToId.${CONFIRM_SIGN_TRANSACTION_INTERFACE_NAME}`,
-        null,
-      );
+      this.#logger.info('Interface context no longer exists, skipping refresh');
       return;
     }
 
-    // Skip if required fields are missing
     if (
       !interfaceContext.account?.address ||
       !interfaceContext.transaction ||
@@ -565,12 +478,10 @@ export class CronHandler {
     const { preferences, scope, account, origin, transaction } =
       interfaceContext;
 
-    // Determine what needs to be refreshed
     const shouldRefreshScan =
       preferences.simulateOnChainActions || preferences.useSecurityAlerts;
 
     try {
-      // Update UI to show fetching state for scan
       const fetchingContext: ConfirmSignTransactionContext = {
         ...interfaceContext,
         scanFetchStatus: shouldRefreshScan
@@ -578,18 +489,38 @@ export class CronHandler {
           : interfaceContext.scanFetchStatus,
       };
 
-      // Update interface (silently ignores if interface was dismissed)
-      await this.#snapClient.updateInterfaceIfExists(
+      await this.#snapClient.updateInterface(
         confirmationInterfaceId,
         <ConfirmSignTransaction context={fetchingContext} />,
         fetchingContext,
       );
 
-      // Perform security scan if enabled
       let { scan, scanFetchStatus } = interfaceContext;
 
-      if (shouldRefreshScan) {
-        // Build options based on preferences
+      // Deserialize the original payload once (read-only) for both the security
+      // re-scan and the local TAPOS-expiry check. The payload itself is never
+      // refreshed — re-scanning the unchanged transaction is what surfaces
+      // expiration over time in the warning banner.
+      let rawData: TransactionRawData | null = null;
+      try {
+        const deserialized =
+          await this.#transactionExpirationRefresherService.deserializeTransaction(
+            {
+              scope,
+              type: transaction.type,
+              rawDataHex: transaction.rawDataHex,
+            },
+          );
+        rawData = deserialized.raw_data;
+      } catch (error) {
+        this.#logger.error(
+          'Error deserializing transaction for signTransaction refresh:',
+          error,
+        );
+        await this.#snapClient.trackError(error as Error);
+      }
+
+      if (shouldRefreshScan && rawData) {
         const options: string[] = [];
         if (preferences.simulateOnChainActions) {
           options.push('simulation');
@@ -598,16 +529,10 @@ export class CronHandler {
           options.push('validation');
         }
 
-        const transactionRawData: Types.Transaction['raw_data'] =
-          utils.deserializeTx.deserializeTransaction(
-            transaction.type,
-            transaction.rawDataHex,
-          );
-
         try {
           scan = await this.#transactionScanService.scanTransaction({
             accountAddress: account.address,
-            transactionRawData,
+            transactionRawData: rawData,
             origin,
             scope,
             options,
@@ -622,31 +547,50 @@ export class CronHandler {
         }
       }
 
-      // Get the latest context (returns null if dismissed during scan)
+      // Local TAPOS-expiry check: protocol-level validity, independent of the
+      // security preferences. The security-API simulation does not validate
+      // Tron TAPOS fields, so the snap surfaces expiry itself. It takes
+      // precedence over a benign scan — an expired transaction won't broadcast
+      // regardless of the contract simulation result.
+      if (rawData) {
+        try {
+          const expired =
+            await this.#transactionExpirationRefresherService.isTransactionExpired(
+              {
+                scope,
+                rawData,
+              },
+            );
+
+          if (expired) {
+            scan = EXPIRED_TRANSACTION_SCAN;
+            scanFetchStatus = FetchStatus.Fetched;
+          }
+        } catch (error) {
+          this.#logger.error('Error checking transaction expiration:', error);
+          await this.#snapClient.trackError(error as Error);
+        }
+      }
+
       const latestContext =
-        await this.#snapClient.getInterfaceContextIfExists<ConfirmSignTransactionContext>(
+        await this.#snapClient.getInterfaceContext<ConfirmSignTransactionContext>(
           confirmationInterfaceId,
         );
 
-      // Interface was dismissed during scan, clean up and exit
       if (!latestContext) {
-        this.#logger.info('Interface dismissed during scan, cleaning up');
-        await this.#state.setKey(
-          `mapInterfaceNameToId.${CONFIRM_SIGN_TRANSACTION_INTERFACE_NAME}`,
-          null,
+        this.#logger.info(
+          'Interface context no longer exists after scan, skipping update',
         );
         return;
       }
 
-      // Update with scan results
       const updatedContext: ConfirmSignTransactionContext = {
         ...latestContext,
         scan,
         scanFetchStatus,
       };
 
-      // Update interface (silently ignores if interface was dismissed)
-      await this.#snapClient.updateInterfaceIfExists(
+      await this.#snapClient.updateInterface(
         confirmationInterfaceId,
         <ConfirmSignTransaction context={updatedContext} />,
         updatedContext,
@@ -654,49 +598,49 @@ export class CronHandler {
 
       this.#logger.info('Successfully refreshed signTransaction confirmation');
 
-      // Schedule the next refresh (20 seconds like Solana)
       await this.#snapClient.scheduleBackgroundEvent({
         method: BackgroundEventMethod.RefreshSignTransaction,
         duration: 'PT20S',
       });
     } catch (error) {
-      this.#logger.error('Error refreshing signTransaction:', error);
+      this.#logger.warn({ error }, 'Could not refresh signTransaction');
+    }
+  }
 
-      // Try to update the UI to show error state
-      const currentContext =
-        await this.#snapClient.getInterfaceContextIfExists<ConfirmSignTransactionContext>(
-          confirmationInterfaceId,
-        );
+  /**
+   * Fallback when transaction tracking reaches the attempt limit.
+   *
+   * @param params - Timeout fallback parameters.
+   * @param params.txId - The transaction ID being tracked.
+   * @param params.scope - The network scope.
+   * @param params.accountIds - Account IDs to synchronize.
+   * @param params.attempt - The attempt that triggered the timeout.
+   */
+  async #syncAccountsAfterTrackingTimeout({
+    txId,
+    scope,
+    accountIds,
+    attempt,
+  }: {
+    txId: string;
+    scope: Network;
+    accountIds: string[];
+    attempt: number;
+  }): Promise<void> {
+    this.#logger.warn(
+      { txId, scope, attempt },
+      'Transaction tracking timed out - syncing accounts',
+    );
 
-      if (currentContext) {
-        const errorContext: ConfirmSignTransactionContext = {
-          ...currentContext,
-          scanFetchStatus: shouldRefreshScan
-            ? FetchStatus.Error
-            : currentContext.scanFetchStatus,
-        };
-
-        await this.#snapClient.updateInterfaceIfExists(
-          confirmationInterfaceId,
-          <ConfirmSignTransaction context={errorContext} />,
-          errorContext,
-        );
-      } else {
-        await this.#state.setKey(
-          `mapInterfaceNameToId.${CONFIRM_SIGN_TRANSACTION_INTERFACE_NAME}`,
-          null,
-        );
-      }
-
-      // Don't schedule another refresh on error - the dialog might be gone
+    const accounts = await this.#accountsService.findByIds(accountIds);
+    if (accounts.length > 0) {
+      await this.#accountsService.synchronize(accounts);
     }
   }
 
   /**
    * Background job to track a transaction's confirmation status.
-   * Syncs accounts on first check to fetch transaction with status from network.
-   * Continues polling until confirmed, then syncs again to update status.
-   * Implements automatic retry logic with exponential backoff limits.
+   * Continues polling until confirmed, then syncs accounts and emits finalized event.
    *
    * @param params - Transaction tracking parameters
    * @param params.txId - The transaction ID to track
@@ -715,27 +659,9 @@ export class CronHandler {
     accountIds: string[];
     attempt: number;
   }): Promise<void> {
-    const maxAttempts = 15; // Maximum number of polling attempts
-    const pollingInterval = 'PT1S'; // Poll every 1 second
-
     this.#logger.info(
-      `[Attempt ${attempt + 1} of ${maxAttempts}] Tracking transaction ${txId} on ${scope}...`,
+      `[Attempt ${attempt + 1}] Tracking transaction ${txId} on ${scope}...`,
     );
-
-    // Check if we've exceeded maximum attempts
-    if (attempt >= maxAttempts) {
-      this.#logger.warn(
-        { txId, scope, attempts: maxAttempts },
-        'Transaction tracking timeout - syncing accounts',
-      );
-
-      // Fallback: sync accounts anyway to update final status
-      const accounts = await this.#accountsService.findByIds(accountIds);
-      if (accounts.length > 0) {
-        await this.#accountsService.synchronize(accounts);
-      }
-      return;
-    }
 
     try {
       // Fetch transaction info from Full Node API
@@ -747,6 +673,16 @@ export class CronHandler {
 
       // If transaction not found yet (not confirmed), schedule next check
       if (!txInfo) {
+        if (attempt >= TRACK_TX_MAX_ATTEMPTS - 1) {
+          await this.#syncAccountsAfterTrackingTimeout({
+            txId,
+            scope,
+            accountIds,
+            attempt,
+          });
+          return;
+        }
+
         this.#logger.info(
           { txId, attempt },
           'Transaction not confirmed yet, scheduling next check...',
@@ -760,7 +696,7 @@ export class CronHandler {
             accountIds,
             attempt: attempt + 1,
           },
-          duration: pollingInterval,
+          duration: TRACK_TX_INTERVAL,
         });
         return;
       }
@@ -799,29 +735,26 @@ export class CronHandler {
         'Error tracking transaction',
       );
 
-      // On error, retry with next attempt (unless we've hit max attempts)
-      if (attempt < maxAttempts - 1) {
-        await this.#snapClient.scheduleBackgroundEvent({
-          method: BackgroundEventMethod.TrackTransaction,
-          params: {
-            txId,
-            scope,
-            accountIds,
-            attempt: attempt + 1,
-          },
-          duration: pollingInterval,
+      if (attempt >= TRACK_TX_MAX_ATTEMPTS - 1) {
+        await this.#syncAccountsAfterTrackingTimeout({
+          txId,
+          scope,
+          accountIds,
+          attempt,
         });
-      } else {
-        // Max attempts reached - fallback to sync
-        this.#logger.warn(
-          { txId, scope },
-          'Max tracking attempts reached with errors - falling back to account sync',
-        );
-        const accounts = await this.#accountsService.findByIds(accountIds);
-        if (accounts.length > 0) {
-          await this.#accountsService.synchronize(accounts);
-        }
+        return;
       }
+
+      await this.#snapClient.scheduleBackgroundEvent({
+        method: BackgroundEventMethod.TrackTransaction,
+        params: {
+          txId,
+          scope,
+          accountIds,
+          attempt: attempt + 1,
+        },
+        duration: TRACK_TX_INTERVAL,
+      });
     }
   }
 }

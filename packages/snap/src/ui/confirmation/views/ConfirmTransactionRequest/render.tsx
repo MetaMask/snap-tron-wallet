@@ -100,8 +100,8 @@ export async function render(
     ...DEFAULT_CONFIRMATION_CONTEXT,
     ...incomingContext,
     transactionRawData: transactionRawData as unknown as Json,
-    tokenPricesFetchStatus: FetchStatus.Fetching, // Start as fetching
-    scanFetchStatus: FetchStatus.Fetching, // Start as fetching
+    tokenPricesFetchStatus: FetchStatus.Loading, // Start as Loading (first fetch) not Fetching
+    scanFetchStatus: FetchStatus.Loading, // Start as Loading (first fetch) not Fetching
   };
 
   try {
@@ -177,19 +177,14 @@ export async function render(
     context.tokenPricesFetchStatus = FetchStatus.Fetched;
   }
 
-  // 5. Update interface with scan results after initial render (silently ignores if dismissed)
-  const updated = await snapClient.updateInterfaceIfExists(
+  // 5. Update interface with scan results after initial render
+  await snapClient.updateInterface(
     id,
     <ConfirmTransactionRequest context={context} />,
     context,
   );
 
-  // If interface was dismissed during scan, exit early
-  if (!updated) {
-    return dialogPromise;
-  }
-
-  // 6. Schedule background jobs only after confirming the interface is still alive
+  // 6. Schedule background jobs
   if (context.preferences.useExternalPricingData) {
     // Trigger immediate price fetch (1 second), then continue every 20 seconds
     await snapClient.scheduleBackgroundEvent({

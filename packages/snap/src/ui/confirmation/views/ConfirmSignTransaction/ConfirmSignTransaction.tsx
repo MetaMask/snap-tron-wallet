@@ -1,6 +1,7 @@
 import type { ComponentOrElement } from '@metamask/snaps-sdk';
 import {
   Address,
+  Banner,
   Box,
   Button,
   Container,
@@ -42,11 +43,19 @@ export const ConfirmSignTransaction = ({
     fees,
     tokenPrices,
     tokenPricesFetchStatus,
+    isInsufficientBalance,
   } = context;
 
+  /**
+   * Only disable the confirm button on the first load (FetchStatus.Loading),
+   * not during subsequent cron re-scans (FetchStatus.Fetching), and whenever
+   * the simulation has failed — including the expired/TAPOS-expired case, so
+   * the user is blocked from confirming a transaction that won't broadcast.
+   */
   const shouldDisableConfirmButton =
-    scanFetchStatus === FetchStatus.Fetching ||
-    scan?.simulationStatus === SimulationStatus.Failed;
+    scanFetchStatus === FetchStatus.Loading ||
+    scan?.simulationStatus === SimulationStatus.Failed ||
+    isInsufficientBalance;
 
   const addressCaip10 = account ? `${scope}:${account.address}` : null;
 
@@ -84,8 +93,20 @@ export const ConfirmSignTransaction = ({
   return (
     <Container>
       <Box>
-        {/* Security Alert */}
-        {preferences.useSecurityAlerts ? (
+        {isInsufficientBalance ? (
+          <Banner
+            title={translate('transactionScan.errors.insufficientFunds')}
+            severity="danger"
+          >
+            <SnapText>{null}</SnapText>
+          </Banner>
+        ) : null}
+
+        {/* Security Alert / expiry banner.
+            Rendered when security alerts are enabled, or whenever a scan error
+            (e.g. the locally-detected TAPOS-expired case) is present, so the
+            expiry warning surfaces even with security alerts turned off. */}
+        {preferences.useSecurityAlerts || scan?.error ? (
           <TransactionAlert
             scanFetchStatus={scanFetchStatus}
             validation={scan?.validation ?? null}

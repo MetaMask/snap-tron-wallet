@@ -1,5 +1,6 @@
 import { SnapError } from '@metamask/snaps-sdk';
 import { bytesToBase64, bytesToHex, stringToBytes } from '@metamask/utils';
+import { TronWeb } from 'tronweb';
 
 import { WalletService } from './WalletService';
 import type { TronWebFactory } from '../../clients/tronweb/TronWebFactory';
@@ -11,6 +12,42 @@ import {
 } from '../../handlers/keyring-types';
 import { mockLogger } from '../../utils/mockLogger';
 import type { AccountsService } from '../accounts/AccountsService';
+
+const MOCK_BLOCK_TIMESTAMP = 1_700_000_000_000;
+
+/**
+ * Builds a mock TRON block response.
+ *
+ * @param options - The block options.
+ * @param options.number - The block number.
+ * @param options.timestamp - The block timestamp.
+ * @param options.hashSegment - The hash segment used for ref_block_hash.
+ * @returns A mock TRON block response.
+ */
+function createBlock({
+  number,
+  timestamp,
+  hashSegment = '1122334455667788',
+}: {
+  number: number;
+  timestamp: number;
+  hashSegment?: string;
+}) {
+  return {
+    blockID: `${'0'.repeat(16)}${hashSegment}${'f'.repeat(32)}`,
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    block_header: {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      raw_data: {
+        number,
+        timestamp,
+      },
+    },
+  };
+}
+
+const getRefBlockBytes = (number: number) =>
+  number.toString(16).slice(-4).padStart(4, '0');
 
 /**
  * Helper function to convert string to base64.
@@ -33,16 +70,19 @@ function toHex(str: string): string {
 }
 
 describe('WalletService', () => {
+  const TEST_ADDRESS = 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8';
+  const ALT_OWNER_HEX = '41a614f803b6fd780986a42c78ec9c7f77e6ded13c';
+  const ALT_ADDRESS = TronWeb.address.fromHex(ALT_OWNER_HEX);
   const mockTronKeypair = {
     privateKeyBytes: new Uint8Array(32),
     publicKeyBytes: new Uint8Array(33),
     privateKeyHex: 'abcd1234privatekey',
-    address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+    address: TEST_ADDRESS,
   };
 
   const mockAccount: TronKeyringAccount = {
     id: '123e4567-e89b-12d3-a456-426614174000',
-    address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+    address: TEST_ADDRESS,
     options: {},
     methods: ['signMessage', 'signTransaction'],
     type: 'tron:eoa',
@@ -61,6 +101,13 @@ describe('WalletService', () => {
     mockTronWeb = {
       trx: {
         signMessageV2: jest.fn().mockReturnValue('0xsignature123'),
+        getCurrentBlock: jest.fn().mockResolvedValue(
+          createBlock({
+            number: 200_000,
+            timestamp: MOCK_BLOCK_TIMESTAMP,
+          }),
+        ),
+        getBlockByNumber: jest.fn(),
         sign: jest.fn().mockResolvedValue({
           signature: ['abcd1234signature'],
         }),
@@ -72,11 +119,10 @@ describe('WalletService', () => {
               {
                 type: 'TransferContract',
                 parameter: {
-                  // eslint-disable-next-line @typescript-eslint/naming-convention
-                  type_url: 'type.googleapis.com/protocol.TransferContract',
+                  type_url: 'type.googleapis.com/protocol.TransferContract', // eslint-disable-line @typescript-eslint/naming-convention
                   value: {
                     // eslint-disable-next-line @typescript-eslint/naming-convention
-                    owner_address: '41abcdef',
+                    owner_address: TronWeb.address.toHex(TEST_ADDRESS),
                     // eslint-disable-next-line @typescript-eslint/naming-convention
                     to_address: '41123456',
                     amount: 1000000,
@@ -84,7 +130,18 @@ describe('WalletService', () => {
                 },
               },
             ],
+            ref_block_bytes: getRefBlockBytes(200_000), // eslint-disable-line @typescript-eslint/naming-convention
+            ref_block_hash: '1122334455667788', // eslint-disable-line @typescript-eslint/naming-convention
+            expiration: MOCK_BLOCK_TIMESTAMP + 45_000,
+            timestamp: MOCK_BLOCK_TIMESTAMP,
           }),
+        },
+        transaction: {
+          txJsonToPb: jest
+            .fn()
+            .mockImplementation((transaction) => transaction),
+          txPbToRawDataHex: jest.fn().mockReturnValue('refreshed-raw-data-hex'),
+          txPbToTxID: jest.fn().mockReturnValue('0xrefreshed-tx-id'),
         },
       },
       isAddress: jest.fn().mockReturnValue(true),
@@ -108,7 +165,7 @@ describe('WalletService', () => {
   describe('handleKeyringRequest', () => {
     it('routes signMessage requests correctly', async () => {
       const params = {
-        address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+        address: TEST_ADDRESS,
         message: toBase64('Hello World'),
       };
 
@@ -128,7 +185,7 @@ describe('WalletService', () => {
 
     it('routes signTransaction requests correctly', async () => {
       const params = {
-        address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+        address: TEST_ADDRESS,
         transaction: {
           rawDataHex: toHex('transaction-data'),
           type: 'TransferContract',
@@ -169,7 +226,7 @@ describe('WalletService', () => {
           scope: Network.Mainnet,
           method: TronMultichainMethod.SignMessage,
           params: {
-            address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+            address: TEST_ADDRESS,
             message: toBase64('Hello'),
           },
         }),
@@ -193,7 +250,7 @@ describe('WalletService', () => {
   describe('signMessage', () => {
     it('signs a message successfully', async () => {
       const params = {
-        address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+        address: TEST_ADDRESS,
         message: toBase64('Hello World'),
       };
 
@@ -221,7 +278,7 @@ describe('WalletService', () => {
     it('decodes base64 message before signing', async () => {
       const originalMessage = 'Test Message 123';
       const params = {
-        address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+        address: TEST_ADDRESS,
         message: toBase64(originalMessage),
       };
 
@@ -293,6 +350,57 @@ describe('WalletService', () => {
         mockTronWeb.utils.deserializeTx.deserializeTransaction,
       ).toHaveBeenCalled();
       expect(mockTronWeb.trx.sign).toHaveBeenCalled();
+    });
+
+    it('signs the original dApp payload without modifying it', async () => {
+      const rawDataHex = toHex('transaction-data');
+      const deserializedRawData = {
+        contract: [
+          {
+            type: 'TransferContract',
+            parameter: {
+              type_url: 'type.googleapis.com/protocol.TransferContract', // eslint-disable-line @typescript-eslint/naming-convention
+              value: {
+                owner_address: TronWeb.address.toHex(TEST_ADDRESS), // eslint-disable-line @typescript-eslint/naming-convention
+                to_address: '41123456', // eslint-disable-line @typescript-eslint/naming-convention
+                amount: 1000000,
+              },
+            },
+          },
+        ],
+        ref_block_bytes: '0001', // eslint-disable-line @typescript-eslint/naming-convention
+        ref_block_hash: 'outdatedhash', // eslint-disable-line @typescript-eslint/naming-convention
+        // A stale expiration must NOT be refreshed: the dApp broadcasts using
+        // its original TxID, so the snap signs exactly what it received.
+        expiration: MOCK_BLOCK_TIMESTAMP - 1,
+        timestamp: MOCK_BLOCK_TIMESTAMP - 60_000,
+      };
+      mockTronWeb.utils.deserializeTx.deserializeTransaction.mockReturnValue(
+        deserializedRawData,
+      );
+
+      await walletService.signTransaction({
+        account: mockAccount,
+        scope: Network.Mainnet,
+        params: {
+          address: 'TJRabPrwbZy45sbavfcjinPJC18kjpRTv8',
+          transaction: {
+            rawDataHex,
+            type: 'TransferContract',
+          },
+        },
+      });
+
+      const signedTransaction = mockTronWeb.trx.sign.mock.calls[0]?.[0];
+
+      // The payload signed is exactly the one submitted by the dApp.
+      expect(signedTransaction.raw_data).toStrictEqual(deserializedRawData);
+      expect(signedTransaction.raw_data_hex).toBe(rawDataHex);
+      // No refresh helpers are invoked on the dApp sign path.
+      expect(mockTronWeb.trx.getCurrentBlock).not.toHaveBeenCalled();
+      expect(
+        mockTronWeb.utils.transaction.txPbToRawDataHex,
+      ).not.toHaveBeenCalled();
     });
 
     it('handles transaction format errors', async () => {
@@ -368,6 +476,64 @@ describe('WalletService', () => {
       });
 
       expect(result.signature).toBe('0x');
+    });
+
+    it('rejects transactions whose owner_address does not match the signer', async () => {
+      mockTronWeb.utils.deserializeTx.deserializeTransaction.mockReturnValue({
+        contract: [
+          {
+            type: 'TransferContract',
+            parameter: {
+              value: {
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                owner_address: ALT_OWNER_HEX,
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                to_address: '41123456',
+                amount: 1000000,
+              },
+            },
+          },
+        ],
+      });
+
+      await expect(
+        walletService.signTransaction({
+          account: mockAccount,
+          scope: Network.Mainnet,
+          params: {
+            address: TEST_ADDRESS,
+            transaction: {
+              rawDataHex: toHex('transaction-data'),
+              type: 'TransferContract',
+            },
+          },
+        }),
+      ).rejects.toThrow(
+        `Transaction owner_address (${ALT_ADDRESS}) does not match derived signer address (${TEST_ADDRESS})`,
+      );
+    });
+
+    it('rejects when the resolved account address does not match the derived signer', async () => {
+      mockAccountsService.deriveTronKeypair.mockResolvedValue({
+        ...mockTronKeypair,
+        address: ALT_ADDRESS,
+      });
+
+      await expect(
+        walletService.signTransaction({
+          account: mockAccount,
+          scope: Network.Mainnet,
+          params: {
+            address: TEST_ADDRESS,
+            transaction: {
+              rawDataHex: toHex('transaction-data'),
+              type: 'TransferContract',
+            },
+          },
+        }),
+      ).rejects.toThrow(
+        `Transaction owner_address (${TEST_ADDRESS}) does not match derived signer address (${ALT_ADDRESS})`,
+      );
     });
   });
 

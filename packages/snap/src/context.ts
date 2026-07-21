@@ -24,6 +24,7 @@ import { SendService } from './services/send/SendService';
 import { StakingService } from './services/staking/StakingService';
 import type { UnencryptedStateValue } from './services/state/State';
 import { State } from './services/state/State';
+import { TransactionExpirationRefresherService } from './services/transaction-expiration-refresher/TransactionExpirationRefresherService';
 import { TransactionScanService } from './services/transaction-scan/TransactionScanService';
 import { TransactionsRepository } from './services/transactions/TransactionsRepository';
 import { TransactionsService } from './services/transactions/TransactionsService';
@@ -52,7 +53,7 @@ const state = new State({
   },
 });
 
-const snapClient = new SnapClient();
+const snapClient = new SnapClient({ logger });
 
 // Repositories - depend on State
 const accountsRepository = new AccountsRepository(state);
@@ -96,6 +97,7 @@ const assetsService = new AssetsService({
   tronHttpClient,
   priceApiClient,
   tokenApiClient,
+  snapClient,
 });
 
 const transactionsService = new TransactionsService({
@@ -103,6 +105,8 @@ const transactionsService = new TransactionsService({
   transactionsRepository,
   trongridApiClient,
   tronHttpClient,
+  priceApiClient,
+  snapClient,
 });
 
 const accountsService = new AccountsService({
@@ -118,7 +122,13 @@ const feeCalculatorService = new FeeCalculatorService({
   logger,
   trongridApiClient,
   tronHttpClient,
+  snapClient,
 });
+
+const transactionExpirationRefresherService =
+  new TransactionExpirationRefresherService({
+    tronWebFactory,
+  });
 
 const sendService = new SendService({
   logger,
@@ -127,6 +137,7 @@ const sendService = new SendService({
   assetsService,
   tronWebFactory,
   feeCalculatorService,
+  transactionExpirationRefresherService,
 });
 
 const stakingService = new StakingService({
@@ -174,6 +185,7 @@ const clientRequestHandler = new ClientRequestHandler({
   stakingService,
   confirmationHandler,
   transactionsService,
+  transactionExpirationRefresherService,
 });
 const cronHandler = new CronHandler({
   logger,
@@ -183,6 +195,7 @@ const cronHandler = new CronHandler({
   priceApiClient,
   tronHttpClient,
   transactionScanService,
+  transactionExpirationRefresherService,
 });
 const keyringHandler = new KeyringHandler({
   logger,
@@ -221,6 +234,7 @@ export type SnapExecutionContext = {
   tronWebFactory: TronWebFactory;
   confirmationHandler: ConfirmationHandler;
   transactionScanService: TransactionScanService;
+  transactionExpirationRefresherService: TransactionExpirationRefresherService;
   /**
    * Handlers
    */
@@ -252,6 +266,7 @@ const snapContext: SnapExecutionContext = {
   tronWebFactory,
   confirmationHandler,
   transactionScanService,
+  transactionExpirationRefresherService,
   /**
    * Handlers
    */

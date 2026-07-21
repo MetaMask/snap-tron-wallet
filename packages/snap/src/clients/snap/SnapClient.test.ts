@@ -1,4 +1,5 @@
 import { SnapClient } from './SnapClient';
+import type { ILogger } from '../../utils/logger';
 
 // Mock the global snap object
 const mockSnapRequest = jest.fn();
@@ -17,23 +18,30 @@ async function withSnapClient(
   testFn: (setup: {
     snapClient: SnapClient;
     mockSnapRequest: jest.Mock;
+    mockLogger: jest.Mocked<ILogger>;
   }) => void | Promise<void>,
 ) {
   mockSnapRequest.mockReset();
-  const snapClient = new SnapClient();
-  await testFn({ snapClient, mockSnapRequest });
+  const mockLogger = {
+    log: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  } as unknown as jest.Mocked<ILogger>;
+  const snapClient = new SnapClient({ logger: mockLogger });
+  await testFn({ snapClient, mockSnapRequest, mockLogger });
 }
 
 describe('SnapClient', () => {
-  describe('getInterfaceContextIfExists', () => {
+  describe('getInterfaceContext', () => {
     it('returns context when interface exists', async () => {
       await withSnapClient(
         async ({ snapClient, mockSnapRequest: mockRequest }) => {
           const mockContext = { foo: 'bar' };
           mockRequest.mockResolvedValue(mockContext);
 
-          const result =
-            await snapClient.getInterfaceContextIfExists('test-id');
+          const result = await snapClient.getInterfaceContext('test-id');
 
           expect(result).toStrictEqual(mockContext);
           expect(mockRequest).toHaveBeenCalledWith({
@@ -44,59 +52,32 @@ describe('SnapClient', () => {
       );
     });
 
-    it('returns null when interface is not found', async () => {
+    it('returns null when rawContext is falsy', async () => {
       await withSnapClient(
         async ({ snapClient, mockSnapRequest: mockRequest }) => {
-          mockRequest.mockRejectedValue(
-            new Error('Interface with id "xyz" not found'),
-          );
+          mockRequest.mockResolvedValue(null);
 
-          const result = await snapClient.getInterfaceContextIfExists('xyz');
+          const result = await snapClient.getInterfaceContext('test-id');
 
           expect(result).toBeNull();
         },
       );
     });
-
-    it('re-throws non-interface-not-found errors', async () => {
-      await withSnapClient(
-        async ({ snapClient, mockSnapRequest: mockRequest }) => {
-          mockRequest.mockRejectedValue(new Error('Network timeout'));
-
-          await expect(
-            snapClient.getInterfaceContextIfExists('test-id'),
-          ).rejects.toThrow('Network timeout');
-        },
-      );
-    });
-
-    it('re-throws when the rejection is not an Error instance', async () => {
-      await withSnapClient(
-        async ({ snapClient, mockSnapRequest: mockRequest }) => {
-          mockRequest.mockRejectedValue('unexpected string rejection');
-
-          await expect(
-            snapClient.getInterfaceContextIfExists('test-id'),
-          ).rejects.toBe('unexpected string rejection');
-        },
-      );
-    });
   });
 
-  describe('updateInterfaceIfExists', () => {
-    it('returns true when update succeeds', async () => {
+  describe('updateInterface', () => {
+    it('returns the update result on success', async () => {
       await withSnapClient(
         async ({ snapClient, mockSnapRequest: mockRequest }) => {
-          // SDK returns null for snap_updateInterface, but our wrapper returns true
           mockRequest.mockResolvedValue(null);
 
-          const result = await snapClient.updateInterfaceIfExists(
+          const result = await snapClient.updateInterface(
             'test-id',
             '<div>test</div>',
             { context: 'data' },
           );
 
-          expect(result).toBe(true);
+          expect(result).toBeNull();
           expect(mockRequest).toHaveBeenCalledWith({
             method: 'snap_updateInterface',
             params: {
@@ -108,49 +89,105 @@ describe('SnapClient', () => {
         },
       );
     });
+  });
 
-    it('returns null when interface is not found', async () => {
+  describe('trackEvent', () => {
+    it('tracks event errors without propagating or recursing', async () => {
       await withSnapClient(
         async ({ snapClient, mockSnapRequest: mockRequest }) => {
-          mockRequest.mockRejectedValue(
-            new Error('Interface with id "xyz" not found'),
-          );
+          const trackEventError = new Error('event tracking failed');
+          const trackErrorError = new Error('error tracking failed');
 
-          const result = await snapClient.updateInterfaceIfExists(
-            'xyz',
-            '<div>test</div>',
-            { context: 'data' },
-          );
+          mockRequest
+            .mockRejectedValueOnce(trackEventError)
+            .mockRejectedValueOnce(trackErrorError);
 
-          expect(result).toBeNull();
+          const result = await snapClient.trackEvent('Test Event', {
+            property: 'value',
+          });
+
+          expect(result).toBeUndefined();
+          expect(mockRequest).toHaveBeenCalledTimes(2);
+          expect(mockRequest).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({ method: 'snap_trackEvent' }),
+          );
+          expect(mockRequest).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({ method: 'snap_trackError' }),
+          );
+        },
+      );
+    });
+  });
+
+  describe('trackError', () => {
+    it('returns the Sentry event ID and forwards the serialized error', async () => {
+      await withSnapClient(
+        async ({ snapClient, mockSnapRequest: mockRequest, mockLogger }) => {
+          mockRequest.mockResolvedValue('evt_abc123');
+          const error = new Error('boom');
+          error.name = 'BoomError';
+
+          const result = await snapClient.trackError(error);
+
+          expect(result).toBe('evt_abc123');
+          expect(mockRequest).toHaveBeenCalledTimes(1);
+          expect(mockRequest).toHaveBeenCalledWith({
+            method: 'snap_trackError',
+            params: {
+              error: expect.objectContaining({
+                name: 'BoomError',
+                message: 'boom',
+                cause: null,
+              }),
+            },
+          });
+          expect(mockLogger.warn).not.toHaveBeenCalled();
         },
       );
     });
 
-    it('re-throws non-interface-not-found errors', async () => {
+    it('swallows RPC failures and logs a warning', async () => {
       await withSnapClient(
-        async ({ snapClient, mockSnapRequest: mockRequest }) => {
-          mockRequest.mockRejectedValue(new Error('Network timeout'));
+        async ({ snapClient, mockSnapRequest: mockRequest, mockLogger }) => {
+          const rpcError = new Error('rpc down');
+          mockRequest.mockRejectedValue(rpcError);
 
-          await expect(
-            snapClient.updateInterfaceIfExists('test-id', '<div>test</div>', {
-              context: 'data',
-            }),
-          ).rejects.toThrow('Network timeout');
+          const result = await snapClient.trackError(new Error('x'));
+
+          expect(result).toBeUndefined();
+          expect(mockLogger.warn).toHaveBeenCalledTimes(1);
+          expect(mockLogger.warn).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ rpcError }),
+            expect.stringContaining('Failed to track error'),
+          );
         },
       );
     });
 
-    it('re-throws when the rejection is not an Error instance', async () => {
+    it('serializes the error cause recursively', async () => {
       await withSnapClient(
         async ({ snapClient, mockSnapRequest: mockRequest }) => {
-          mockRequest.mockRejectedValue('unexpected string rejection');
+          mockRequest.mockResolvedValue('evt_xyz');
+          const inner = new Error('inner');
+          const outer = new Error('outer', { cause: inner });
 
-          await expect(
-            snapClient.updateInterfaceIfExists('test-id', '<div>test</div>', {
-              context: 'data',
-            }),
-          ).rejects.toBe('unexpected string rejection');
+          await snapClient.trackError(outer);
+
+          expect(mockRequest).toHaveBeenCalledWith({
+            method: 'snap_trackError',
+            params: {
+              error: expect.objectContaining({
+                message: 'outer',
+                cause: expect.objectContaining({
+                  name: 'Error',
+                  message: 'inner',
+                }),
+              }),
+            },
+          });
         },
       );
     });

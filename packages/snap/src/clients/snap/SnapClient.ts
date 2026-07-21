@@ -2,6 +2,7 @@
 import type { JsonSLIP10Node } from '@metamask/key-tree';
 import type { EntropySourceId } from '@metamask/keyring-api';
 import {
+  getJsonError,
   type DialogResult,
   type EntropySource,
   type GetClientStatusResult,
@@ -12,28 +13,20 @@ import {
 
 import { SecurityEventType, TransactionEventType } from '../../types/analytics';
 import type { Preferences } from '../../types/snap';
-
-/**
- * Checks if an error is an "interface not found" error.
- * Detects JSON-RPC errors thrown when an interface has been dismissed by the user.
- *
- * @param error - The error to check.
- * @returns True if the error indicates the interface was not found.
- */
-function isInterfaceNotFoundError(error: unknown): boolean {
-  if (error instanceof Error) {
-    const message = error.message.toLowerCase();
-    return message.includes('interface') && message.includes('not found');
-  }
-
-  return false;
-}
+import { createPrefixedLogger, type ILogger } from '../../utils/logger';
+import { sanitizeSensitiveError } from '../../utils/sensitiveErrors';
 
 /**
  * Client for interacting with the Snap API.
  * Provides methods for managing interfaces, dialogs, preferences, and background events.
  */
 export class SnapClient {
+  readonly #logger: ILogger;
+
+  constructor({ logger }: { logger: ILogger }) {
+    this.#logger = createPrefixedLogger(logger, '[📡 SnapClient]');
+  }
+
   /**
    * Retrieves a `SLIP10NodeInterface` object for the specified path and curve.
    *
@@ -86,84 +79,18 @@ export class SnapClient {
 
   /**
    * Update an existing UI interface with a new UI component and context.
-   * Returns null if the interface has been dismissed by the user.
    *
    * @param id - The interface id returned from createInterface.
    * @param ui - The new UI component to render.
    * @param context - The updated context object to associate with the interface.
-   * @returns True if the interface was updated, or null if it was not found.
+   * @returns The update interface result.
    */
-  async updateInterfaceIfExists<TContext>(
+  async updateInterface<TContext>(
     id: string,
     // TODO: Replace `any` with type
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ui: any,
     context: TContext & Record<string, Json>,
-  ): Promise<true | null> {
-    try {
-      await snap.request({
-        method: 'snap_updateInterface',
-        params: {
-          id,
-          ui,
-          context,
-        },
-      });
-      return true;
-    } catch (error) {
-      if (isInterfaceNotFoundError(error)) {
-        return null;
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Gets the context of an interface by its ID.
-   * Returns null if the interface has been dismissed by the user.
-   *
-   * @param id - The ID for the interface.
-   * @returns The context object associated with the interface, or null if not found.
-   */
-  async getInterfaceContextIfExists<TContext extends Json>(
-    id: string,
-  ): Promise<TContext | null> {
-    try {
-      const rawContext = await snap.request({
-        method: 'snap_getInterfaceContext',
-        params: {
-          id,
-        },
-      });
-
-      if (!rawContext) {
-        return null;
-      }
-
-      return rawContext as TContext;
-    } catch (error) {
-      if (isInterfaceNotFoundError(error)) {
-        return null;
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Updates the context of an interface by its ID without changing the UI.
-   * Note: This is a helper that re-uses the existing UI.
-   *
-   * @param id - The ID for the interface.
-   * @param ui - The UI component.
-   * @param context - The updated context object.
-   * @returns The update interface result.
-   */
-  async updateInterfaceWithContext<TContext extends Record<string, Json>>(
-    id: string,
-    // TODO: Replace `any` with type
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ui: any,
-    context: TContext,
   ): Promise<UpdateInterfaceResult> {
     return snap.request({
       method: 'snap_updateInterface',
@@ -173,6 +100,29 @@ export class SnapClient {
         context,
       },
     });
+  }
+
+  /**
+   * Gets the context of an interface by its ID.
+   *
+   * @param id - The ID for the interface.
+   * @returns The context object associated with the interface, or null if not found.
+   */
+  async getInterfaceContext<TContext extends Json>(
+    id: string,
+  ): Promise<TContext | null> {
+    const rawContext = await snap.request({
+      method: 'snap_getInterfaceContext',
+      params: {
+        id,
+      },
+    });
+
+    if (!rawContext) {
+      return null;
+    }
+
+    return rawContext as TContext;
   }
 
   /**
@@ -293,8 +243,33 @@ export class SnapClient {
           },
         },
       });
-    } catch {
-      // Silently fail if tracking fails - we don't want to interrupt the user flow
+    } catch (error) {
+      await this.trackError(error as Error);
+    }
+  }
+
+  /**
+   * Track an error in MetaMask via Sentry (`snap_trackError`).
+   *
+   * RPC failures are caught and logged but never rethrown, so this is
+   * safe to call from already-failing error-handling paths without risk
+   * of masking the original failure.
+   *
+   * @param error - The error to report to Sentry.
+   * @returns The Sentry event ID on success, or `undefined` on failure.
+   */
+  async trackError(error: Error): Promise<string | undefined> {
+    try {
+      return await snap.request({
+        method: 'snap_trackError',
+        params: { error: getJsonError(sanitizeSensitiveError(error)) },
+      });
+    } catch (rpcError) {
+      this.#logger.warn(
+        { rpcError },
+        'Failed to track error via snap_trackError',
+      );
+      return undefined;
     }
   }
 
