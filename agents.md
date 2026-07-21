@@ -147,38 +147,32 @@ Test names should skip "should" and start directly with the verb.
 
 ## Cursor Cloud specific instructions
 
-Environment basics (Node 22 per `.nvmrc`, Yarn 4.17.0 per `packageManager`) are already
-provisioned by the startup update script (`corepack enable` + `yarn install` + creating
-`packages/snap/.env` from `.env.example` if missing). The notes below are non-obvious
-gotchas for running things after the environment is up.
+For personal multi-repo setup (Snap + Extension), see `.cursor/PERSONAL_CLOUD_ENV.md` and `.cursor/environment.json`.
 
-- **Build the snap before running tests.** `yarn test` uses `@metamask/snaps-jest`, which
-  loads `packages/snap/dist/bundle.js`. If the snap is not built, every suite fails with
-  `... does not exist ... Did you forget to build your snap?`. Run `yarn build:snap` (or
-  `yarn build`) first. The pre-push hook runs `yarn test`, so build before pushing.
-- **`packages/snap/.env` is required to build the snap.** Without it, `mm-snap build`
-  fails SES bundle evaluation. The update script creates it from `.env.example`; if the
-  file goes missing, `cp packages/snap/.env.example packages/snap/.env`.
-- **`yarn start` mutates tracked files locally.** It rewrites `packages/snap/snap.manifest.json`
-  (adds localhost origins + `endowment:rpc`) and `packages/snap/locales/en.json`. These are
-  local-dev settings; the husky pre-commit hook auto-converts the manifest back to production
-  (`build:prod`). Do not commit the local manifest/locale mutations — `git checkout --` them
-  if you are not committing snap changes.
-- **Dev servers:** `yarn start` runs both packages in parallel — the snap watch server at
-  http://localhost:8080 (serves `/snap.manifest.json` and `/dist/bundle.js`) and the Gatsby
-  test dapp at http://localhost:3000. To run just one: `yarn workspace @metamask/tron-wallet-snap start`
-  or `yarn workspace @metamask/tron-wallet-test-dapp start`.
-- **Harmless Gatsby `sharp` error.** On dapp startup, `gatsby-plugin-manifest` logs a fatal-looking
-  `Cannot find module '.../sharp-linux-x64.node'` error. This is only favicon generation and
-  happens because LavaMoat (`enableScripts: false`) blocks native build scripts. The dev server
-  still serves fine at :3000.
-- **Full end-to-end needs MetaMask Flask.** The dapp's connect/create-account/sign flows require
-  the MetaMask Flask browser extension, which cannot run in a headless VM. To exercise the snap's
-  keyring flows programmatically (e.g. account creation / address derivation), use
-  `@metamask/snaps-jest` `installSnap()` and mock the keyring bridge with
-  `snap.mockJsonRpc({ method: 'snap_manageAccounts', result: null })` before calling
-  `onKeyringRequest`.
-- **Lint note:** run `yarn lint` from the repo root. If you ran the test suite first, the generated
-  `packages/snap/coverage/` dir produces a few harmless "Unused eslint-disable directive" warnings
-  (0 errors); they are not from source files.
+### Layout
+
+Cloud Agents may have Extension available as:
+
+- a multi-repo sibling (`../metamask-extension` or `/workspace/metamask-extension`), or
+- a clone under `$HOME/metamask-extension` created by `.cursor/cloud-install.sh`
+
+Prefer the sibling path when the personal Cloud Environment includes both repos.
+
+### Pairing an Extension preview branch
+
+When validating a Snap change against Extension:
+
+1. Ensure a preview exists (`@metamaskbot publish-preview` on the Snap PR) and note `@metamask-previews/tron-wallet-snap@<version>`.
+2. In the Extension checkout on `main`, set:
+   `"@metamask/tron-wallet-snap": "npm:@metamask-previews/tron-wallet-snap@<version>"`
+3. Run `yarn`, commit `package.json` + `yarn.lock`, open a **draft** Extension PR.
+4. Comment the Extension PR URL on the Snap PR.
+
+Do not merge Extension preview PRs by default; they are for QA / local testing.
+
+### Extension build notes
+
+- Extension needs Node from its `.nvmrc` (v24+) and Yarn 4 via corepack.
+- `.metamaskrc` can use a placeholder Infura id to build; set Cloud secret `INFURA_PROJECT_ID` for live RPC.
+- `yarn build` / `yarn start` produce `dist/chrome` for Load unpacked (or zip that folder for sharing).
 

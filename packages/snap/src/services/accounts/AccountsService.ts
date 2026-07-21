@@ -35,6 +35,8 @@ import { createPrefixedLogger, type ILogger } from '../../utils/logger';
 import { DerivationPathStruct } from '../../validation/structs';
 import type { AssetsService } from '../assets/AssetsService';
 import type { ConfigProvider } from '../config';
+import { MigrationStage, shouldPushSnapAssets } from '../migration/stage';
+import type { TronAssetsControllerAdapter } from '../migration/TronAssetsControllerAdapter';
 import type { TransactionsService } from '../transactions/TransactionsService';
 
 /**
@@ -110,6 +112,8 @@ export class AccountsService {
 
   readonly #snapClient: SnapClient;
 
+  readonly #tronAssetsControllerAdapter: TronAssetsControllerAdapter;
+
   constructor({
     accountsRepository,
     configProvider,
@@ -117,6 +121,7 @@ export class AccountsService {
     assetsService,
     snapClient,
     transactionsService,
+    tronAssetsControllerAdapter,
   }: {
     accountsRepository: AccountsRepository;
     configProvider: ConfigProvider;
@@ -124,6 +129,7 @@ export class AccountsService {
     assetsService: AssetsService;
     snapClient: SnapClient;
     transactionsService: TransactionsService;
+    tronAssetsControllerAdapter: TronAssetsControllerAdapter;
   }) {
     this.#logger = createPrefixedLogger(logger, '[🔑 AccountsService]');
     this.#configProvider = configProvider;
@@ -131,6 +137,7 @@ export class AccountsService {
     this.#assetsService = assetsService;
     this.#transactionsService = transactionsService;
     this.#snapClient = snapClient;
+    this.#tronAssetsControllerAdapter = tronAssetsControllerAdapter;
   }
 
   /**
@@ -509,11 +516,99 @@ export class AccountsService {
       }),
     );
 
-    const assets = assetResponses.flatMap((response) =>
-      response.status === 'fulfilled' ? response.value : [],
+    const synchronizedAssets = await Promise.all(
+      assetResponses.map(async (response, index) => {
+        if (response.status !== 'fulfilled') {
+          return { assets: [], shouldPersist: false, combination: undefined };
+        }
+
+        const combination = combinations[index];
+
+        if (!combination) {
+          return { assets: [], shouldPersist: false, combination: undefined };
+        }
+
+        const { scope } = combination;
+        const stage =
+          await this.#tronAssetsControllerAdapter.getMigrationStage(scope);
+
+        if (stage >= MigrationStage.ReadAssetsControllerOnly) {
+          this.#logger.info(
+            'Asset tracking and persistence disabled for controller-only stage',
+            { scope, stage },
+          );
+          return {
+            assets: response.value,
+            shouldPersist: false,
+            combination: { ...combination, stage },
+          };
+        }
+
+        return {
+          assets: response.value,
+          shouldPersist: true,
+          combination: { ...combination, stage },
+        };
+      }),
+    );
+    const assets = synchronizedAssets.flatMap(
+      ({ assets: responseAssets }) => responseAssets,
+    );
+    const hasPersistableScope = synchronizedAssets.some(
+      ({ shouldPersist }) => shouldPersist,
     );
 
-    await this.#assetsService.saveMany(assets);
+    if (hasPersistableScope || combinations.length === 0) {
+      await this.#assetsService.saveMany(assets);
+    }
+
+    const writes = synchronizedAssets.flatMap(
+      ({ assets: scopeAssets, combination }) => {
+        if (!combination || !shouldPushSnapAssets(combination.stage)) {
+          return [];
+        }
+
+        return this.#assetsService
+          .buildControllerSnapshot(
+            combination.account,
+            combination.scope,
+            scopeAssets,
+          )
+          .map((group) => ({ ...combination, group }));
+      },
+    );
+
+    if (writes.length > 0) {
+      const startedAt = Date.now();
+      this.#logger.info('Assets controller snapshot write attempted', {
+        attemptCount: writes.length,
+      });
+      const results = await Promise.allSettled(
+        writes.map(async ({ account, scope, group }) =>
+          this.#tronAssetsControllerAdapter.pushAssetSnapshot(
+            account.id,
+            scope,
+            group,
+          ),
+        ),
+      );
+      const failureCount = results.filter(
+        (result) => result.status === 'rejected',
+      ).length;
+
+      this.#logger.info('Assets controller snapshot write completed', {
+        attemptCount: writes.length,
+        failureCount,
+        latencyMs: Date.now() - startedAt,
+      });
+      results.forEach((result) => {
+        if (result.status === 'rejected') {
+          this.#logger.error('Assets controller snapshot write failed', {
+            error: result.reason,
+          });
+        }
+      });
+    }
   }
 
   async synchronizeTransactions(accounts: TronKeyringAccount[]): Promise<void> {

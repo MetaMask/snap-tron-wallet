@@ -52,6 +52,7 @@ import type {
   StakedCaipAssetType,
 } from '../../services/assets/types';
 import type { ConfirmationHandler } from '../../services/confirmation/ConfirmationHandler';
+import type { TronAssetsControllerAdapter } from '../../services/migration/TronAssetsControllerAdapter';
 import type { FeeCalculatorService } from '../../services/send/FeeCalculatorService';
 import type { SendService } from '../../services/send/SendService';
 import type { StakingService } from '../../services/staking/StakingService';
@@ -96,6 +97,8 @@ export class ClientRequestHandler {
 
   readonly #transactionExpirationRefresherService: TransactionExpirationRefresherService;
 
+  readonly #tronAssetsControllerAdapter: TronAssetsControllerAdapter;
+
   constructor({
     logger,
     accountsService,
@@ -108,6 +111,7 @@ export class ClientRequestHandler {
     confirmationHandler,
     transactionsService,
     transactionExpirationRefresherService,
+    tronAssetsControllerAdapter,
   }: {
     logger: ILogger;
     accountsService: AccountsService;
@@ -120,6 +124,7 @@ export class ClientRequestHandler {
     confirmationHandler: ConfirmationHandler;
     transactionsService: TransactionsService;
     transactionExpirationRefresherService: TransactionExpirationRefresherService;
+    tronAssetsControllerAdapter: TronAssetsControllerAdapter;
   }) {
     this.#logger = createPrefixedLogger(logger, '[👋 ClientRequestHandler]');
     this.#accountsService = accountsService;
@@ -133,6 +138,7 @@ export class ClientRequestHandler {
     this.#transactionsService = transactionsService;
     this.#transactionExpirationRefresherService =
       transactionExpirationRefresherService;
+    this.#tronAssetsControllerAdapter = tronAssetsControllerAdapter;
   }
 
   /**
@@ -368,9 +374,11 @@ export class ClientRequestHandler {
        */
       const { chainId } = parseCaipAssetType(assetId);
       const scope = chainId as Network;
+      const stage =
+        await this.#tronAssetsControllerAdapter.getMigrationStage(scope);
 
       const [asset, nativeTokenAsset, bandwidthAsset, energyAsset] =
-        await this.#assetsService.getAssetsByAccountId(accountId, [
+        await this.#assetsService.getAssetsForStage(stage, accountId, [
           assetId,
           Networks[scope].nativeToken.id,
           Networks[scope].bandwidth.id,
@@ -484,7 +492,13 @@ export class ClientRequestHandler {
       };
     }
 
-    const asset = await this.#assetsService.getAssetByAccountId(
+    const { chainId } = parseCaipAssetType(assetId);
+    const scope = chainId as Network;
+    const stage =
+      await this.#tronAssetsControllerAdapter.getMigrationStage(scope);
+
+    const asset = await this.#assetsService.getAssetForStage(
+      stage,
       fromAccountId,
       assetId,
     );
@@ -495,9 +509,6 @@ export class ClientRequestHandler {
         errors: [{ code: SendErrorCodes.InsufficientBalance }],
       };
     }
-
-    const { chainId } = parseCaipAssetType(assetId);
-    const scope = chainId as Network;
 
     const amountBN = new BigNumber(amount);
 
@@ -528,7 +539,7 @@ export class ClientRequestHandler {
       /**
        * Get available Energy and Bandwidth from account assets.
        */
-      this.#assetsService.getAssetsByAccountId(fromAccountId, [
+      this.#assetsService.getAssetsForStage(stage, fromAccountId, [
         Networks[scope].bandwidth.id,
         Networks[scope].energy.id,
       ]),
@@ -670,11 +681,14 @@ export class ClientRequestHandler {
       raw_data_hex: rawDataHex,
     };
 
+    const stage =
+      await this.#tronAssetsControllerAdapter.getMigrationStage(scope);
+
     /**
      * Get available Energy and Bandwidth from account assets.
      */
     const [bandwidthAsset, energyAsset] =
-      await this.#assetsService.getAssetsByAccountId(accountId, [
+      await this.#assetsService.getAssetsForStage(stage, accountId, [
         Networks[scope].bandwidth.id,
         Networks[scope].energy.id,
       ]);
@@ -728,8 +742,11 @@ export class ClientRequestHandler {
     const account = await this.#accountsService.findByIdOrThrow(fromAccountId);
 
     const scope = Network.Mainnet;
+    const stage =
+      await this.#tronAssetsControllerAdapter.getMigrationStage(scope);
 
-    const asset = await this.#assetsService.getAssetByAccountId(
+    const asset = await this.#assetsService.getAssetForStage(
+      stage,
       fromAccountId,
       Networks[scope].nativeToken.id,
     );
@@ -760,7 +777,7 @@ export class ClientRequestHandler {
      * Get available Energy and Bandwidth from account assets.
      */
     const [bandwidthAsset, energyAsset] =
-      await this.#assetsService.getAssetsByAccountId(fromAccountId, [
+      await this.#assetsService.getAssetsForStage(stage, fromAccountId, [
         Networks[scope].bandwidth.id,
         Networks[scope].energy.id,
       ]);
@@ -805,7 +822,11 @@ export class ClientRequestHandler {
     const { accountId, assetId, value } = request.params;
 
     await this.#accountsService.findByIdOrThrow(accountId);
-    const asset = await this.#assetsService.getAssetByAccountId(
+    const { chainId } = parseCaipAssetType(assetId);
+    const stage =
+      await this.#tronAssetsControllerAdapter.getMigrationStage(chainId);
+    const asset = await this.#assetsService.getAssetForStage(
+      stage,
       accountId,
       assetId,
     );
@@ -851,8 +872,12 @@ export class ClientRequestHandler {
     } = request.params;
 
     const account = await this.#accountsService.findByIdOrThrow(fromAccountId);
+    const { chainId } = parseCaipAssetType(assetId);
+    const stage =
+      await this.#tronAssetsControllerAdapter.getMigrationStage(chainId);
 
-    const asset = await this.#assetsService.getAssetByAccountId(
+    const asset = await this.#assetsService.getAssetForStage(
+      stage,
       fromAccountId,
       assetId,
     );
@@ -914,7 +939,11 @@ export class ClientRequestHandler {
     const stakedAssetId = `${assetId}-staked-for-${purpose.toLowerCase()}`;
 
     await this.#accountsService.findByIdOrThrow(accountId);
-    const asset = await this.#assetsService.getAssetByAccountId(
+    const { chainId } = parseCaipAssetType(assetId);
+    const stage =
+      await this.#tronAssetsControllerAdapter.getMigrationStage(chainId);
+    const asset = await this.#assetsService.getAssetForStage(
+      stage,
       accountId,
       stakedAssetId,
     );
@@ -967,8 +996,12 @@ export class ClientRequestHandler {
       `${assetId}-staked-for-${purpose.toLowerCase()}` as StakedCaipAssetType;
 
     const account = await this.#accountsService.findByIdOrThrow(accountId);
+    const { chainId } = parseCaipAssetType(assetId);
+    const stage =
+      await this.#tronAssetsControllerAdapter.getMigrationStage(chainId);
 
-    const asset = await this.#assetsService.getAssetByAccountId(
+    const asset = await this.#assetsService.getAssetForStage(
+      stage,
       accountId,
       stakedAssetId,
     );

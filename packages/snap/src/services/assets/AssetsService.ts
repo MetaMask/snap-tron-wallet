@@ -57,6 +57,7 @@ import {
   MAX_BANDWIDTH_METADATA,
   MAX_ENERGY_METADATA,
   Networks,
+  SPECIAL_ASSETS,
   TokenMetadata,
   TRX_IN_LOCK_PERIOD_METADATA,
   TRX_METADATA,
@@ -67,8 +68,11 @@ import {
 } from '../../constants';
 import { configProvider } from '../../context';
 import type { AssetEntity } from '../../entities/assets';
+import type { SnapAssetUpdate } from '../../types/wallet-messenger';
 import { toUiAmount } from '../../utils/conversion';
 import { createPrefixedLogger, type ILogger } from '../../utils/logger';
+import { MigrationStage } from '../migration/stage';
+import type { TronAssetsControllerAdapter } from '../migration/TronAssetsControllerAdapter';
 import type { State, UnencryptedStateValue } from '../state/State';
 
 /**
@@ -112,6 +116,8 @@ export class AssetsService {
 
   readonly #snapClient: SnapClient;
 
+  readonly #adapter: TronAssetsControllerAdapter;
+
   readonly cacheTtlsMilliseconds: {
     fiatExchangeRates: number;
     spotPrices: number;
@@ -127,6 +133,7 @@ export class AssetsService {
     priceApiClient,
     tokenApiClient,
     snapClient,
+    tronAssetsControllerAdapter,
   }: {
     logger: ILogger;
     assetsRepository: AssetsRepository;
@@ -136,6 +143,7 @@ export class AssetsService {
     priceApiClient: PriceApiClient;
     tokenApiClient: TokenApiClient;
     snapClient: SnapClient;
+    tronAssetsControllerAdapter: TronAssetsControllerAdapter;
   }) {
     this.#logger = createPrefixedLogger(logger, '[🪙 AssetsService]');
     this.#assetsRepository = assetsRepository;
@@ -145,6 +153,7 @@ export class AssetsService {
     this.#priceApiClient = priceApiClient;
     this.#tokenApiClient = tokenApiClient;
     this.#snapClient = snapClient;
+    this.#adapter = tronAssetsControllerAdapter;
 
     const { cacheTtlsMilliseconds } = configProvider.get().priceApi;
     this.cacheTtlsMilliseconds = cacheTtlsMilliseconds;
@@ -175,6 +184,146 @@ export class AssetsService {
     return this.#assetsRepository.getByAccountIdAndAssetType(
       accountId,
       assetType,
+    );
+  }
+
+  async getAssetForStage(
+    stage: MigrationStage,
+    accountId: string,
+    assetId: string,
+  ): Promise<AssetEntity | null> {
+    switch (stage) {
+      case MigrationStage.Off:
+        return this.getAssetByAccountId(accountId, assetId);
+      case MigrationStage.ReadAssetsControllerWithFallback: {
+        const controllerAsset = await this.#adapter.getAsset(
+          accountId,
+          assetId,
+        );
+
+        if (controllerAsset) {
+          return controllerAsset;
+        }
+
+        this.#logger.info(
+          'Assets controller asset missing; using Snap fallback',
+          {
+            accountId,
+            assetId,
+            stage,
+          },
+        );
+        return this.getAssetByAccountId(accountId, assetId);
+      }
+      case MigrationStage.ReadAssetsControllerWithoutFallback: {
+        let asset: AssetEntity | null;
+
+        try {
+          asset = await this.#adapter.getAsset(accountId, assetId);
+        } catch (error) {
+          this.#logger.error('Assets controller read failed without fallback', {
+            accountId,
+            assetId,
+            error,
+            stage,
+          });
+          throw error;
+        }
+
+        if (!asset) {
+          const error = new Error(`Asset not found in controller: ${assetId}`);
+          this.#logger.error(
+            'Assets controller asset missing without fallback',
+            {
+              accountId,
+              assetId,
+              error,
+              stage,
+            },
+          );
+          throw error;
+        }
+
+        return asset;
+      }
+      case MigrationStage.ReadAssetsControllerOnly:
+        return await this.#adapter.getAsset(accountId, assetId);
+      default:
+        return this.getAssetByAccountId(accountId, assetId);
+    }
+  }
+
+  /**
+   * Builds the complete controller snapshot for an account and network.
+   *
+   * Special assets are included even when the refresh did not return them, so
+   * the controller always receives their zero balances and display metadata.
+   *
+   * @param account - The owning keyring account.
+   * @param scope - Network associated with this refresh.
+   * @param assets - Assets returned by the refresh.
+   * @returns Asset update groups ready for AssetsController.
+   */
+  buildControllerSnapshot(
+    account: KeyringAccount,
+    scope: Network,
+    assets: AssetEntity[],
+  ): SnapAssetUpdate[][] {
+    const assetsByType = new Map<string, AssetEntity>(
+      assets
+        .filter(
+          (asset) =>
+            asset.keyringAccountId === account.id && asset.network === scope,
+        )
+        .map((asset) => [asset.assetType, asset]),
+    );
+    const specialAssetIds = SPECIAL_ASSETS.filter((assetId) =>
+      assetId.startsWith(`${scope}/`),
+    );
+
+    for (const assetId of specialAssetIds) {
+      if (!assetsByType.has(assetId)) {
+        const metadata = TokenMetadata[assetId as keyof typeof TokenMetadata];
+
+        assetsByType.set(assetId, {
+          assetType: assetId,
+          keyringAccountId: account.id,
+          network: scope,
+          symbol: metadata.symbol,
+          decimals: metadata.decimals,
+          rawAmount: '0',
+          uiAmount: '0',
+          iconUrl: metadata.iconUrl,
+        } as AssetEntity);
+      }
+    }
+
+    return [
+      [...assetsByType.values()].map((asset) => {
+        const metadata =
+          TokenMetadata[asset.assetType as keyof typeof TokenMetadata];
+
+        return {
+          assetId: asset.assetType,
+          amount: asset.rawAmount,
+          metadata: {
+            symbol: asset.symbol,
+            name: metadata?.name ?? asset.symbol,
+            decimals: asset.decimals,
+            ...(asset.iconUrl ? { image: asset.iconUrl } : {}),
+          },
+        };
+      }),
+    ];
+  }
+
+  async getAssetsForStage(
+    stage: MigrationStage,
+    accountId: string,
+    assetIds: string[],
+  ): Promise<(AssetEntity | null)[]> {
+    return Promise.all(
+      assetIds.map(async (id) => this.getAssetForStage(stage, accountId, id)),
     );
   }
 
@@ -1260,8 +1409,25 @@ export class AssetsService {
   async saveMany(assets: AssetEntity[]): Promise<void> {
     this.#logger.info('Saving assets', assets);
 
+    if (!(await this.#shouldPersistAndEmitKeyringEvents(assets))) {
+      this.#logger.info(
+        'Asset tracking, persistence, and keyring events disabled for controller-only stage',
+      );
+      return;
+    }
+
+    /**
+     * Should we save the assets incrementally?
+     * - If true, only saves and emits events for the assets that have changed (new or balance changed). Better performance because it only informs the client of what has changed.
+     * - If false, saves all assets. More reliable because it enforces that the client has the same state of assets as the snap.
+     */
+    const isIncremental = false;
+
     const hasZeroAmount = (asset: AssetEntity): boolean =>
       asset.rawAmount === '0' || asset.uiAmount === '0';
+
+    const hasNonZeroAmount = (asset: AssetEntity): boolean =>
+      !hasZeroAmount(asset);
 
     const savedAssets = await this.getAll();
     const isEssentialAsset = (asset: AssetEntity): boolean =>
@@ -1301,6 +1467,24 @@ export class AssetsService {
       );
     });
 
+    // Notify the extension about the new assets in a single event
+    const isNew = (asset: AssetEntity): boolean =>
+      !savedAssets.find(
+        (item) =>
+          item.keyringAccountId === asset.keyringAccountId &&
+          item.assetType === asset.assetType,
+      );
+
+    const wasSavedWithZeroAmount = (asset: AssetEntity): boolean => {
+      const savedAsset = savedAssets.find(
+        (item) =>
+          item.keyringAccountId === asset.keyringAccountId &&
+          item.assetType === asset.assetType,
+      );
+
+      return Boolean(savedAsset && hasZeroAmount(savedAsset));
+    };
+
     // A token should be removed from the visible asset list only when the latest
     // snapshot says its balance is zero. Essential assets stay visible even at
     // zero because they are part of the permanent Tron account model.
@@ -1312,7 +1496,10 @@ export class AssetsService {
     // - they are brand new, or
     // - they existed before with zero balance and now became non-zero.
     const shouldBeInAddedList = (asset: AssetEntity): boolean =>
-      !shouldBeInRemovedList(asset);
+      !shouldBeInRemovedList(asset) &&
+      (!isIncremental ||
+        ((isNew(asset) || wasSavedWithZeroAmount(asset)) &&
+          hasNonZeroAmount(asset)));
 
     // Build the asset-list payload in two stages:
     // 1. seed the removed list with assets that vanished from the latest
@@ -1363,6 +1550,10 @@ export class AssetsService {
       });
     }
 
+    // Notify the extension about the changed balances in a single event
+    const hasChanged = (asset: AssetEntity): boolean =>
+      AssetsService.hasChanged(asset, savedAssets);
+
     // Emit synthetic zero-balance entries for disappeared assets so clients can
     // clear cached balances even when the backend omits zero-balance tokens
     // instead of returning them explicitly.
@@ -1372,7 +1563,16 @@ export class AssetsService {
       uiAmount: '0',
     }));
 
-    const assetsToSave = [...assets, ...removedAssetsWithZeroBalance];
+    const assetsToSave = [...assets, ...removedAssetsWithZeroBalance].filter(
+      (asset) =>
+        isIncremental
+          ? removedAssetsWithZeroBalance.some(
+              (removedAsset) =>
+                removedAsset.keyringAccountId === asset.keyringAccountId &&
+                removedAsset.assetType === asset.assetType,
+            ) || hasChanged(asset)
+          : true,
+    );
     // Save assets using repository
     await this.#assetsRepository.saveMany(assetsToSave);
 
@@ -1405,6 +1605,19 @@ export class AssetsService {
         balances: balancesUpdatedPayload,
       });
     }
+  }
+
+  async #shouldPersistAndEmitKeyringEvents(
+    assets: AssetEntity[],
+  ): Promise<boolean> {
+    const networks = [...new Set(assets.map((asset) => asset.network))];
+    const stages = await Promise.all(
+      networks.map(async (network) => this.#adapter.getMigrationStage(network)),
+    );
+
+    return stages.every(
+      (stage) => stage < MigrationStage.ReadAssetsControllerOnly,
+    );
   }
 
   async getAll(): Promise<AssetEntity[]> {

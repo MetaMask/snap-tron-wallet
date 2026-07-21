@@ -23,6 +23,7 @@ import { createPrefixedLogger, type ILogger } from '../../utils/logger';
 import { assertTransactionSignerConsistency } from '../../validation/transaction';
 import type { AccountsService } from '../accounts/AccountsService';
 import type { AssetsService } from '../assets/AssetsService';
+import type { TronAssetsControllerAdapter } from '../migration/TronAssetsControllerAdapter';
 import type { TransactionExpirationRefresherService } from '../transaction-expiration-refresher/TransactionExpirationRefresherService';
 
 export class SendService {
@@ -40,6 +41,8 @@ export class SendService {
 
   readonly #transactionExpirationRefresherService: TransactionExpirationRefresherService;
 
+  readonly #tronAssetsControllerAdapter: TronAssetsControllerAdapter;
+
   constructor({
     accountsService,
     assetsService,
@@ -48,6 +51,7 @@ export class SendService {
     logger,
     snapClient,
     transactionExpirationRefresherService,
+    tronAssetsControllerAdapter,
   }: {
     accountsService: AccountsService;
     assetsService: AssetsService;
@@ -56,6 +60,7 @@ export class SendService {
     logger: ILogger;
     snapClient: SnapClient;
     transactionExpirationRefresherService: TransactionExpirationRefresherService;
+    tronAssetsControllerAdapter: TronAssetsControllerAdapter;
   }) {
     this.#accountsService = accountsService;
     this.#assetsService = assetsService;
@@ -65,6 +70,7 @@ export class SendService {
     this.#snapClient = snapClient;
     this.#transactionExpirationRefresherService =
       transactionExpirationRefresherService;
+    this.#tronAssetsControllerAdapter = tronAssetsControllerAdapter;
   }
 
   /**
@@ -107,11 +113,14 @@ export class SendService {
     const nativeTokenId = Networks[scope].nativeToken.id;
     const isNativeToken = asset.assetType === nativeTokenId;
 
+    const stage =
+      await this.#tronAssetsControllerAdapter.getMigrationStage(scope);
+
     /**
      * Get the user's current balances for the asset being sent and TRX (for fees).
      */
     const [assetBalance, nativeTokenAsset, bandwidthAsset, energyAsset] =
-      await this.#assetsService.getAssetsByAccountId(fromAccountId, [
+      await this.#assetsService.getAssetsForStage(stage, fromAccountId, [
         asset.assetType,
         nativeTokenId,
         Networks[scope].bandwidth.id,
