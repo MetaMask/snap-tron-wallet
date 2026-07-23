@@ -1,0 +1,6 @@
+{
+  "snapshot": "snapshot-20260219-72f280ec-d325-4449-ba3d-c9917badea44",
+  "install": "bash .cursor/update.sh",
+  "terminals": [],
+  "enable_testing": true
+}

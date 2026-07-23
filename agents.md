@@ -148,7 +148,8 @@ Test names should skip "should" and start directly with the verb.
 ## Cursor Cloud specific instructions
 
 Environment basics (Node 22 per `.nvmrc`, Yarn 4.17.0 per `packageManager`) are already
-provisioned by the startup update script (`corepack enable` + `yarn install` + creating
+provisioned by the Cursor Cloud update script in `.cursor/update.sh` (wired via
+`.cursor/environment.json` `install`: `corepack enable` + `yarn install` + creating
 `packages/snap/.env` from `.env.example` if missing). The notes below are non-obvious
 gotchas for running things after the environment is up.
 
